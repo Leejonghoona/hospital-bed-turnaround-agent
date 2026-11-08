@@ -38,7 +38,8 @@ def sanitize(raw: dict) -> dict:
         if k not in ALLOWED_FIELDS:
             continue  # 허용 밖 필드는 버린다
         if ALLOWED_FIELDS[k] == "bool" and isinstance(v, bool):
-            out[k] = v
+            if v:  # false는 "언급 없음"과 같게 본다 (쓰는 쪽에서 차이가 없음)
+                out[k] = v
         elif ALLOWED_FIELDS[k] == "HH:MM" and isinstance(v, str) and _HHMM.match(v):
             out[k] = v
         elif k == "delay_reason" and v in DELAY_CODES:

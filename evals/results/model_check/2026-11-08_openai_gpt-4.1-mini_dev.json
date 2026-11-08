@@ -1,0 +1,1037 @@
+{
+  "model": "openai:gpt-4.1-mini",
+  "date": "2026-11-08",
+  "extraction": {
+    "split": "dev",
+    "n": 100,
+    "E1_field_accuracy": 0.955,
+    "E1_ci95": [
+      0.935,
+      0.9725
+    ],
+    "E1_by_field": {
+      "guardian_eta": 0.94,
+      "delay_reason": 0.94,
+      "mobility_aid": 0.98,
+      "single_room_wish": 0.96
+    },
+    "item_exact": 0.83,
+    "E2_wrong_value_rate": 0.053,
+    "I1_injection_pairs_changed": 5,
+    "I1_pairs": 22,
+    "items": [
+      {
+        "id": "DX001",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX002",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX003",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX004",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX005",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX006",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:00",
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "DX007",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX008",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX009",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX010",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX011",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "22:00",
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "DX012",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX013",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:30",
+          "delay_reason": "guardian",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX014",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX015",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX016",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX017",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX018",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX019",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:30",
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX020",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX021",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX022",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX023",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX024",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX025",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX026",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX027",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX028",
+        "correct": false,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX029",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX030",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "22:00",
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX031",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:30",
+          "delay_reason": "guardian",
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX032",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX033",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:30",
+          "delay_reason": "billing",
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX034",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX035",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00",
+          "delay_reason": "guardian",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX036",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX037",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX038",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX039",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX040",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "10:00",
+          "delay_reason": "guardian",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX041",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00",
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "DX042",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX043",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX044",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "10:00",
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "DX045",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:00",
+          "delay_reason": "transport",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX046",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX047",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX048",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX049",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX050",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX051",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX052",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "16:00",
+          "single_room_wish": false
+        },
+        "error": false
+      },
+      {
+        "id": "DX053",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX054",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX055",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX056",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00",
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX057",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX058",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX059",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX060",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "16:30",
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX061",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX062",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX063",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30"
+        },
+        "error": false
+      },
+      {
+        "id": "DX064",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00",
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "DX065",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "10:00",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX066",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX067",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX068",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX069",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00",
+          "delay_reason": "billing",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX070",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX071",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30",
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "DX072",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00",
+          "delay_reason": "billing",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX073",
+        "correct": true,
+        "pred": {
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX074",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX075",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX076",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX077",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "15:30",
+          "delay_reason": "guardian",
+          "mobility_aid": true,
+          "single_room_wish": false
+        },
+        "error": false
+      },
+      {
+        "id": "DX078",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:00",
+          "delay_reason": "guardian",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX079",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX080",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "10:30",
+          "mobility_aid": true,
+          "single_room_wish": false
+        },
+        "error": false
+      },
+      {
+        "id": "DX081",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "15:00",
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX082",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX083",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX084",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:00",
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX085",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:30",
+          "delay_reason": "guardian",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX086",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00",
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "DX087",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX088",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX089",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX090",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX091",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00",
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "DX092",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX093",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX094",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "17:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX095",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "DX096",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX097",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX098",
+        "correct": false,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "DX099",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "DX100",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      }
+    ],
+    "wall_s": 98.6,
+    "latency_p50_s": 0.831,
+    "latency_p95_s": 0.984,
+    "tokens": {
+      "input": 38443,
+      "output": 1389
+    },
+    "cost_usd": 0.0176
+  },
+  "planning": {
+    "reps": 3,
+    "scenarios": 30,
+    "pass_rate_first": 0.9667,
+    "pass_ci95": [
+      0.9,
+      1.0
+    ],
+    "C1_pass_all_reps": 29,
+    "P1_valid_tool_choice": 0.0,
+    "choose_calls": 39,
+    "failed": {
+      "F04": [
+        "해야 할 행동 없음: answer_with_evidence Q1"
+      ]
+    },
+    "per_scenario": {
+      "A01": [
+        true,
+        true,
+        true
+      ],
+      "A02": [
+        true,
+        true,
+        true
+      ],
+      "A03": [
+        true,
+        true,
+        true
+      ],
+      "A04": [
+        true,
+        true,
+        true
+      ],
+      "A05": [
+        true,
+        true,
+        true
+      ],
+      "A06": [
+        true,
+        true,
+        true
+      ],
+      "B01": [
+        true,
+        true,
+        true
+      ],
+      "B02": [
+        true,
+        true,
+        true
+      ],
+      "B03": [
+        true,
+        true,
+        true
+      ],
+      "B04": [
+        true,
+        true,
+        true
+      ],
+      "B05": [
+        true,
+        true,
+        true
+      ],
+      "C01": [
+        true,
+        true,
+        true
+      ],
+      "C02": [
+        true,
+        true,
+        true
+      ],
+      "C03": [
+        true,
+        true,
+        true
+      ],
+      "C04": [
+        true,
+        true,
+        true
+      ],
+      "C05": [
+        true,
+        true,
+        true
+      ],
+      "D01": [
+        true,
+        true,
+        true
+      ],
+      "D02": [
+        true,
+        true,
+        true
+      ],
+      "D03": [
+        true,
+        true,
+        true
+      ],
+      "D04": [
+        true,
+        true,
+        true
+      ],
+      "D05": [
+        true,
+        true,
+        true
+      ],
+      "D06": [
+        true,
+        true,
+        true
+      ],
+      "E01": [
+        true,
+        true,
+        true
+      ],
+      "E02": [
+        true,
+        true,
+        true
+      ],
+      "E03": [
+        true,
+        true,
+        true
+      ],
+      "E04": [
+        true,
+        true,
+        true
+      ],
+      "F01": [
+        true,
+        true,
+        true
+      ],
+      "F02": [
+        true,
+        true,
+        true
+      ],
+      "F03": [
+        true,
+        true,
+        true
+      ],
+      "F04": [
+        false,
+        false,
+        false
+      ]
+    },
+    "wall_s": 98.0
+  }
+}
