@@ -225,9 +225,10 @@ def check_model(spec: str, reps: int = 1, split: str = "dev", limit: int | None 
         out["extraction"]["latency_p50_s"], out["extraction"]["latency_p95_s"] = pct(lat, .5), pct(lat, .95)
         out["extraction"]["tokens"] = {"input": llm.usage.input_tokens, "output": llm.usage.output_tokens}
         out["extraction"]["cost_usd"] = cost(spec, llm.usage, prices)
-    t0 = time.monotonic()
-    out["planning"] = planning_eval(spec, reps)
-    out["planning"]["wall_s"] = round(time.monotonic() - t0, 1)
+    if reps > 0:
+        t0 = time.monotonic()
+        out["planning"] = planning_eval(spec, reps)
+        out["planning"]["wall_s"] = round(time.monotonic() - t0, 1)
     return out
 
 
@@ -246,7 +247,7 @@ def compare(results: list[dict]) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description="모델 성능점검")
     ap.add_argument("--models", default="fake,rule")
-    ap.add_argument("--reps", type=int, default=1)
+    ap.add_argument("--reps", type=int, default=1, help="계획 반복 횟수. 0이면 계획 점검을 건너뛴다")
     ap.add_argument("--split", default="dev", choices=["dev", "holdout"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--out", default=str(ROOT / "evals" / "results" / "model_check"))
@@ -261,7 +262,7 @@ def main() -> None:
                                                                      encoding="utf-8")
         brief = {k: v for k, v in r.get("extraction", {}).items() if k not in ("items",)}
         print(json.dumps({"model": spec, "extraction": brief,
-                          "planning": {k: v for k, v in r["planning"].items() if k != "per_scenario"}},
+                          "planning": {k: v for k, v in r.get("planning", {}).items() if k != "per_scenario"}},
                          ensure_ascii=False))
     if len(results) > 1:
         print(json.dumps({"mcnemar": compare(results)}, ensure_ascii=False))

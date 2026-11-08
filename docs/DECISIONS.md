@@ -313,3 +313,25 @@
 - **AGT-6 질의 응답**: LLM은 질문을 조회 의도로 바꾸는 일만 한다. 답의 사실은 조회 도구가 레코드에서 가져오고, 근거 레코드 ID가 없으면 "레코드 없음"으로 답한다. 합성 일정(Appointment) 레코드를 둔다.
 - **실행기**: 시나리오 상황의 "빈 병상"만 비우고 나머지를 재원 환자로 채운다. 사람 응답(담당 승인 5분, 병동 회신 10분, 확정 15분 뒤)은 실행기가 흉내 낸다. 주입판 제안(게이트웨이 방어 시험)은 별도 저장소에서 돌리고 에이전트 제안으로 채점하지 않는다.
 - **게이트웨이 보강**: 병상 없음 제안에 입력 누락 사유가 있으면 데이터 수정 작업을 만든다(D04). 재매칭으로 다른 병상을 확정하면 이전 사전 매칭을 푼다(E02).
+
+## 2026-11-08 FHIR R4 입력 어댑터 (EVT-7, 검토: `docs/검토/FHIR_테크리드.md`)
+
+**왜 FHIR를 정본으로 하지 않았나.** FHIR 리소스는 상태 스냅숏이고, 이 시스템은 이벤트 의미(현실 시각과 인지 시각의 분리, 중복 도착, 완료 신호 누락)에 기댄다. 현재 상태 번들만 받으면 중간 상태와 인지 시각이 사라져 미래 정보 누수 검사(S4)가 무의미해진다. FHIR `Location.physicalType`에는 음압격리실 개념도 없다. 그래서 내부 이벤트 모델을 정본으로 두고, FHIR는 경계 어댑터로만 붙인다(부패 방지 계층). 사가·게이트웨이·평가기는 FHIR를 모른다.
+
+**범위**: 내보내기(내부 이벤트 → R4 `Bundle.type=history`), 들여오기(번들 → 내부 이벤트), 이중 실행 동등성 검증. **비목표**: FHIR 서버, 구독, 실제 HIS 쓰기 연동(설계 "제외"), KR Core 프로파일 검증(Java 검증기 필요), SNOMED CT 전면 정렬. R4 기본 구조 검증은 `fhir.resources`(R4B 모듈, R4와 이 리소스들의 구조가 같음)를 테스트 의존성으로만 쓴다.
+
+**대응표**
+| 내부 | FHIR R4 | 비고 |
+|---|---|---|
+| 병동·병실·병상 | `Location` (physicalType `wa`·`ro`·`bd`, `partOf`) | 음압실, 병실 성별, 코호트 키, 공기순환 횟수는 확장(extension). 표준 개념이 없다 |
+| 환자 기본 정보 | `Patient` (gender, birthDate는 나이에서 역산하지 않고 확장으로 나이) | 합성 가명 |
+| 전파경로 주의 | `Flag` + SNOMED CT 409524006(공기)·409525007(비말)·409529001(접촉) | 병원체 코호트 키·확진 여부는 확장 |
+| 이벤트 1건 | `Task` 1개 (code = 내부 이벤트 종류, CodeSystem `urn:turnaround:event-type`) | 상태 스냅숏이 아니라 사건 기록으로 쓴다 |
+| `occurred_at` | `Task.executionPeriod.start` (= `authoredOn`) | 현실 시각 |
+| `observed_at` | `Bundle.entry.resource.meta.lastUpdated` | 인지 시각. 순서는 번들 항목 순서가 정본 |
+| `event_id` | `Task.identifier` (system `urn:turnaround:event-id`) | 멱등 키 |
+| `case_id` | `Task.groupIdentifier` | 사례 ID |
+| `source` | `Task.requester.display` | his, human, saga 등 |
+| `payload` | `Task.input[]` (type.text = 키, value[x]) | 목록·사전은 JSON 문자열. 환자 필드는 `Task.for` → Patient·Flag에서 다시 만든다 |
+
+**검증 기준(합격선)**: 시드 0~199에서 "생성기 → 이벤트"와 "생성기 → 이벤트 → FHIR → 어댑터 → 이벤트"의 이벤트 스트림이 같다(사전 비교와 해시). 점수판 지표와 회귀 시나리오 결과는 이벤트가 같으면 같다. 잡음 주입은 어댑터 뒤(이벤트 단계)에 둔다.
