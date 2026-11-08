@@ -50,6 +50,24 @@ class EventType(str, Enum):
     REMATCH_REQUESTED = "rematch_requested"
     CASE_RESUMED = "case_resumed"
     WARD_NOTIFIED = "ward_notified"  # 수용 회신 철회 통지
+    SHARE_WAITING_INFO = "share_waiting_info"  # 부서 화면에 다음 환자 대기 정보 공유
+    DELAY_REASON_RECORDED = "delay_reason_recorded"  # 퇴원 지연 사유 코드
+    # 실행 게이트웨이
+    PROPOSAL_RECEIVED = "proposal_received"
+    GATEWAY_DECISION = "gateway_decision"  # 감사 로그
+    REJECTED_AT_PROPOSAL = "rejected_at_proposal"
+    REJECTED_AT_COMMIT = "rejected_at_commit"
+    CASE_ROUTED_REVIEW = "case_routed_review"  # 담당 검토 큐로
+    MANAGER_CONFIRM_REQUESTED = "manager_confirm_requested"  # 1단계 병동 확인 등급의 담당 확인
+    MANAGER_APPROVED = "manager_approved"
+    WARD_ACCEPTANCE_ASKED = "ward_acceptance_asked"
+    WARD_REJECTED = "ward_rejected"  # 책임간호사 수용 불가 회신
+    NO_BED_REPORTED = "no_bed_reported"
+    QUERY_ANSWERED = "query_answered"
+    QUERY_REFUSED = "query_refused"
+    MANUAL_OVERRIDE_APPLIED = "manual_override_applied"  # 관리자 직접 수정, 사례 고정
+    LOCATION_UPDATED = "location_updated"  # HIS 병상 정보 변경 (가상 FHIR 버전 증가)
+    PATIENT_INFO_UPDATED = "patient_info_updated"
 
 
 Source = Literal["his", "timer", "human", "agent", "gateway", "equipment", "saga"]

@@ -365,3 +365,31 @@ def test_cleaning_request_carries_precaution_requirements(organism, precautions,
                     departed(bed="W72-R01-B1")], until=at(0, 11, 10))
     req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
     assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", **extra}
+
+
+# ---------- 4단계 보강: 지연 사유 기록, 수납 대기 공유 ----------
+
+def test_guardian_eta_update_records_delay_reason():
+    upd = e("D1", "guardian_eta_updated", EventType.GUARDIAN_ETA_UPDATED, at(0, 10, 5), "human", eta="2026-03-02T13:00:00")
+    store, _ = run([decided(), registered(), upd], until=at(0, 10, 30), start=at(0, 10))
+    rec = saga_events(store, EventType.DELAY_REASON_RECORDED)
+    assert [r.payload["reason"] for r in rec] == ["guardian"]
+
+
+def test_billing_wait_over_threshold_shares_info_once_when_next_patient_waits():
+    evs = [decided(), registered(), prematch(),
+           e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 9, 30))]
+    store, _ = run(evs, until=at(0, 11), start=at(0, 9))
+    share = saga_events(store, EventType.SHARE_WAITING_INFO)
+    assert len(share) == 1 and share[0].payload["target"] == "원무" and share[0].occurred_at == at(0, 10, 30)
+    assert [r.payload["reason"] for r in saga_events(store, EventType.DELAY_REASON_RECORDED)] == ["billing"]
+
+
+def test_billing_on_time_or_no_waiting_patient_shares_nothing():
+    on_time = [decided(), registered(), prematch(), e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 9, 30)),
+               e("D1", "billing_done", EventType.BILLING_DONE, at(0, 10))]
+    store, _ = run(on_time, until=at(0, 11), start=at(0, 9))
+    assert saga_events(store, EventType.SHARE_WAITING_INFO) == []
+    nobody = [decided(), registered(), e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 9, 30))]
+    store, _ = run(nobody, until=at(0, 11), start=at(0, 9))
+    assert saga_events(store, EventType.SHARE_WAITING_INFO) == []

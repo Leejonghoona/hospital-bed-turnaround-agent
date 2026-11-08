@@ -27,6 +27,7 @@ class SagaPolicy(BaseModel):
     cleaning_overdue_general: timedelta = timedelta(minutes=120)
     cleaning_overdue_terminal: timedelta = timedelta(minutes=180)
     aerosol_wait_min: int = 30  # 비말·공기주의 퇴실 환기 대기 (LP-20, 설계 가정)
+    billing_wait: timedelta = timedelta(minutes=60)  # 퇴원약 준비 뒤 수납 대기 기준 (설계 가정)
 
 
 class DischargeStage(str, Enum):
@@ -213,10 +214,21 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         out.cmd(d.id, "recompute:medication_delay", EventType.READY_TIME_RECOMPUTED, order + p.medication_delay,
                 bed_id=bed, reason="medication_delay")
 
-    # 보호자 도착 예정 변경
+    # 보호자 도착 예정 변경: 준비 시각 재계산과 지연 사유 코드 기록
     for key, seen_at in d.eta_updates:
         out.cmd(d.id, f"recompute:guardian_eta:{key}", EventType.READY_TIME_RECOMPUTED, seen_at,
                 bed_id=bed, reason="guardian_eta")
+        out.cmd(d.id, "delay_reason:guardian", EventType.DELAY_REASON_RECORDED, seen_at, bed_id=bed, reason="guardian")
+
+    # 수납 대기 기준 초과: 다음 환자가 기다리면 원무 화면에 대기 정보 공유 (자동)
+    med = d.seen(EventType.MEDICATION_READY)
+    if med and now >= med + p.billing_wait and not by(EventType.BILLING_DONE, med + p.billing_wait):
+        waiting = any(m.discharge_id == d.id and m.active for m in s.matches.values())
+        if waiting:
+            out.cmd(d.id, "share:billing", EventType.SHARE_WAITING_INFO, med + p.billing_wait, bed_id=bed,
+                    target="원무", reason="billing_wait")
+            out.cmd(d.id, "delay_reason:billing", EventType.DELAY_REASON_RECORDED, med + p.billing_wait,
+                    bed_id=bed, reason="billing")
 
     # 퇴실 즉시 청소 요청 (AS-01). 격리면 종말소독 강제
     if departed is not None:

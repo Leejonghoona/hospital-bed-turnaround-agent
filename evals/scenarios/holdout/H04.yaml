@@ -27,8 +27,8 @@ metrics:
 - S2
 measured_from_stage: 3
 autonomy_stage: 1
-status: draft
+status: approved
 provenance:
   author: claude-draft
   rule_source: 지침 5.5.1.5 퇴실 후 청소. 환자 분류 코드 조사(docs/환자분류코드_조사.md)와 LP-16~22
-  reviewed_by: null
+  reviewed_by: 사용자 (2026-11-08)

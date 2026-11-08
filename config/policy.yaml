@@ -1,0 +1,28 @@
+# 실행 게이트웨이 정책 파일 (설계의 OPA 정책 엔진 대신 YAML). 값은 합성 데이터용 설계값이다.
+version: policy-2026-11-08
+autonomy_stage: 1            # 1 HITL, 2 예외 관리, 3 HOTL
+promoted_departments: []     # 2단계 이상에서 담당 확인 없이 병동에 문의할 유형 (진료과 기준)
+pediatric_age: 15            # 이 나이 미만은 소아로 담당 검토
+score_gap_min: 5.0           # 1·2순위 점수 차가 이보다 작으면 담당 검토
+review_reasons:              # 하나라도 해당하면 담당 검토
+  - isolation                # 격리 오더 (전파경로 주의)
+  - preemptive_isolation     # 선제 격리
+  - pediatric
+  - icu_stepdown
+  - single_room_preference   # 1인실 희망 (차액 동의)
+  - same_name_same_ward      # 같은 병동 동명이인 (LP-02)
+  - no_bed
+  - close_scores
+  - integrated_care_consent_missing
+  - missing_input            # 성별·진료과 누락
+  - isolation_discharge_bed  # 격리 퇴실 병실에 매칭
+auto_actions: [share_waiting_info, recompute_ready_time, cleaning_schedule_update, send_cleaning_request]
+query_fields:                # 역할별로 답할 수 있는 필드
+  environment_vendor: [bed_id, eta, cleaning_type]
+  bed_manager: [bed_id, eta, cleaning_type, name, department, precautions, reason]
+manual_override:
+  roles: [bed_manager]
+  reason_codes: [vip, patient_request, clinical, operational, other]
+  safety_exception_roles: [ipc]   # 안전 규칙 예외를 승인할 수 있는 역할 (감염관리실)
+aerosol_wait_min: 30         # 비말·공기주의 퇴실 환기 대기 (LP-20, 설계 가정)
+external_llm: deny

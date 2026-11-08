@@ -56,6 +56,7 @@ ACTION_TYPES = frozenset({
     "answer_no_record",  # 근거 레코드가 없음을 조회 근거와 함께 보고 (단정 금지)
     "record_delay_reason",  # 퇴원 지연 사유 코드 기록 (params.reason)
     "notify_ward",  # 병동에 수용 회신 철회 통지 (사용자 결정으로 채택)
+    "apply_manual_override",  # 관리자 직접 수정 적용 (사례 고정)
 })
 
 

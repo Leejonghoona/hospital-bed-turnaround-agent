@@ -25,9 +25,21 @@ EVENT_TO_ACTION: dict[EventType, str] = {
     EventType.HUMAN_TASK_CREATED: "create_human_task",
     EventType.CASE_RESUMED: "resume_case",
     EventType.WARD_NOTIFIED: "notify_ward",
+    EventType.SHARE_WAITING_INFO: "share_waiting_info",
+    EventType.DELAY_REASON_RECORDED: "record_delay_reason",
+    EventType.REJECTED_AT_PROPOSAL: "reject_at_proposal",
+    EventType.REJECTED_AT_COMMIT: "reject_at_commit",
+    EventType.CASE_ROUTED_REVIEW: "route_review",
+    EventType.WARD_ACCEPTANCE_ASKED: "ask_ward_acceptance",
+    EventType.MATCH_COMMITTED: "commit_match",
+    EventType.NO_BED_REPORTED: "report_no_bed",
+    EventType.QUERY_REFUSED: "refuse_query",
+    EventType.QUERY_ANSWERED: "answer_with_evidence",
+    EventType.MANUAL_OVERRIDE_APPLIED: "apply_manual_override",
 }
 # 병원 밖이나 다른 부서로 나가는 부수효과 (중복 검사 대상)
-SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED, EventType.WARD_NOTIFIED}
+SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED, EventType.WARD_NOTIFIED,
+                EventType.SHARE_WAITING_INFO, EventType.WARD_ACCEPTANCE_ASKED}
 _PARAM_KEYS = ("cleaning_type", "reason", "target", "aerosol_wait_min", "sporicidal", "kind", "overridden_from")
 _META = {"count", "count_over"}
 
