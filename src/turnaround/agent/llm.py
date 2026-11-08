@@ -1,7 +1,7 @@
 """교체 가능한 LLM 인터페이스 (AGT-1).
 
 기본은 API 키 없이 도는 결정적 가짜 LLM이다. 실제 모델은 환경 변수가 모두 있을 때만 붙는다.
-- TURNAROUND_LLM=openai | anthropic
+- TURNAROUND_LLM=openai | anthropic | xai | local
 - TURNAROUND_LLM_MODEL=<모델 ID>
 - TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only  (외부 API에는 합성 데이터만 보낸다는 확인. 운영 정책은 deny)
 - OPENAI_API_KEY 또는 ANTHROPIC_API_KEY
@@ -220,6 +220,8 @@ def get_llm(env: dict | None = None) -> LLM:
         raise LLMError("외부 LLM은 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 쓴다")
     if kind == "openai" and env.get("OPENAI_API_KEY"):
         return OpenAILLM(model=model, name=f"openai:{model}")
+    if kind == "xai":  # OpenAI 호환 API. 키는 환경 프록시가 넣는다
+        return OpenAILLM(model=model, name=f"xai:{model}", base_url="https://api.x.ai/v1")
     if kind == "anthropic" and env.get("ANTHROPIC_API_KEY"):
         return AnthropicLLM(model=model, name=f"anthropic:{model}")
     raise LLMError(f"{kind} 키가 없다")

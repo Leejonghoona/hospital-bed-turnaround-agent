@@ -79,7 +79,7 @@ class Recorder:
 
 
 def make_llm(spec: str) -> LLM | None:
-    """fake | rule | openai:<모델> | anthropic:<모델> | local:<gguf 경로>"""
+    """fake | rule | openai:<모델> | anthropic:<모델> | xai:<모델> | local:<gguf 경로>"""
     if spec == "rule":
         return None
     if spec == "fake":
