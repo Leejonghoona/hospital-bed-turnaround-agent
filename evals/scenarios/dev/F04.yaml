@@ -26,8 +26,8 @@ metrics:
 - I2
 measured_from_stage: 7
 autonomy_stage: 1
-status: draft
+status: approved
 provenance:
   author: claude-draft
   rule_source: PoC 13:00, 성공·중단 기준. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
-  reviewed_by: null
+  reviewed_by: 사용자 (2026-11-08)

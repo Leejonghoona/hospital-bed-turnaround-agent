@@ -24,9 +24,10 @@ EVENT_TO_ACTION: dict[EventType, str] = {
     EventType.CASE_RECLASSIFIED_REVIEW: "reclassify_review",
     EventType.HUMAN_TASK_CREATED: "create_human_task",
     EventType.CASE_RESUMED: "resume_case",
+    EventType.WARD_NOTIFIED: "notify_ward",
 }
 # 병원 밖이나 다른 부서로 나가는 부수효과 (중복 검사 대상)
-SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED}
+SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED, EventType.WARD_NOTIFIED}
 _PARAM_KEYS = ("cleaning_type", "reason", "target")
 _META = {"count", "count_over"}
 

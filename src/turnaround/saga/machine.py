@@ -114,7 +114,7 @@ class SagaState:
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
-                EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW}
+                EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW, EventType.WARD_ACCEPTED}
 
 
 def fold(events: Iterable[Event]) -> SagaState:
@@ -168,6 +168,7 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
         if EventType.ADMISSION_CANCELLED in s.admission_facts.get(m.admission_id, {}) and m.active:
             out.cmd(m.admission_id, f"prematch_released:{m.bed_id}", EventType.PREMATCH_RELEASED, now,
                     bed_id=m.bed_id, reason="admission_cancelled")
+            _notify_ward_if_accepted(m, out, now, "admission_cancelled")
             if m.discharge_id:
                 out.cmd(m.discharge_id, f"rematch:{m.admission_id}", EventType.REMATCH_REQUESTED, now,
                         target="bed", bed_id=m.bed_id, discharge_id=m.discharge_id)
@@ -258,8 +259,16 @@ def _compensate(d: DischargeCase, s: SagaState, now: datetime, out: _Out, depart
         else:
             out.cmd(m.admission_id, f"prematch_released:{bed}", EventType.PREMATCH_RELEASED, now,
                     bed_id=bed, reason="discharge_cancelled")
+            _notify_ward_if_accepted(m, out, now, "discharge_cancelled")
             out.cmd(m.admission_id, f"rematch:{bed}", EventType.REMATCH_REQUESTED, now,
                     target="admission", admission_id=m.admission_id)
+
+
+def _notify_ward_if_accepted(m: MatchCase, out: _Out, now: datetime, reason: str) -> None:
+    """병동 수용 회신까지 받은 매칭을 해제하면 철회 통지를 보낸다(사용자 결정)."""
+    if EventType.WARD_ACCEPTED in m.facts:
+        out.cmd(m.admission_id, f"ward_notified:{m.bed_id}", EventType.WARD_NOTIFIED, now,
+                bed_id=m.bed_id, reason=reason)
 
 
 class SagaRunner:

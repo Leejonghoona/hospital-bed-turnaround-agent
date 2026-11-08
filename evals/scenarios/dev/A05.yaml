@@ -43,8 +43,8 @@ metrics:
 - G4
 measured_from_stage: 4
 autonomy_stage: 1
-status: draft
+status: approved
 provenance:
   author: claude-draft
   rule_source: 구조 섹션 실행 게이트웨이 행, 북극성 지켜야 할 선. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
-  reviewed_by: null
+  reviewed_by: 사용자 (2026-11-08)

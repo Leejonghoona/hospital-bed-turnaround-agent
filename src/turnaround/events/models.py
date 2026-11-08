@@ -35,6 +35,7 @@ class EventType(str, Enum):
     PREMATCH_CREATED = "prematch_created"
     PATIENT_CONTACTED = "patient_contacted"  # 입실 안내 연락. 되돌릴 수 없는 분기점
     MATCH_COMMITTED = "match_committed"
+    WARD_ACCEPTED = "ward_accepted"  # 책임간호사 수용 가능 회신
     # 사가 명령
     SCHEDULE_ITEM_CREATED = "schedule_item_created"
     REGISTRATION_CHECK_REQUESTED = "registration_check_requested"
@@ -48,6 +49,7 @@ class EventType(str, Enum):
     HUMAN_TASK_CREATED = "human_task_created"
     REMATCH_REQUESTED = "rematch_requested"
     CASE_RESUMED = "case_resumed"
+    WARD_NOTIFIED = "ward_notified"  # 수용 회신 철회 통지
 
 
 Source = Literal["his", "timer", "human", "agent", "gateway", "equipment", "saga"]

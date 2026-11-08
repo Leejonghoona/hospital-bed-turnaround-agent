@@ -55,6 +55,7 @@ ACTION_TYPES = frozenset({
     "execute_side_effect",  # 외부 부수효과 실행 (중복 검사용)
     "answer_no_record",  # 근거 레코드가 없음을 조회 근거와 함께 보고 (단정 금지)
     "record_delay_reason",  # 퇴원 지연 사유 코드 기록 (params.reason)
+    "notify_ward",  # 병동에 수용 회신 철회 통지 (사용자 결정으로 채택)
 })
 
 

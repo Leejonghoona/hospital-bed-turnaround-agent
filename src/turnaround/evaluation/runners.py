@@ -119,6 +119,7 @@ def run_c01(s: Scenario) -> ScoreResult:
 
 def _cancel_fixture(bed: str, contacted: bool):
     evs = [_decided("FX-D1", bed), _registered("FX-D1", bed), _prematch("FX-P1", "FX-D1", bed)]
+    evs.append(_ev("FX-P1", f"ward_accepted:{bed}", EventType.WARD_ACCEPTED, at(-1, 18), "human", bed_id=bed))
     if contacted:
         evs.append(_ev("FX-P1", "patient_contacted", EventType.PATIENT_CONTACTED, at(0, 9), "human"))
     evs.append(_ev("FX-D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11)))

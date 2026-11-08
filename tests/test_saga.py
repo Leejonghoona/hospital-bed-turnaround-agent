@@ -318,3 +318,30 @@ def test_late_registration_after_19_still_gets_check_on_resume():
     store.extend(evs)
     SagaRunner(store).resume(at(-1, 20))  # 18:00~20:00 중단
     assert len(saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED)) == 1
+
+
+# ---------- 병동 수용 회신 철회 통지 (사용자 결정: notify_ward 채택) ----------
+
+def ward_accepted(adm="P1", bed="W72-R03-B1"):
+    return e(adm, f"ward_accepted:{bed}", EventType.WARD_ACCEPTED, at(-1, 18), "human", bed_id=bed)
+
+
+def test_release_after_ward_acceptance_notifies_ward():
+    evs = [decided(), registered(), prematch(), ward_accepted(),
+           e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11))]
+    store, _ = run(evs, until=at(0, 11, 10), start=at(-1, 17))
+    n = saga_events(store, EventType.WARD_NOTIFIED)
+    assert len(n) == 1 and n[0].case_id == "P1" and n[0].payload["bed_id"] == "W72-R03-B1"
+
+
+def test_release_without_ward_acceptance_does_not_notify():
+    evs = [decided(), registered(), prematch(), e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11))]
+    store, _ = run(evs, until=at(0, 11, 10), start=at(-1, 17))
+    assert saga_events(store, EventType.WARD_NOTIFIED) == []
+
+
+def test_admission_cancel_after_ward_acceptance_notifies_ward():
+    evs = [decided(), registered(), prematch(), ward_accepted(),
+           e("P1", "admission_cancelled", EventType.ADMISSION_CANCELLED, at(0, 8, 30))]
+    store, _ = run(evs, until=at(0, 8, 40), start=at(-1, 17))
+    assert len(saga_events(store, EventType.WARD_NOTIFIED)) == 1

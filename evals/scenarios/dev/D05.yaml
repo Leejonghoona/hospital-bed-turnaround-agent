@@ -25,8 +25,8 @@ metrics:
 - H2
 measured_from_stage: 4
 autonomy_stage: 1
-status: draft
+status: approved
 provenance:
   author: claude-draft
   rule_source: 검토 사유 5항, 검토 카드. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
-  reviewed_by: null
+  reviewed_by: 사용자 (2026-11-08)
