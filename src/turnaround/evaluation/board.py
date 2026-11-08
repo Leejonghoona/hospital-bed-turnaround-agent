@@ -9,10 +9,11 @@ import argparse
 import hashlib
 import json
 import subprocess
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Callable, Iterable
 
+from turnaround.events import EventStore, NoiseConfig, hospital_to_events
 from turnaround.sim import generate
 
 from .baselines import no_agent_baseline
@@ -21,8 +22,8 @@ from .scenario import Scenario, load_scenarios
 
 ROOT = Path(__file__).resolve().parents[3]
 DEV_DIR = ROOT / "evals" / "scenarios" / "dev"
-HEADER = "## 점수판 기록"
-COLUMNS = ["날짜", "커밋", "시나리오 세트", "분리", "LLM", "정책", "S1 위반/분모", "S2 위반/분모",
+HEADER = "## 점수판 기록 v2"
+COLUMNS = ["날짜", "커밋", "시나리오 세트", "분리", "LLM", "정책", "S1 위반/분모", "S2 위반/분모", "S4 누수/절단",
            "통과/실패/미구현", "퇴실→준비 P50·P90(분)", "가정"]
 
 # 시나리오 ID → 실행기. 실행기는 통과하면 True. 구현 단계가 진행되면서 채운다.
@@ -58,7 +59,23 @@ def _safety(seeds: Iterable[int]) -> dict:
         return {"violations": v, "denominator": n,
                 "upper_bound_95": round(zero_event_upper_bound(n), 5) if v == 0 and n else None}
 
-    return {"source": "generator_state", "S1": row(s1_v, s1_n), "S2": row(s2_v, s2_n)}
+    return {"source": "generator_state", "S1": row(s1_v, s1_n), "S2": row(s2_v, s2_n), "S4": _lookahead(seeds)}
+
+
+def _lookahead(seeds: Iterable[int]) -> dict:
+    """S4: 시각 절단마다 저장소가 아직 인지되지 않은 이벤트를 내보내는지 센다(잡음 포함 스트림)."""
+    leaks = cuts = 0
+    for seed in seeds:
+        h = generate(seed=seed)
+        store = EventStore(":memory:")
+        store.extend(hospital_to_events(h, seed=seed, noise=NoiseConfig(duplicates=3, reorders=3, drops=1)))
+        for day in range(h.config.days):
+            for hour in (9, 12, 15):
+                cut = datetime.combine(h.config.base_date + timedelta(days=day), time(hour, 5))
+                leaks += sum(e.observed_at > cut for e in store.read(as_of=cut))
+                cuts += 1
+        store.close()
+    return {"leaks": leaks, "cuts": cuts, "source": "event_store_noisy_replay"}
 
 
 def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "dev",
@@ -87,6 +104,7 @@ def append_results_row(results_md: Path, r: dict) -> None:
     s, b, sc = r["safety"], r["baseline"], r["scenarios"]
     cells = [r["date"], r["commit"], r["scenario_set"], r["split"], r["llm"], r["policy"],
              f"{s['S1']['violations']}/{s['S1']['denominator']}", f"{s['S2']['violations']}/{s['S2']['denominator']}",
+             f"{s['S4']['leaks']}/{s['S4']['cuts']}",
              f"{sc['passed']}/{sc['failed']}/{sc['not_implemented']}",
              f"{b['bed_prep_min']['p50']}·{b['bed_prep_min']['p90']} (기존 방식)", ",".join(b["assumptions"]) or "-"]
     results_md.write_text(text.rstrip("\n") + "\n| " + " | ".join(map(str, cells)) + " |\n", encoding="utf-8")

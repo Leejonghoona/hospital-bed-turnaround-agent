@@ -1,0 +1,55 @@
+"""이벤트 모델. 발생 시각과 인지 시각을 따로 둔다(미래 정보 누수 검사용)."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import Enum
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class EventType(str, Enum):
+    # 퇴실 전
+    DISCHARGE_DECIDED = "discharge_decided"
+    DISCHARGE_REGISTERED = "discharge_registered"
+    DISCHARGE_CANCELLED = "discharge_cancelled"
+    GUARDIAN_ETA_SET = "guardian_eta_set"
+    GUARDIAN_ETA_UPDATED = "guardian_eta_updated"
+    ORDER_CONFIRMED = "order_confirmed"
+    MEDICATION_READY = "medication_ready"
+    EDUCATION_DONE = "education_done"
+    BILLING_DONE = "billing_done"
+    GUARDIAN_ARRIVED = "guardian_arrived"
+    PATIENT_DEPARTED = "patient_departed"
+    # 병상 준비
+    CLEANING_REQUESTED = "cleaning_requested"
+    CLEANING_STARTED = "cleaning_started"
+    CLEANING_DONE = "cleaning_done"
+    BED_READY = "bed_ready"
+    # 입실
+    ADMISSION_REQUESTED = "admission_requested"
+    ADMISSION_CANCELLED = "admission_cancelled"
+    ISOLATION_ORDER_ADDED = "isolation_order_added"
+
+
+Source = Literal["his", "timer", "human", "agent", "gateway", "equipment"]
+
+
+class Event(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seq: int | None = None  # 저장소가 붙이는 순번
+    event_id: str  # 멱등 키. 같은 ID는 한 번만 기록
+    case_id: str
+    type: EventType
+    occurred_at: datetime  # 현실에서 일어난 시각
+    observed_at: datetime  # 시스템이 알게 된 시각
+    source: Source
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_times(self) -> "Event":
+        if self.observed_at < self.occurred_at:
+            raise ValueError("observed_at은 occurred_at보다 앞설 수 없다")
+        return self
