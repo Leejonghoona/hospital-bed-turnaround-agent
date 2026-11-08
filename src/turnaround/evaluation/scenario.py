@@ -53,6 +53,8 @@ ACTION_TYPES = frozenset({
     "refuse_query",  # 권한 없음, 근거 없음으로 답변 거부
     "report_no_bed",  # 조건에 맞는 병상 없음 보고
     "execute_side_effect",  # 외부 부수효과 실행 (중복 검사용)
+    "answer_no_record",  # 근거 레코드가 없음을 조회 근거와 함께 보고 (단정 금지)
+    "record_delay_reason",  # 퇴원 지연 사유 코드 기록 (params.reason)
 })
 
 
@@ -66,6 +68,9 @@ class Action(_M):
     bed: str | None = None
     params: dict[str, str | int | bool] = Field(default_factory=dict)
     note: str | None = None
+    stage: float | None = None  # 이 행동을 채점할 수 있는 구현 단계. None이면 시나리오 단계
+    level: Literal["proposal", "executed"] | None = None  # 제안 수준(에이전트)인지 실행 수준인지
+    after: str | None = None  # 같은 사례에서 이 행동보다 먼저 있어야 할 행동
 
     @field_validator("type")
     @classmethod
@@ -101,6 +106,7 @@ class Scenario(_M):
     gold: Gold
     metrics: list[str] = Field(default_factory=list)  # 이 시나리오가 기여하는 평가표 지표 ID
     measured_from_stage: float
+    autonomy_stage: int = Field(default=1, ge=1, le=3)  # 자율화 단계 (1 HITL, 2 예외 관리, 3 HOTL)
     status: Literal["draft", "approved"] = "draft"
     provenance: Provenance
 

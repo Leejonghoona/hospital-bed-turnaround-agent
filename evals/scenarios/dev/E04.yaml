@@ -3,11 +3,11 @@ category: delay
 title: 수납 대기 기준 초과 공유
 tags:
 - billing_wait
-design_ref: 'PoC 10:30 장면: 수납 대기 기준 초과 1건, 원무 화면에 다음 환자 대기 정보 공유(자동)'
+design_ref: 'PoC 10:30: 수납 대기 기준 초과, 원무 화면에 다음 환자 대기 정보 공유(자동)'
 situation: D1의 수납 대기가 정책 파일 기준을 넘었다. 이 병상을 기다리는 다음 환자 P1이 있다.
 fixture:
   seed: 42
-  events: 2단계 이벤트 형식 확정 후 작성
+  events: 2단계 형식으로 작성 예정
 gold:
   tier_by_case:
     D1: auto
@@ -16,6 +16,11 @@ gold:
     case: D1
     params:
       target: 원무
+      count: 1
+  - type: record_delay_reason
+    case: D1
+    params:
+      reason: billing
   must_not:
   - type: route_review
     case: D1
@@ -24,8 +29,9 @@ metrics:
 - T2
 - H1
 measured_from_stage: 4
+autonomy_stage: 1
 status: draft
 provenance:
   author: claude-draft
-  rule_source: 설계 문서 PoC 시연 10:30, 사람 개입 섹션 확인 등급별 경로 1항
+  rule_source: PoC 10:30, 확인 등급별 경로 1항. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
   reviewed_by: null

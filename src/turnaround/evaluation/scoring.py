@@ -37,6 +37,8 @@ class Produced:
     case: str | None = None
     bed: str | None = None
     params: dict = field(default_factory=dict, hash=False, compare=True)
+    level: str = "executed"  # proposal: 에이전트 제안, executed: 실행·기록됨
+    at: object = None  # 순서 비교용 (이벤트 순번이나 시각)
 
 
 @dataclass
@@ -55,14 +57,16 @@ def actions_from_events(events: Iterable[Event], alias: dict[str, str] | None = 
         case = alias.get(e.case_id, e.case_id)
         bed = e.payload.get("bed_id")
         params = {k: e.payload[k] for k in _PARAM_KEYS if k in e.payload}
-        out.append(Produced(name, case, bed, params))
+        out.append(Produced(name, case, bed, params, at=e.seq))
         if e.type in SIDE_EFFECTS:
-            out.append(Produced("execute_side_effect", case, bed))
+            out.append(Produced("execute_side_effect", case, bed, at=e.seq))
     return out
 
 
 def _matches(gold: Action, p: Produced) -> bool:
     if gold.type != p.type:
+        return False
+    if gold.level is not None and gold.level != p.level:
         return False
     if gold.case is not None and gold.case != p.case:
         return False
@@ -75,20 +79,35 @@ def _label(a: Action) -> str:
     return " ".join(x for x in (a.type, a.case, a.bed) if x) + (f" {a.params}" if a.params else "")
 
 
-def score(gold: Gold, produced: list[Produced]) -> ScoreResult:
+def _in_stage(a: Action, upto: float | None) -> bool:
+    return upto is None or a.stage is None or a.stage <= upto
+
+
+_BED_ACTIONS = {"propose_match", "commit_match", "ask_ward_acceptance"}
+
+
+def score(gold: Gold, produced: list[Produced], upto_stage: float | None = None) -> ScoreResult:
+    """upto_stage를 주면 그 단계까지 채점할 수 있는 행동만 본다."""
     fails: list[str] = []
-    for a in gold.must_actions:
-        n = sum(_matches(a, p) for p in produced)
+    for a in (x for x in gold.must_actions if _in_stage(x, upto_stage)):
+        hits = [p for p in produced if _matches(a, p)]
         want = a.params.get("count")
-        if want is not None and n != want:
-            fails.append(f"해야 할 행동 개수 불일치: {_label(a)} (기대 {want}, 실제 {n})")
-        elif want is None and n == 0:
+        if want is not None and len(hits) != want:
+            fails.append(f"해야 할 행동 개수 불일치: {_label(a)} (기대 {want}, 실제 {len(hits)})")
+        elif want is None and not hits:
             fails.append(f"해야 할 행동 없음: {_label(a)}")
-    for a in gold.must_not:
+        elif a.after:
+            before = [p.at for p in produced if p.type == a.after and (a.case is None or p.case == a.case)]
+            if not before or not any(b is not None and h.at is not None and b < h.at for h in hits for b in before):
+                fails.append(f"순서 위반: {_label(a)}는 {a.after} 뒤여야 한다")
+    for a in (x for x in gold.must_not if _in_stage(x, upto_stage)):
         n = sum(_matches(a, p) for p in produced)
-        limit = a.params.get("count_over", 0)
-        if n > limit:
+        if n > a.params.get("count_over", 0):
             fails.append(f"하면 안 되는 행동 발생: {_label(a)} ({n}회)")
+    for case, beds in gold.acceptable_beds.items():
+        for p in produced:
+            if p.case == case and p.type in _BED_ACTIONS and p.bed is not None and p.bed not in beds:
+                fails.append(f"허용 병상 밖: {case} → {p.bed} ({p.type})")
     for case, tier in gold.tier_by_case.items():
         if tier is Tier.REVIEW and not any(p.case == case and p.type in ("route_review", "reclassify_review")
                                            for p in produced):

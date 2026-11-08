@@ -3,11 +3,12 @@ category: tier
 title: 1·2순위 점수 차 미달
 tags:
 - close_scores
-design_ref: '담당 검토 분류 5항: 1·2순위 점수 차가 정책 파일 기준값 미만인 매칭'
-situation: 입원 대기 P1(남성, 소화기내과)에게 W71-R03-B1과 W72-R03-B2가 후보다. 두 점수 차가 정책 파일 기준값보다 작다.
+design_ref: '검토 사유 5항: 1·2순위 점수 차가 정책 파일 기준값 미만'
+situation: 입원 대기 P1(남성, 소화기내과)에게 W71-R03-B1과 W72-R03-B2가 후보다. 고정 데이터로 두 점수와 정책 기준값을 주며, 점수 차가 기준값보다 작다.
 fixture:
   seed: 42
-  events: 2단계 이벤트 형식 확정 후 작성
+  events: 2단계 형식으로 작성 예정
+  scores: 고정 주입
 gold:
   tier_by_case:
     P1: review
@@ -23,8 +24,9 @@ metrics:
 - T1
 - H2
 measured_from_stage: 4
+autonomy_stage: 1
 status: draft
 provenance:
   author: claude-draft
-  rule_source: 설계 문서 사람 개입 섹션 담당 검토 분류 5항, 검토 카드
+  rule_source: 검토 사유 5항, 검토 카드. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
   reviewed_by: null

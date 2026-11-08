@@ -77,3 +77,35 @@ def test_actions_from_saga_events_with_alias():
     assert P("send_cleaning_request", case="D1", bed="B", cleaning_type="terminal") in acts
     assert P("execute_side_effect", case="D1", bed="B") in acts  # 외부 부수효과
     assert len(acts) == 3  # HIS 이벤트는 행동이 아니다
+
+
+# ---------- 토론 반영: level, after, stage, 허용 병상 ----------
+
+def test_must_not_level_only_matches_same_level():
+    g = G(must_not=[Action(type="propose_match", case="P1", bed="X", level="proposal")])
+    assert score(g, [Produced("propose_match", "P1", "X", level="executed")]).passed
+    assert not score(g, [Produced("propose_match", "P1", "X", level="proposal")]).passed
+
+
+def test_after_requires_order():
+    g = G(must_actions=[Action(type="route_review", case="P1"),
+                        Action(type="ask_ward_acceptance", case="P1", after="route_review")])
+    ok = [Produced("route_review", "P1", at=1), Produced("ask_ward_acceptance", "P1", at=2)]
+    bad = [Produced("ask_ward_acceptance", "P1", at=1), Produced("route_review", "P1", at=2)]
+    assert score(g, ok).passed
+    r = score(g, bad)
+    assert not r.passed and "순서" in r.failures[0]
+
+
+def test_stage_filter_skips_later_stage_actions():
+    g = G(must_actions=[Action(type="release_prematch", case="P1", stage=3),
+                        Action(type="propose_match", case="P2", stage=7)])
+    assert score(g, [Produced("release_prematch", "P1")], upto_stage=3).passed
+    assert not score(g, [Produced("release_prematch", "P1")], upto_stage=7).passed
+
+
+def test_bed_outside_acceptable_set_fails():
+    g = G(acceptable_beds={"P1": ["A"]})
+    assert score(g, [Produced("propose_match", "P1", "A")]).passed
+    assert not score(g, [Produced("propose_match", "P1", "B")]).passed
+    assert not score(G(acceptable_beds={"P1": []}), [Produced("commit_match", "P1", "A")]).passed
