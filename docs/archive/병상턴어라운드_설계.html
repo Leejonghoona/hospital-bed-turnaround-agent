@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>병상 턴어라운드 관제 에이전트</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{ --ink:#191F28; --tx:#4E5968; --cap:#8B95A1; --pan:#F2F4F6; --line:#E5E8EB; --b:#3182F6; --bt:#E8F3FF; --r:#E5484D; --rt:#FDECEC; --g:#12B886; --gt:#E6FCF5; --bg:#FFFFFF; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:Pretendard,-apple-system,sans-serif; line-height:1.6; letter-spacing:-.01em; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:56px 24px 96px; }
+  header .k{ color:var(--b); font-weight:700; font-size:15px; }
+  h1{ font-size:40px; line-height:1.3; margin:8px 0 12px; letter-spacing:-.03em; }
+  .sub{ font-size:19px; color:var(--tx); margin:0; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+  .chip{ background:var(--pan); border-radius:999px; padding:6px 14px; font-size:14px; font-weight:600; color:var(--tx); }
+  nav{ position:sticky; top:0; background:rgba(255,255,255,.94); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); z-index:5; }
+  nav .in{ max-width:1080px; margin:0 auto; padding:10px 24px; display:flex; gap:18px; overflow-x:auto; white-space:nowrap; }
+  nav a{ color:var(--tx); text-decoration:none; font-size:14px; font-weight:600; }
+  nav a:hover{ color:var(--b); }
+  section{ margin-top:72px; scroll-margin-top:60px; }
+  .lb{ color:var(--b); font-weight:700; font-size:14px; }
+  h2{ font-size:30px; margin:4px 0 20px; letter-spacing:-.03em; }
+  h3{ font-size:19px; margin:0 0 8px; }
+  p{ margin:0 0 10px; }
+  .pan{ background:var(--pan); border-radius:20px; padding:24px 26px; }
+  .g2{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  .g3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .g4{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .ns{ background:var(--b); color:#fff; border-radius:24px; padding:34px 36px; }
+  .ns small{ font-size:15px; font-weight:700; opacity:.85; }
+  .ns b{ display:block; font-size:30px; line-height:1.35; margin:6px 0 18px; letter-spacing:-.03em; }
+  .ns .m{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .ns .m div{ background:rgba(255,255,255,.14); border-radius:16px; padding:16px 18px; font-size:15px; }
+  .ns .m strong{ display:block; font-size:17px; margin-bottom:2px; }
+  .big{ font-size:44px; font-weight:800; color:var(--b); letter-spacing:-.03em; line-height:1.1; }
+  .big small{ font-size:18px; color:var(--cap); margin-left:2px; }
+  .cap{ font-size:14px; color:var(--cap); }
+  .src{ font-size:13px; color:var(--cap); margin-top:8px; }
+  .src a{ color:var(--cap); }
+  table{ width:100%; border-collapse:collapse; font-size:15px; }
+  th{ text-align:left; color:var(--cap); font-weight:700; font-size:13px; padding:10px 12px; border-bottom:1px solid var(--line); }
+  td{ padding:12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tbl{ background:#fff; border:1px solid var(--line); border-radius:18px; overflow:hidden; }
+  .flow{ display:flex; align-items:stretch; gap:8px; overflow-x:auto; padding-bottom:6px; }
+  .st{ flex:1 0 118px; background:var(--pan); border-radius:16px; padding:16px 14px; }
+  .st b{ display:block; font-size:16px; }
+  .st span{ font-size:13px; color:var(--tx); }
+  .st.h{ background:#FFF4E6; } .st.u{ background:var(--gt); } .st.ok{ background:var(--bt); }
+  .arr{ align-self:center; color:var(--b); font-weight:800; }
+  .who{ display:inline-block; font-size:12px; font-weight:700; color:var(--b); background:#fff; border-radius:6px; padding:1px 6px; margin-top:6px; }
+  .arch{ display:grid; gap:10px; }
+  .layer{ border-radius:18px; padding:18px 22px; display:grid; grid-template-columns:180px 1fr; gap:16px; align-items:center; }
+  .layer .n{ font-weight:800; font-size:16px; }
+  .layer .boxes{ display:flex; flex-wrap:wrap; gap:8px; }
+  .layer .boxes span{ background:#fff; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:600; }
+  .l1{ background:var(--pan); } .l2{ background:var(--bt); } .l3{ background:#F3F0FF; } .l4{ background:var(--gt); } .l5{ background:#FFF4E6; }
+  .dn{ text-align:center; color:var(--cap); font-weight:800; line-height:1; }
+  .dk{ background:var(--ink); color:#fff; border-radius:16px; padding:18px 24px; font-size:17px; font-weight:700; display:flex; gap:16px; align-items:center; margin-top:14px; }
+  .dk span{ color:#8B95A1; font-size:14px; flex:none; }
+  .tl{ border-left:3px solid var(--b); margin-left:8px; padding-left:22px; display:grid; gap:14px; }
+  .tl div{ position:relative; }
+  .tl div::before{ content:""; position:absolute; left:-31px; top:6px; width:13px; height:13px; border-radius:50%; background:var(--b); border:3px solid #fff; }
+  .tl b{ color:var(--b); margin-right:8px; }
+  .tag{ display:inline-block; font-size:12px; font-weight:700; border-radius:6px; padding:2px 8px; }
+  .tag.cut{ background:var(--rt); color:var(--r); } .tag.keep{ background:var(--gt); color:#0B7A5A; }
+  .score td:nth-child(2), .score td:nth-child(3){ font-weight:800; font-size:18px; }
+  .score td:nth-child(3){ color:var(--b); }
+  ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
+  @media (max-width:760px){
+    h1{ font-size:30px; } h2{ font-size:24px; }
+    .g2,.g3,.g4,.ns .m{ grid-template-columns:1fr; }
+    .layer{ grid-template-columns:1fr; }
+    table{ font-size:14px; }
+  }
+
+  .svgw{ background:#fff; border:1px solid var(--line); border-radius:20px; padding:14px; overflow-x:auto; }
+  .svgw svg{ width:100%; min-width:760px; height:auto; display:block; font-family:Pretendard,sans-serif; }
+  .zone{ fill:#FAFBFC; stroke:#DDE1E6; stroke-width:1.5; } .zone2{ fill:none; stroke:#DDE1E6; stroke-width:1.5; stroke-dasharray:5 5; }
+  .zl{ font-size:12px; font-weight:700; fill:#8B95A1; }
+  .n-code{ fill:#E8F3FF; stroke:#3182F6; stroke-width:1.5; } .n-ai{ fill:#F3F0FF; stroke:#7950F2; stroke-width:1.5; }
+  .n-store{ fill:#E6FCF5; stroke:#12B886; stroke-width:1.5; } .n-human{ fill:#FFF4E6; stroke:#F08C00; stroke-width:1.5; }
+  .n-ext{ fill:#F2F4F6; stroke:#8B95A1; stroke-width:1.5; } .n-ext2{ fill:#fff; stroke:#8B95A1; stroke-width:1.5; stroke-dasharray:5 4; }
+  .nt{ font-size:14px; font-weight:800; fill:#191F28; } .ns2{ font-size:11.5px; font-weight:500; fill:#4E5968; }
+  .e{ fill:none; stroke:#8B95A1; stroke-width:1.5; } .e-a{ fill:none; stroke:#3182F6; stroke-width:2; } .e-d{ fill:none; stroke:#8B95A1; stroke-width:1.5; stroke-dasharray:5 4; }
+  .mask{ fill:#fff; } .lab{ font-size:11.5px; font-weight:600; fill:#4E5968; }
+  .leg{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:12px; font-size:13px; color:var(--tx); }
+  .leg span{ display:flex; align-items:center; gap:6px; }
+  .lg{ width:14px; height:14px; border-radius:4px; display:inline-block; border:1.5px solid; }
+  .c1{ background:#E8F3FF; border-color:#3182F6; } .c2{ background:#F3F0FF; border-color:#7950F2; } .c3{ background:#E6FCF5; border-color:#12B886; }
+  .c4{ background:#FFF4E6; border-color:#F08C00; } .c5{ background:#F2F4F6; border-color:#8B95A1; }
+  .ln{ width:22px; height:0; border-top:2px solid #8B95A1; display:inline-block; } .ln.a{ border-color:#3182F6; } .ln.d{ border-top-style:dashed; }
+  .seq{ list-style:none; counter-reset:s; padding:0; margin:14px 0 0; display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .seq li{ counter-increment:s; background:var(--pan); border-radius:14px; padding:14px 16px 14px 52px; position:relative; margin:0; }
+  .seq li::before{ content:counter(s); position:absolute; left:16px; top:14px; width:24px; height:24px; border-radius:50%; background:var(--b); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .seq b{ display:block; font-size:15px; } .seq span{ font-size:14px; color:var(--tx); }
+  @media (max-width:760px){ .seq{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="k">개인 프로젝트 설계안 v3 · 가상 병원 데이터</div>
+  <h1>병상 턴어라운드 관제 에이전트</h1>
+  <p class="sub">퇴원 확정부터 병상 준비 완료까지의 단계를 이벤트로 추적하고, 지연을 먼저 알리고, 다음 입원 배정안을 사람에게 올리는 에이전트</p>
+  <div class="chips"><span class="chip">이벤트 기반 오케스트레이션</span><span class="chip">FHIR 리소스 이름</span><span class="chip">규칙 판단, LLM 설명</span><span class="chip">확정은 HIS에서 사람</span></div>
+</header>
+</div>
+
+<nav><div class="in">
+  <a href="#ns">북극성</a><a href="#why">문제와 근거</a><a href="#flow">서비스 흐름</a><a href="#arch">아키텍처</a><a href="#data">데이터</a><a href="#demo">시연 장면</a><a href="#eval">평가</a><a href="#scope">범위</a><a href="#review">검수</a><a href="#plan">일정</a><a href="#src">출처</a>
+</div></nav>
+
+<div class="wrap" style="padding-top:0;">
+
+<section id="ns">
+  <div class="lb">01 북극성</div>
+  <h2>서비스 목표와 측정 지표</h2>
+  <div class="ns">
+    <small>북극성</small>
+    <b>퇴원에서 다음 입원까지,<br>병상이 비어 있는 시간을 줄인다</b>
+    <div class="m">
+      <div><strong>측정 지표</strong>퇴원 확정부터 병상 준비 완료까지 걸린 시간</div>
+      <div><strong>보조 지표</strong>15시 가용 병상 추정 오차, 지연 탐지 정밀도와 재현율</div>
+      <div><strong>지켜야 할 선</strong>배정 기준 위반 0건, 확정은 사람 승인 후 HIS에서</div>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="lb">02 문제와 근거</div>
+  <h2>병상 배정보다 큰 병목, 퇴원 후 시차</h2>
+  <div class="g3">
+    <div class="pan"><h3>배정은 이미 자동화 중</h3><p>서울아산병원은 진료과, 성별, 중증도, 수술, 격리 등 50여 개 기준으로 배정을 자동화했습니다. 세종병원은 5분마다 대상과 빈 병상을 확인합니다.</p><div class="src">서울아산병원 소식지, 라포르시안</div></div>
+    <div class="pan"><h3>병상은 바로 비지 않음</h3><p>퇴원은 하루 전 주치의가 결정하고, 퇴원약, 진료비 심사, 수납, 퇴실, 정리를 거쳐야 병상이 다시 쓰입니다. 국내 병원 개선 사례는 협진 지연, 검사·시술 예약 지연, 퇴원 결정 지연, 퇴원 수속 지연을 재원일수에 영향을 주는 요인으로 꼽았습니다.</p><div class="src">서울아산·한양대병원 입퇴원 안내, 동아대 의료원 6-sigma 사례(2008)</div></div>
+    <div class="pan"><h3>정오 부족이 연쇄를 만듦</h3><p>병실이 부족하면 입원 당일 정오경 환자에게 입원일 변경을 연락합니다. 퇴원 시각을 앞당긴 병동은 병상 가용이 늘었습니다.</p><div class="src">서울아산병원 입원 안내, Stansbury et al. 2021</div></div>
+  </div>
+  <div class="g4" style="margin-top:14px;">
+    <div class="pan"><div class="big">50<small>여 개</small></div><div class="cap">서울아산 병상 배정 기준</div></div>
+    <div class="pan"><div class="big">250<small>건/일</small></div><div class="cap">서울아산 예약·변경·취소 요청 (전화·그룹웨어)</div></div>
+    <div class="pan"><div class="big">15→21<small>%</small></div><div class="cap">정오 전 퇴원 비율, 소아 병동 1곳 개선 연구</div></div>
+    <div class="pan"><div class="big">+16<small>%</small></div><div class="cap">같은 연구의 병상 가용 증가</div></div>
+  </div>
+  <div class="dk"><span>정리</span>배정 다음 단계, 병상이 비는 시점을 미리 계산해 움직이는 관제</div>
+</section>
+
+<section id="flow">
+  <div class="lb">03 서비스 흐름</div>
+  <h2>퇴원부터 다음 입원까지 이벤트 연쇄</h2>
+  <div class="flow">
+    <div class="st"><b>퇴원 확정</b><span>주치의 결정</span><br><span class="who">병동</span></div><div class="arr">→</div>
+    <div class="st"><b>퇴원약</b><span>조제 완료</span><br><span class="who">약제</span></div><div class="arr">→</div>
+    <div class="st"><b>수납</b><span>진료비 심사·정산</span><br><span class="who">원무</span></div><div class="arr">→</div>
+    <div class="st"><b>퇴실</b><span>환자 귀가</span><br><span class="who">병동</span></div><div class="arr">→</div>
+    <div class="st h"><b>H 청소중</b><span>정리 Task 발행</span><br><span class="who">환경·로봇</span></div><div class="arr">→</div>
+    <div class="st u"><b>U 빈 병상</b><span>배정 재가동</span><br><span class="who">에이전트</span></div><div class="arr">→</div>
+    <div class="st ok"><b>배정 제안</b><span>사람 승인</span><br><span class="who">원무</span></div>
+  </div>
+  <div class="g2" style="margin-top:14px;">
+    <div class="pan"><h3>에이전트가 하는 일</h3><ul><li>단계별 기준 시간 초과를 찾아 담당자에게 알림</li><li>15시 기준 가용 병상 수를 추정해 정오 전 부족 경보</li><li>병상이 U가 되면 대기 환자 배정안을 승인 화면에 올림</li></ul></div>
+    <div class="pan"><h3>사람이 하는 일</h3><ul><li>격리 오더 입력 (주치의, 감염관리실)</li><li>배정안 승인, HIS에서 최종 확정</li><li>환자·보호자 연락</li></ul></div>
+  </div>
+</section>
+
+<section id="arch">
+  <div class="lb">04 아키텍처</div>
+  <h2>시스템 구조와 처리 흐름</h2>
+  <div class="svgw"><svg viewBox="0 0 1040 470" role="img" aria-labelledby="ar-t ar-d"><title id="ar-t">병상 턴어라운드 관제 에이전트 시스템 구조</title><desc id="ar-d">HIS 목업에서 상태를 읽어 이벤트로 저장하고, 규칙이 지연·가용 병상·배정을 계산하며, LLM은 결과를 설명만 합니다. 승인은 사람이 하고 확정은 HIS에서 합니다.</desc><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8B95A1"/></marker></defs><rect class="zone" x="190" y="6" width="660" height="458" rx="18"/><text class="zl" x="206" y="24">관제 에이전트 · 가상 데이터로 로컬 실행</text><rect class="zone2" x="4" y="6" width="176" height="458" rx="18"/><text class="zl" x="18" y="24">병원 현장</text><rect class="zone2" x="860" y="6" width="176" height="458" rx="18"/><text class="zl" x="874" y="24">외부·확장</text><path class="e" d="M168 74 H208" marker-end="url(#ah)"/><rect class="mask" x="172.5" y="55" width="31.0" height="15"/><text class="lab" x="188" y="66" text-anchor="middle">읽기</text><path class="e" d="M360 82 H398" marker-end="url(#ah)"/><rect class="mask" x="363.5" y="63" width="31.0" height="15"/><text class="lab" x="379" y="74" text-anchor="middle">기록</text><path class="e" d="M285 114 V158" marker-end="url(#ah)"/><rect class="mask" x="286.0" y="129" width="60.7" height="15"/><text class="lab" x="290" y="140" text-anchor="start">단계 시각</text><path class="e" d="M475 114 V158" marker-end="url(#ah)"/><rect class="mask" x="476.0" y="129" width="60.7" height="15"/><text class="lab" x="480" y="140" text-anchor="start">단계 시각</text><path class="e" d="M550 192 H678" marker-end="url(#ah)"/><rect class="mask" x="577.0" y="173" width="74.0" height="15"/><text class="lab" x="614" y="184" text-anchor="middle">U 예상 병상</text><path class="e" d="M755 114 V158" marker-end="url(#ah)"/><rect class="mask" x="756.0" y="129" width="60.7" height="15"/><text class="lab" x="760" y="140" text-anchor="start">제약 검사</text><path class="e" d="M285 224 V246 Q285 256 295 256 H330 V264" marker-end="url(#ah)"/><rect class="mask" x="286.0" y="233" width="49.2" height="15"/><text class="lab" x="290" y="244" text-anchor="start">지연 건</text><path class="e" d="M475 224 V264" marker-end="url(#ah)"/><rect class="mask" x="476.0" y="237" width="90.3" height="15"/><text class="lab" x="480" y="248" text-anchor="start">정오 부족 경보</text><path class="e" d="M755 224 V246 Q755 256 745 256 H710 V264" marker-end="url(#ah)"/><rect class="mask" x="756.0" y="233" width="72.2" height="15"/><text class="lab" x="760" y="244" text-anchor="start">배정안 후보</text><path class="e" d="M400 326 V370" marker-end="url(#ah)"/><rect class="mask" x="401.0" y="341" width="72.2" height="15"/><text class="lab" x="405" y="352" text-anchor="start">알림·배정안</text><path class="e" d="M640 326 V370" marker-end="url(#ah)"/><rect class="mask" x="641.0" y="341" width="60.7" height="15"/><text class="lab" x="645" y="352" text-anchor="start">요약 요청</text><path class="e" d="M830 402 H870" marker-end="url(#ah)"/><rect class="mask" x="834.5" y="383" width="31.0" height="15"/><text class="lab" x="850" y="394" text-anchor="middle">가명</text><path class="e" d="M168 398 H208" marker-end="url(#ah)" marker-start="url(#ah)"/><rect class="mask" x="172.5" y="379" width="31.0" height="15"/><text class="lab" x="188" y="390" text-anchor="middle">승인</text><path class="e-a" d="M210 418 H186 V104 H170" marker-end="url(#ah)"/><rect class="mask" x="100.7" y="251" width="87.3" height="15"/><text class="lab" x="184" y="262" text-anchor="end">HIS 전송 대기</text><path class="e-d" d="M285 50 V36 H948 V48" marker-end="url(#ah)"/><rect class="mask" x="549.1" y="29" width="141.9" height="15"/><text class="lab" x="620" y="40" text-anchor="middle">퇴실 시 청소 Task 발행</text><rect class="n-ext" x="16" y="50" width="152" height="64" rx="12"/><text class="nt" x="92.0" y="78.0" text-anchor="middle">HIS 목업</text><text class="ns2" x="92.0" y="95.0" text-anchor="middle">입원·퇴원·병상 조회</text><rect class="n-human" x="16" y="366" width="152" height="64" rx="12"/><text class="nt" x="92.0" y="394.0" text-anchor="middle">원무팀·병동</text><text class="ns2" x="92.0" y="411.0" text-anchor="middle">확인과 승인</text><rect class="n-code" x="210" y="50" width="150" height="64" rx="12"/><text class="nt" x="285.0" y="78.0" text-anchor="middle">이벤트 수집기</text><text class="ns2" x="285.0" y="95.0" text-anchor="middle">5분 주기·상태 변화</text><rect class="n-store" x="400" y="50" width="150" height="64" rx="12"/><text class="nt" x="475.0" y="78.0" text-anchor="middle">이벤트 저장</text><text class="ns2" x="475.0" y="95.0" text-anchor="middle">SQLite</text><rect class="n-store" x="680" y="50" width="150" height="64" rx="12"/><text class="nt" x="755.0" y="78.0" text-anchor="middle">제약 표</text><text class="ns2" x="755.0" y="95.0" text-anchor="middle">YAML · FHIR 이름</text><rect class="n-code" x="210" y="160" width="150" height="64" rx="12"/><text class="nt" x="285.0" y="188.0" text-anchor="middle">지연 탐지</text><text class="ns2" x="285.0" y="205.0" text-anchor="middle">단계별 기준 시간</text><rect class="n-code" x="400" y="160" width="150" height="64" rx="12"/><text class="nt" x="475.0" y="188.0" text-anchor="middle">가용 병상 추정</text><text class="ns2" x="475.0" y="205.0" text-anchor="middle">단계별 중앙값 합산</text><rect class="n-code" x="680" y="160" width="150" height="64" rx="12"/><text class="nt" x="755.0" y="188.0" text-anchor="middle">배정 규칙</text><text class="ns2" x="755.0" y="205.0" text-anchor="middle">격리·성별·진료과</text><rect class="n-ai" x="300" y="266" width="440" height="60" rx="12"/><text class="nt" x="520.0" y="292.0" text-anchor="middle">에이전트 LLM</text><text class="ns2" x="520.0" y="309.0" text-anchor="middle">알림 요약과 질의 응답 · 판단은 규칙 결과만 사용</text><rect class="n-human" x="210" y="372" width="250" height="60" rx="12"/><text class="nt" x="335.0" y="398.0" text-anchor="middle">화면 (Streamlit)</text><text class="ns2" x="335.0" y="415.0" text-anchor="middle">타임라인 · 지연 알림 · 배정 승인</text><rect class="n-code" x="580" y="372" width="250" height="60" rx="12"/><text class="nt" x="705.0" y="398.0" text-anchor="middle">정책 계층</text><text class="ns2" x="705.0" y="415.0" text-anchor="middle">권한 · LLM 전송 전 가명 · 감사 로그</text><rect class="n-ext" x="872" y="372" width="152" height="60" rx="12"/><text class="nt" x="948.0" y="398.0" text-anchor="middle">외부 LLM API</text><text class="ns2" x="948.0" y="415.0" text-anchor="middle">가명 데이터만</text><rect class="n-ext2" x="872" y="50" width="152" height="64" rx="12"/><text class="nt" x="948.0" y="78.0" text-anchor="middle">청소·이송 장비</text><text class="ns2" x="948.0" y="95.0" text-anchor="middle">확장 지점</text></svg></div>
+  <div class="leg"><span><i class="lg c1"></i>코드 (결정)</span><span><i class="lg c2"></i>AI (설명)</span><span><i class="lg c3"></i>저장소</span><span><i class="lg c4"></i>사람·화면</span><span><i class="lg c5"></i>병원 시스템·외부</span><span><i class="ln"></i>데이터 흐름</span><span><i class="ln a"></i>확정은 HIS에서</span><span><i class="ln d"></i>확장 지점</span></div>
+  <h3 style="margin-top:28px;">처리 순서</h3>
+  <ol class="seq"><li><b>수집</b><span>5분마다 HIS 목업에서 입원 대기, 퇴원 확정, 병상 상태를 읽음</span></li><li><b>기록</b><span>퇴원약, 수납, 퇴실, 청소 시작과 완료를 이벤트로 저장</span></li><li><b>지연 탐지</b><span>단계별 기준 시간을 넘긴 건을 담당별로 표시</span></li><li><b>추정</b><span>단계별 중앙값을 합산해 15시 가용 병상과 정오 부족 계산</span></li><li><b>배정</b><span>병상이 U가 되면 제약 표로 후보 계산 (격리 오더, 성별, 진료과, 동명이인)</span></li><li><b>설명</b><span>LLM은 결과 숫자만 받아 알림 문장과 배정 근거 작성, 전송 전 가명</span></li><li><b>승인</b><span>담당자가 화면에서 확인 후 승인, "HIS 전송 대기"와 감사 로그 기록</span></li><li><b>확정</b><span>최종 확정은 HIS에서 사람이 진행, 이 시스템은 원장을 갖지 않음</span></li></ol>
+  <div class="dk"><span>설계 판단</span>멀티에이전트 대신 단일 에이전트로 시작, Task마다 담당을 붙여 하위 에이전트와 장비로 바꿀 경계만 남김</div>
+</section>
+
+<section id="data">
+  <div class="lb">05 데이터</div>
+  <h2>FHIR 이름과 병상 상태 코드</h2>
+  <div class="g2">
+    <div class="tbl"><table>
+      <tr><th>개념</th><th>FHIR 리소스</th></tr>
+      <tr><td>환자</td><td>Patient</td></tr>
+      <tr><td>입원</td><td>Encounter</td></tr>
+      <tr><td>병동, 병실, 병상</td><td>Location (계층)</td></tr>
+      <tr><td>의료진, 진료과</td><td>Practitioner, Organization</td></tr>
+      <tr><td>퇴원약, 수납, 청소</td><td>Task (담당, 상태, 기준 시간)</td></tr>
+    </table></div>
+    <div class="tbl"><table>
+      <tr><th>코드</th><th>병상 상태 (Location.operationalStatus)</th></tr>
+      <tr><td><b>O</b></td><td>사용 중</td></tr>
+      <tr><td><b>H</b></td><td>청소 중</td></tr>
+      <tr><td><b>U</b></td><td>빈 병상</td></tr>
+      <tr><td><b>C</b></td><td>폐쇄</td></tr>
+    </table></div>
+  </div>
+  <div class="tbl" style="margin-top:14px;"><table>
+    <tr><th>배정 제약</th><th>입력 주체</th><th>근거</th></tr>
+    <tr><td>격리 오더 환자는 음압·1인실만</td><td>주치의 오더 값</td><td>서울아산 배정 기준, 감염관리</td></tr>
+    <tr><td>성별 병실, 진료과 병동 우선</td><td>입원 정보</td><td>서울아산, 세종병원 배정 조건</td></tr>
+    <tr><td>동명이인 같은 병실 금지</td><td>환자 정보</td><td>서울아산 환자 안전 기준</td></tr>
+    <tr><td>병실 최대 4병상, 음압격리실</td><td>병동 구조</td><td>의료법 시행규칙 보도</td></tr>
+  </table></div>
+  <p class="src">가상 데이터: 병동 2개, 병상 24개, 가상 퇴원 30건, 입원 대기 15건. 전부 가명, 실제 병원 데이터 없음.</p>
+</section>
+
+<section id="demo">
+  <div class="lb">06 시연 장면</div>
+  <h2>아무도 묻지 않아도 도는 연쇄</h2>
+  <div class="pan"><div class="tl">
+    <div><b>09:00</b>퇴원 확정 이벤트 3건 수신</div>
+    <div><b>09:05</b>단계별 기준 시간으로 "11:40 병상 준비 예상, 정오까지 2병상 부족" 경보</div>
+    <div><b>10:30</b>수납 대기 기준 초과 1건, 원무 담당자에게 알림</div>
+    <div><b>11:20</b>청소 Task를 대기열 앞으로 이동, 환경·로봇 큐에 발행</div>
+    <div><b>11:45</b>청소 완료 이벤트 → 병상 U → 격리 오더 없는 내과 대기 환자 배정안 표시</div>
+    <div><b>11:47</b>원무 담당자 승인 → "HIS 전송 대기" 상태와 감사 로그 기록</div>
+  </div></div>
+</section>
+
+<section id="eval">
+  <div class="lb">07 평가</div>
+  <h2>기준선과 비교하는 평가</h2>
+  <div class="tbl"><table>
+    <tr><th>지표</th><th>비교</th><th>방법</th></tr>
+    <tr><td>15시 가용 병상 수 오차 (MAE)</td><td>기준선: 퇴원 확정 즉시 빈다고 가정 vs 단계별 중앙값 합산</td><td>가상 퇴원 30건, 합성 데이터 기준 추정</td></tr>
+    <tr><td>지연 탐지 정밀도·재현율</td><td>심어 둔 지연 건 대비</td><td>단계별 기준 시간 초과 규칙</td></tr>
+    <tr><td>배정 기준 위반</td><td>0건 목표</td><td>함정 시나리오 8개 포함 20개, 단위 테스트</td></tr>
+    <tr><td>LLM 응답 근거</td><td>DB에 없는 사실 응답 비율</td><td>자연어 질의 10개</td></tr>
+  </table></div>
+  <div class="dk"><span>표기 원칙</span>"합성 데이터 기준 추정"으로 쓰고, 병원 발표 수치와 나란히 비교하지 않음</div>
+</section>
+
+<section id="scope">
+  <div class="lb">08 범위</div>
+  <h2>오늘 만드는 것과 연결 지점</h2>
+  <div class="tbl"><table>
+    <tr><th>항목</th><th>MVP</th><th>이유</th></tr>
+    <tr><td>이벤트 연쇄, 지연 탐지, 가용 병상 추정, 승인 화면</td><td><span class="tag keep">포함</span></td><td>AI-DD 핵심인 관측, 추정, 행동 루프</td></tr>
+    <tr><td>멀티에이전트</td><td><span class="tag cut">연결 지점</span></td><td>Task 담당 경계만 남김</td></tr>
+    <tr><td>MCP 서버</td><td><span class="tag cut">연결 지점</span></td><td>도구를 쓰는 앱이 하나라 함수 호출로 충분</td></tr>
+    <tr><td>SHACL, 그래프 DB</td><td><span class="tag cut">연결 지점</span></td><td>제약을 선언형 표로 분리해 이전 가능하게</td></tr>
+    <tr><td>재원 기간 예측 모델</td><td><span class="tag cut">연결 지점</span></td><td>합성 데이터로 학습하면 생성 분포를 다시 맞히는 순환</td></tr>
+    <tr><td>피지컬 AI</td><td><span class="tag cut">연결 지점</span></td><td>청소·이송 Task를 로봇이 구독하는 인터페이스만</td></tr>
+  </table></div>
+</section>
+
+<section id="review">
+  <div class="lb">09 검수</div>
+  <h2>3인 토론 검수 결과</h2>
+  <div class="tbl score"><table>
+    <tr><th>검토자</th><th>배정 챗봇안</th><th>턴어라운드안</th><th>핵심 지적</th></tr>
+    <tr><td>병원 현장 실무자</td><td>4</td><td>7</td><td>격리는 주치의 오더, 원장은 HIS, 진짜 병목은 퇴원 후 시차</td></tr>
+    <tr><td>AI-DD 연구소장</td><td>5</td><td>7</td><td>묻고 답하는 챗봇을 넘어 예측과 이벤트 연쇄가 보여야 함</td></tr>
+    <tr><td>시니어 엔지니어</td><td>7</td><td>8 (동작 시)</td><td>MCP, 멀티에이전트, OR-Tools 제외, 4시간 MVP</td></tr>
+  </table></div>
+</section>
+
+<section id="plan">
+  <div class="lb">10 일정</div>
+  <h2>4시간 MVP</h2>
+  <div class="tbl"><table>
+    <tr><th>파일</th><th>내용</th><th>시간</th></tr>
+    <tr><td>gen_data.py</td><td>가상 퇴원 30건, 단계별 지연 분포</td><td>40분</td></tr>
+    <tr><td>events.py</td><td>상태 전이와 배정 재가동 이벤트 루프</td><td>80분</td></tr>
+    <tr><td>monitor.py</td><td>기준 시간 초과 탐지, 담당자 알림</td><td>40분</td></tr>
+    <tr><td>forecast.py</td><td>15시 가용 병상 추정과 평가</td><td>40분</td></tr>
+    <tr><td>app.py</td><td>타임라인, 알림, 승인 화면</td><td>40분</td></tr>
+  </table></div>
+</section>
+
+<section id="src">
+  <div class="lb">11 출처</div>
+  <h2>참고한 공개 자료</h2>
+  <div class="pan"><ul class="src" style="font-size:14px;">
+    <li><a href="https://www.amc.seoul.kr/asan/depts/alumni/K/bbsDetail.do?menuId=4038&contentId=267045">서울아산병원 AI 병상 배정 (병원 소식지)</a></li>
+    <li><a href="https://www.rapportian.com/news/articleView.html?idxno=240998">세종병원 AI 병상 배정 자동화 (라포르시안)</a></li>
+    <li><a href="https://www.hopkinsmedicine.org/news/articles/capacity-command-center-celebrates-5-years-of-improving-patient-safety-access">Johns Hopkins Capacity Command Center</a></li>
+    <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8677894/">Stansbury et al., A Quality Improvement Approach to Early Patient Discharge, 2021</a></li>
+    <li><a href="https://amc.seoul.kr/asan/hospitalizationtreatguide/hospitalizationTreatGuide.do">서울아산병원 입퇴원 안내</a></li>
+    <li><a href="https://seoul.hyumc.com/conts/102002006002000.do">한양대학교병원 입퇴원 안내</a></li>
+    <li><a href="https://koreascience.kr/article/JAKO200813067171382.pdf">정경숙 외, 소화기내과 재원일수단축을 위한 6-sigma 활동, 한국의료QA학회지 2008</a></li>
+    <li><a href="https://www.medicaltimes.com/Main/view.html?ID=1108861">의료법 시행규칙 병상 기준 (메디칼타임즈)</a></li>
+    <li><a href="https://build.fhir.org/ig/hl7korea/krcore/kr_cdi.html">HL7 Korea KR Core</a></li>
+    <li><a href="https://hl7.org/fhir/R5/subscriptions.html">FHIR R5 Subscriptions</a></li>
+    <li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic, Building effective agents</a></li>
+  </ul></div>
+</section>
+
+</div>
+</body>
+</html>
