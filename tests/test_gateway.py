@@ -390,3 +390,32 @@ def test_gender_correction_applies_and_is_material():
     store.append(_corr("A1", 1, at(9, 30), "gender", "M"))
     d = gw.commit("p1", gw.location_version("W71-R04-B2"), at(10))
     assert d.status == "rejected" and "info_changed" in d.reasons
+
+
+# ---------- GW-9 동실 환자 재확인 ----------
+
+def test_roommate_isolation_order_after_basis_rejects_commit():
+    census = {"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)}
+    store, gw = make([adm(gender="M")], census=census)
+    _through_to_ward_acceptance(store, gw, bed="W71-R03-B2")
+    store.append(ev("SYN-C1", "isolation_order_added", EventType.ISOLATION_ORDER_ADDED, at(9, 30), "his",
+                    organism="VRE", precautions=["contact"], precaution_status="confirmed"))
+    d = gw.commit("p1", gw.location_version("W71-R03-B2"), at(10))
+    assert d.status == "rejected" and "info_changed" in d.reasons
+
+
+def test_roommate_change_in_other_room_does_not_block():
+    census = {"W71-R04-B1": census_patient("SYN-C2")}
+    store, gw = make([adm(gender="M")], census=census)
+    _through_to_ward_acceptance(store, gw, bed="W71-R03-B2")
+    store.append(ev("SYN-C2", "isolation_order_added", EventType.ISOLATION_ORDER_ADDED, at(9, 30), "his",
+                    organism="VRE", precautions=["contact"], precaution_status="confirmed"))
+    assert gw.commit("p1", gw.location_version("W71-R03-B2"), at(10)).status == "committed"
+
+
+def test_roommate_state_is_updated_from_events_for_shacl():
+    census = {"W71-R04-B1": census_patient("SYN-C3", name="박하늘")}
+    store, gw = make([adm(name="김가온")], census=census)
+    store.append(ev("SYN-C3", "correction:1", EventType.PATIENT_INFO_CORRECTED, at(8), "his", field="name", value="김가온"))
+    d = gw.submit(prop("p1", bed="W71-R04-B3", store=store), at(9))
+    assert d.status == "rejected" and "same_name_room" in d.reasons

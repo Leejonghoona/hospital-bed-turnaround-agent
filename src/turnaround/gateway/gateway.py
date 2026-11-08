@@ -77,7 +77,12 @@ class Gateway:
         return self.store.read()
 
     def _admission(self, case: str, events: list[Event]) -> tuple[Patient | None, dict]:
-        payload: dict = {}
+        payload = self._apply_patient_events(case, {}, events)
+        return (_patient_from_payload(case, payload) if payload else None), payload
+
+    def _apply_patient_events(self, case: str, payload: dict, events: list[Event]) -> dict:
+        """입원 요청, 격리 오더, 정보 변경·정정, 격리 해제를 순서대로 반영한다. 재원 환자에게도 쓴다."""
+        payload = dict(payload)
         confirmed = {e.payload.get("correction_id") for e in events if e.type is EventType.CORRECTION_CONFIRMED}
         for e in events:
             if e.case_id != case:
@@ -95,7 +100,15 @@ class Gateway:
                 if correction_direction(payload, field_, value) == "loosen" and e.event_id not in confirmed:
                     continue  # 제약을 푸는 정정은 사람 확인 전까지 반영하지 않는다
                 apply_correction(payload, field_, value, e.payload)
-        return (_patient_from_payload(case, payload) if payload else None), payload
+        return payload
+
+    def _census_patient(self, p: Patient, events: list[Event]) -> Patient:
+        base = {"patient_id": p.id, "name": p.name, "gender": p.gender.value if p.gender else None, "age": p.age,
+                "department": p.department, "precautions": [x.value for x in p.precautions], "organism": p.organism,
+                "precaution_status": p.precaution_status.value if p.precaution_status else None,
+                "isolation_ordered_by": p.isolation_ordered_by, "immunocompromised": p.immunocompromised,
+                "open_wound": p.open_wound, "isolation_order": p.isolation_order}
+        return _patient_from_payload(p.id, self._apply_patient_events(p.id, base, events))
 
     def _proposal(self, pid: str, events: list[Event]) -> Proposal | None:
         for e in events:
@@ -117,7 +130,7 @@ class Gateway:
         saga = fold(events)
         leaving = {d.bed_id for d in saga.discharges.values()
                    if EventType.DISCHARGE_CANCELLED not in d.facts}  # 퇴원 예정·퇴실 병상의 재원 환자는 뺀다
-        occ = {b: p for b, p in self.census.items() if b not in leaving}
+        occ = {b: self._census_patient(p, events) for b, p in self.census.items() if b not in leaving}
         for case, bed in self._assignments(events).items():
             if case != exclude_case:
                 patient, _ = self._admission(case, events)
@@ -148,6 +161,10 @@ class Gateway:
         for d in fold(events).discharges.values():
             if d.bed_id == prop.bed_id:
                 cases.add(d.id)
+        room = self.room_of.get(prop.bed_id)
+        if room:  # 같은 병실 재원 환자와 확정 환자 (GW-9)
+            cases |= {p.id for b, p in self.census.items() if self.room_of.get(b) == room}
+            cases |= {c for c, b in self._assignments(events).items() if self.room_of.get(b) == room}
         return [e for e in events if (e.seq or 0) > prop.basis_seq and e.case_id in cases and e.type in _MATERIAL]
 
     def _isolation_discharge_pending(self, bed_id: str, events: list[Event]) -> bool | None:
