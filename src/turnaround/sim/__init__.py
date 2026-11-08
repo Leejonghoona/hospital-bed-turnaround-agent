@@ -11,7 +11,9 @@ from .models import (
     Gender,
     GeneratorConfig,
     IsolationType,
+    ORGANISM_PRECAUTIONS,
     Patient,
+    PrecautionStatus,
     Room,
     RoomType,
     StageDistribution,
@@ -21,6 +23,6 @@ from .models import (
 
 __all__ = [
     "DEFAULT_STAGE_DISTRIBUTIONS", "generate", "AdmissionRequest", "Bed", "CleaningType", "Discharge",
-    "DischargeTimeline", "Gender", "GeneratorConfig", "IsolationType", "Patient", "Room", "RoomType",
+    "DischargeTimeline", "Gender", "GeneratorConfig", "IsolationType", "ORGANISM_PRECAUTIONS", "Patient", "PrecautionStatus", "Room", "RoomType",
     "StageDistribution", "SyntheticHospital", "Ward",
 ]

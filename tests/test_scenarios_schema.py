@@ -110,3 +110,21 @@ def test_review_sheet_is_up_to_date():
 
     sheet = Path(__file__).resolve().parents[1] / "docs" / "라벨_검토표.md"
     assert sheet.read_text(encoding="utf-8") == render(DEV_DIR)
+
+
+# ---------- 홀드아웃 (LP-16~22 신규 시나리오, 30개에 포함하지 않음) ----------
+HOLDOUT_DIR = DEV_DIR.parent / "holdout"
+
+
+def test_holdout_scenarios_load_and_are_separate():
+    hold = load_scenarios(HOLDOUT_DIR)
+    assert [s.id for s in hold] == ["H01", "H02", "H03", "H04", "H05"]
+    assert all(s.fixture.get("split") == "holdout" for s in hold)
+    assert not {s.id for s in hold} & {p.stem for p in DEV_DIR.glob("*.yaml")}
+
+
+def test_holdout_beds_exist():
+    bed_ids = {b.id for b in generate(seed=0).beds}
+    for s in load_scenarios(HOLDOUT_DIR):
+        for beds in s.gold.acceptable_beds.values():
+            assert set(beds) <= bed_ids, s.id

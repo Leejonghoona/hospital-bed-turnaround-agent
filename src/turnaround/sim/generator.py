@@ -15,6 +15,9 @@ from .models import (
     Gender,
     GeneratorConfig,
     IsolationType,
+    N_SPECIAL_ADMISSIONS,
+    ORGANISM_PRECAUTIONS,
+    PrecautionStatus,
     Patient,
     Room,
     RoomType,
@@ -42,6 +45,13 @@ _ROOM_LAYOUT = {
 }
 
 _GUARDIAN_SLOTS = tuple(time(h, m) for h in range(10, 14) for m in (0, 30))
+_AIRBORNE_ORGANISMS = ("MTB", "MEASLES", "VARICELLA")
+_SINGLE_ROOM_ORGANISMS = ("MRSA", "VRE", "CRE", "CDIFF", "INFLUENZA", "PERTUSSIS")
+_MDRO = {"MRSA", "VRE", "CRE"}  # 다제내성균: 격리·해제는 감염관리실 (LP-19)
+# 담당 검토로 가야 할 입원 대기 사례 종류. 서로 다른 대기 건에 하나씩 둔다.
+SPECIAL_KINDS = ("airborne", "contact", "droplet", "preemptive", "pediatric", "icu", "single_room",
+                 "same_name", "missing_gender", "integrated_care")
+assert len(SPECIAL_KINDS) == N_SPECIAL_ADMISSIONS
 _ISOLATION_ROOMS = {RoomType.NEGATIVE_PRESSURE, RoomType.SINGLE}
 
 
@@ -86,22 +96,29 @@ class _Gen:
                 return name
 
     def new_patient(self, *, gender: Gender | None, department: str, age: int | None = None,
-                    isolation: IsolationType | None = None, name: str | None = None) -> Patient:
+                    organism: str | None = None, status: PrecautionStatus | None = None,
+                    ordered_by: str | None = None, name: str | None = None) -> Patient:
+        """organism을 주면 지침 부록1 대응표(ORGANISM_PRECAUTIONS)대로 주의 집합을 붙인다."""
         self._pid += 1
         age = self.rng.randint(25, 90) if age is None else age
+        prec = ORGANISM_PRECAUTIONS[organism] if organism else ()
         return Patient(
             id=f"SYN-P{self._pid:04d}", name=name or self.new_name(), gender=gender, age=age,
-            department=department, isolation_order=isolation is not None, isolation_type=isolation,
+            department=department, precautions=prec, organism=organism,
+            precaution_status=(status or PrecautionStatus.CONFIRMED) if organism else None,
+            isolation_ordered_by=(ordered_by or ("ipc" if organism in _MDRO else "physician")) if organism else None,
+            immunocompromised=self.rng.random() < 0.05, open_wound=self.rng.random() < 0.05,
             high_fall_risk=age >= 75 and self.rng.random() < 0.5,
+            delirium_positive=age >= 75 and self.rng.random() < 0.2,
         )
 
     # ---------- 퇴원 ----------
 
-    def isolation_type_for(self, room: Room) -> IsolationType:
-        """공기감염 격리는 음압격리실에만 있을 수 있다(설계 개념 계층)."""
+    def organism_for(self, room: Room) -> str:
+        """공기주의 병원체는 음압격리실에만, 접촉·비말주의는 1인실에 둔다 (LP-17)."""
         if room.room_type is RoomType.NEGATIVE_PRESSURE:
-            return self.rng.choice(list(IsolationType))
-        return IsolationType.CONTACT
+            return self.rng.choice(_AIRBORNE_ORGANISMS)
+        return self.rng.choice(_SINGLE_ROOM_ORGANISMS)
 
     def discharge_beds(self) -> list[tuple[int, Bed, bool]]:
         """(day, bed, isolation) 목록. 같은 날 같은 병상은 한 번만."""
@@ -134,7 +151,7 @@ class _Gen:
             gender = room.gender or self.rng.choice(list(Gender))
             patient = self.new_patient(
                 gender=gender, department=self.rng.choice(ward.departments),
-                isolation=self.isolation_type_for(room) if iso else None,
+                organism=self.organism_for(room) if iso else None,
             )
             d = {s: self.minutes(s) for s in (
                 "order_after_round", "medication", "education", "billing", "exit_prep",
@@ -160,7 +177,9 @@ class _Gen:
             billing = med + m(d["billing"])
             departed = max(billing, edu, guardian_arrived) + m(d["exit_prep"])
             requested = departed + m(d["baseline_cleaning_request_delay"])
-            clean_start = requested + m(d["cleaning_response"] + extra)
+            aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(patient.precautions))
+            wait = cfg.aerosol_wait_min if aerosol else 0
+            clean_start = max(requested + m(d["cleaning_response"] + extra), departed + m(wait))  # 환기 대기 (LP-20)
             clean_done = clean_start + m(d["cleaning"])
             ready = clean_done + m(d["bed_make"])
 
@@ -170,6 +189,7 @@ class _Gen:
                 guardian_expected_at=guardian_expected, guardian_delayed=i in guardian_delayed,
                 cleaning_type=cleaning_type, cleaning_delayed=i in cleaning_delayed,
                 cleaning_extra_delay_min=extra, durations_min=d,
+                aerosol_wait_min=wait, sporicidal=patient.organism == "CDIFF",
                 actual=DischargeTimeline(
                     order_confirmed_at=order, medication_ready_at=med, education_done_at=edu,
                     billing_done_at=billing, guardian_arrived_at=guardian_arrived, departed_at=departed,
@@ -187,7 +207,7 @@ class _Gen:
         days = list(range(cfg.days)) + [self.rng.randrange(cfg.days) for _ in range(n - cfg.days)]
         self.rng.shuffle(days)
         # 담당 검토로 가야 할 사례를 서로 다른 대기 건에 하나씩 둔다.
-        special = ["airborne", "contact", "pediatric", "icu", "single_room", "same_name", "missing_gender"]
+        special = list(SPECIAL_KINDS)
         order = self.rng.sample(range(n), n)
         kind = {idx: special[j] for j, idx in enumerate(order[: len(special)])}
         normal = order[len(special):]
@@ -199,13 +219,17 @@ class _Gen:
             k = kind.get(i)
             ward = self.rng.choice(_WARDS)
             dept = self.rng.choice(ward.departments)
-            if k in ("airborne", "contact"):
+            organism = {"airborne": "MTB", "contact": self.rng.choice(["MRSA", "VRE", "CDIFF"]),
+                        "droplet": "INFLUENZA", "preemptive": "CRE"}.get(k)
+            if organism:
                 ward, dept = _WARDS[0], "감염내과"
             patient = self.new_patient(
                 gender=None if k == "missing_gender" else self.rng.choice(list(Gender)),
                 department="소아청소년과" if k == "pediatric" else dept,
                 age=self.rng.randint(3, 12) if k == "pediatric" else None,
-                isolation={"airborne": IsolationType.AIRBORNE, "contact": IsolationType.CONTACT}.get(k),
+                organism=organism,
+                status=PrecautionStatus.PREEMPTIVE if k == "preemptive" else None,
+                ordered_by="ipc" if k == "preemptive" else None,
                 name=same_name if k == "same_name" else None,
             )
             day = days[i]
@@ -216,6 +240,9 @@ class _Gen:
             result.append(AdmissionRequest(
                 id=f"SYN-A{i + 1:03d}", day=day, patient=patient, requested_at=requested,
                 preferred_ward_id=ward.id, from_icu=k == "icu", wants_single_room=k == "single_room",
+                single_room_reason="isolation" if organism else ("preference" if k == "single_room" else None),
+                integrated_care_requested=k == "integrated_care",
+                integrated_care_consent=None,  # 동의 미확인 (LP-21 검토 사유)
                 cancelled_at=cancelled_at,
             ))
         return tuple(result)

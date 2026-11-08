@@ -26,6 +26,7 @@ class SagaPolicy(BaseModel):
     medication_delay: timedelta = timedelta(hours=2)
     cleaning_overdue_general: timedelta = timedelta(minutes=120)
     cleaning_overdue_terminal: timedelta = timedelta(minutes=180)
+    aerosol_wait_min: int = 30  # 비말·공기주의 퇴실 환기 대기 (LP-20, 설계 가정)
 
 
 class DischargeStage(str, Enum):
@@ -54,6 +55,8 @@ class DischargeCase:
     id: str
     bed_id: str | None = None
     isolation: bool = False
+    precautions: tuple[str, ...] = ()
+    organism: str | None = None
     facts: dict[EventType, datetime] = field(default_factory=dict)  # 사실 → 처음 인지한 시각
     commands: set[str] = field(default_factory=set)  # 이미 낸 명령 키
     eta_updates: list[tuple[str, datetime]] = field(default_factory=list)
@@ -134,6 +137,8 @@ def fold(events: Iterable[Event]) -> SagaState:
             d = s.discharges.setdefault(ev.case_id, DischargeCase(ev.case_id))
             d.bed_id = ev.payload.get("bed_id")
             d.isolation = bool(ev.payload.get("isolation_order"))
+            d.precautions = tuple(ev.payload.get("precautions") or ())
+            d.organism = ev.payload.get("organism")
         d = s.discharges.get(ev.case_id)
         if d is None:
             continue
@@ -215,8 +220,13 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
 
     # 퇴실 즉시 청소 요청 (AS-01). 격리면 종말소독 강제
     if departed is not None:
+        extra = {}
+        if d.isolation and {"droplet", "airborne"} & set(d.precautions):
+            extra["aerosol_wait_min"] = p.aerosol_wait_min  # 환기 대기 뒤 청소 (LP-20)
+        if d.isolation and d.organism == "CDIFF":
+            extra["sporicidal"] = True  # 아포 대응 소독
         out.cmd(d.id, "cleaning_request", EventType.CLEANING_REQUEST_ISSUED, departed, bed_id=bed,
-                cleaning_type="terminal" if d.isolation else "general")
+                cleaning_type="terminal" if d.isolation else "general", **extra)
         issued = d.seen(EventType.CLEANING_REQUEST_ISSUED) or departed
         limit = p.cleaning_overdue_terminal if d.isolation else p.cleaning_overdue_general
         done = d.seen(EventType.CLEANING_DONE)

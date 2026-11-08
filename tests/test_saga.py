@@ -345,3 +345,23 @@ def test_admission_cancel_after_ward_acceptance_notifies_ward():
            e("P1", "admission_cancelled", EventType.ADMISSION_CANCELLED, at(0, 8, 30))]
     store, _ = run(evs, until=at(0, 8, 40), start=at(-1, 17))
     assert len(saga_events(store, EventType.WARD_NOTIFIED)) == 1
+
+
+# ---------- LP-20 퇴실 청소 요청 속성 ----------
+
+def _decided_with(organism, precautions, bed="W72-R01-B1"):
+    ev = decided(iso=True, bed=bed)
+    return ev.model_copy(update={"payload": {**ev.payload, "organism": organism, "precautions": precautions}})
+
+
+@pytest.mark.parametrize("organism,precautions,extra", [
+    ("INFLUENZA", ["droplet"], {"aerosol_wait_min": 30}),
+    ("MEASLES", ["airborne"], {"aerosol_wait_min": 30}),
+    ("CDIFF", ["contact"], {"sporicidal": True}),
+    ("MRSA", ["contact"], {}),
+])
+def test_cleaning_request_carries_precaution_requirements(organism, precautions, extra):
+    store, _ = run([_decided_with(organism, precautions), registered(bed="W72-R01-B1"),
+                    departed(bed="W72-R01-B1")], until=at(0, 11, 10))
+    req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", **extra}

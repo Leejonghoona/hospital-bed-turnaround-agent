@@ -28,7 +28,7 @@ EVENT_TO_ACTION: dict[EventType, str] = {
 }
 # 병원 밖이나 다른 부서로 나가는 부수효과 (중복 검사 대상)
 SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED, EventType.WARD_NOTIFIED}
-_PARAM_KEYS = ("cleaning_type", "reason", "target")
+_PARAM_KEYS = ("cleaning_type", "reason", "target", "aerosol_wait_min", "sporicidal", "kind", "overridden_from")
 _META = {"count", "count_over"}
 
 

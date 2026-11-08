@@ -9,13 +9,15 @@ ta:Room                 a rdfs:Class ; rdfs:label "병실" .
 ta:SingleRoom           rdfs:subClassOf ta:Room ; rdfs:label "1인실" .
 ta:NegativePressureRoom rdfs:subClassOf ta:SingleRoom ; rdfs:label "음압격리실" .
 ta:MultiRoom            rdfs:subClassOf ta:Room ; rdfs:label "다인실" .
+ta:CohortRoom           rdfs:subClassOf ta:MultiRoom ; rdfs:label "코호트실(같은 병원체 환자만)" .
 ta:Bed                  a rdfs:Class ; rdfs:label "병상" .
 
-# 환자: 결핵 의심 → 공기감염 격리 필요 → 격리 필요 (LP-01)
+# 환자: 결핵 의심 → 공기감염 격리 필요 → 격리 필요. 전파경로 주의 체계 (LP-16, 질병관리청 표준예방지침)
 ta:Patient                      a rdfs:Class ; rdfs:label "환자" .
 ta:IsolationPatient             rdfs:subClassOf ta:Patient ; rdfs:label "격리 필요" .
 ta:AirborneIsolationPatient     rdfs:subClassOf ta:IsolationPatient ; rdfs:label "공기감염 격리 필요" .
-ta:ContactIsolationPatient      rdfs:subClassOf ta:IsolationPatient ; rdfs:label "접촉 격리 필요" .
+ta:ContactIsolationPatient      rdfs:subClassOf ta:IsolationPatient ; rdfs:label "접촉주의" .
+ta:DropletIsolationPatient      rdfs:subClassOf ta:IsolationPatient ; rdfs:label "비말주의" .
 ta:SuspectedTuberculosisPatient rdfs:subClassOf ta:AirborneIsolationPatient ; rdfs:label "결핵 의심" .
 
 # 병상 회전 기록

@@ -52,7 +52,10 @@ def _safety(seeds: Iterable[int]) -> dict:
             s2_n += 1
             s2_v += len(check_turnover(BedTurnover(
                 bed_id=d.bed_id, previous_isolation=True, cleaning_type=d.cleaning_type,
-                cleaning_done_at=d.actual.cleaning_done_at, committed_at=None, vacant_at=d.actual.bed_ready_at)))
+                cleaning_done_at=d.actual.cleaning_done_at, committed_at=None, vacant_at=d.actual.bed_ready_at,
+                previous_precautions=d.patient.precautions, previous_organism=d.patient.organism,
+                departed_at=d.actual.departed_at, cleaning_started_at=d.actual.cleaning_started_at,
+                sporicidal_done=d.sporicidal), aerosol_wait_min=h.config.aerosol_wait_min))
 
     def row(v, n):
         return {"violations": v, "denominator": n,

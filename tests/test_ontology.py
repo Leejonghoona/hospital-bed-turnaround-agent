@@ -89,30 +89,61 @@ def test_turnover_shapes(kw, expected):
 # ---------- 교차 확인: 독립 검사기와 SHACL이 같은 판정 ----------
 
 def _random_state(rng):
+    from turnaround.sim import ORGANISM_PRECAUTIONS, PrecautionStatus
+    rooms = H.rooms
+    if rng.random() < 0.5:  # 다인실 하나를 코호트실로 지정
+        multi = [r for r in H.rooms if r.room_type.value == "multi"]
+        target = rng.choice(multi).id
+        key = rng.choice(["VRE", "MRSA", "INFLUENZA"])
+        rooms = tuple(r.model_copy(update={"cohort_key": key}) if r.id == target else r for r in H.rooms)
     beds = rng.sample([b.id for b in H.beds], rng.randint(1, 8))
     names = ["김가온", "이나라", "박하늘"]
     occ = {}
     for i, bed in enumerate(beds):
-        occ[bed] = pt(i, name=rng.choice(names), gender=rng.choice([Gender.MALE, Gender.FEMALE, None]),
-                      iso=rng.choice([None, None, IsolationType.CONTACT, IsolationType.AIRBORNE]))
+        org = rng.choice([None, None, None] + list(ORGANISM_PRECAUTIONS))
+        occ[bed] = Patient(
+            id=f"SYN-T{i}", name=rng.choice(names), gender=rng.choice([Gender.MALE, Gender.FEMALE, None]), age=50,
+            department="감염내과", precautions=ORGANISM_PRECAUTIONS[org] if org else (), organism=org,
+            precaution_status=rng.choice(list(PrecautionStatus)) if org else None,
+            immunocompromised=rng.random() < 0.15, open_wound=rng.random() < 0.15)
     if rng.random() < 0.1:
         occ["W99-R01-B1"] = pt(99)
-    return occ
+    return rooms, occ
 
 
 def _random_turnover(rng):
-    done = rng.choice([None, T0])
+    from turnaround.sim import ORGANISM_PRECAUTIONS
+    org = rng.choice([None] + list(ORGANISM_PRECAUTIONS))
+    dep = T0 - timedelta(hours=2)
     return BedTurnover(bed_id="W72-R01-B1", previous_isolation=rng.random() < 0.7,
                        cleaning_type=rng.choice([CleaningType.TERMINAL, CleaningType.GENERAL, None]),
-                       cleaning_done_at=done,
+                       cleaning_done_at=rng.choice([None, T0]),
                        committed_at=rng.choice([None, T0 - timedelta(minutes=5), T0 + timedelta(minutes=5)]),
-                       vacant_at=rng.choice([None, T0 - timedelta(minutes=5), T0 + timedelta(minutes=5)]))
+                       vacant_at=rng.choice([None, T0 - timedelta(minutes=5), T0 + timedelta(minutes=5)]),
+                       previous_precautions=ORGANISM_PRECAUTIONS[org] if org else (), previous_organism=org,
+                       departed_at=rng.choice([None, dep]),
+                       cleaning_started_at=rng.choice([None, dep + timedelta(minutes=10), dep + timedelta(minutes=40)]),
+                       sporicidal_done=rng.choice([None, True, False]))
 
 
 @pytest.mark.parametrize("seed", range(60))
 def test_shacl_agrees_with_independent_checker(seed):
     rng = random.Random(seed)
-    occ = _random_state(rng)
+    rooms, occ = _random_state(rng)
     tos = [_random_turnover(rng)]
-    expected = codes(check_assignment(H.rooms, H.beds, occ) + [v for t in tos for v in check_turnover(t)])
-    assert codes(validate(H.rooms, H.beds, occ, turnovers=tos)) == expected
+    expected = codes(check_assignment(rooms, H.beds, occ) + [v for t in tos for v in check_turnover(t)])
+    assert codes(validate(rooms, H.beds, occ, turnovers=tos)) == expected
+
+
+# ---------- LP-16~20 전파경로 주의 체계 (독립 검사기와 같은 사례) ----------
+from _precaution_cases import ASSIGNMENT_CASES, TURNOVER_CASES  # noqa: E402
+
+
+@pytest.mark.parametrize("name,rooms,occ,expected", ASSIGNMENT_CASES, ids=[c[0] for c in ASSIGNMENT_CASES])
+def test_shacl_precaution_assignment_rules(name, rooms, occ, expected):
+    assert codes(validate(rooms, H.beds, occ)) == sorted(expected)
+
+
+@pytest.mark.parametrize("name,t,expected", TURNOVER_CASES, ids=[c[0] for c in TURNOVER_CASES])
+def test_shacl_precaution_turnover_rules(name, t, expected):
+    assert codes(validate(H.rooms, H.beds, {}, turnovers=[t])) == sorted(expected)

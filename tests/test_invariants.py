@@ -123,3 +123,19 @@ def test_zero_event_upper_bound_rule_of_three():
     assert zero_event_upper_bound(600) == pytest.approx(0.005)
     with pytest.raises(ValueError):
         zero_event_upper_bound(0)
+
+
+# ---------- LP-16~20 전파경로 주의 체계 ----------
+from _precaution_cases import ASSIGNMENT_CASES, TURNOVER_CASES  # noqa: E402
+
+
+@pytest.mark.parametrize("name,rooms,occ,expected", ASSIGNMENT_CASES, ids=[c[0] for c in ASSIGNMENT_CASES])
+def test_precaution_assignment_rules(name, rooms, occ, expected):
+    assert codes(check_assignment(rooms, H.beds, occ)) == sorted(expected)
+
+
+@pytest.mark.parametrize("name,t,expected", TURNOVER_CASES, ids=[c[0] for c in TURNOVER_CASES])
+def test_precaution_turnover_rules(name, t, expected):
+    vs = check_turnover(t)
+    assert codes(vs) == sorted(expected)
+    assert {v.metric for v in vs} <= {"S2"}

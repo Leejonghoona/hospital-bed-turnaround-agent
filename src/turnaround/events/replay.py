@@ -28,7 +28,11 @@ class NoiseConfig:
 def _patient(p: Patient) -> dict:
     return {"patient_id": p.id, "name": p.name, "gender": p.gender.value if p.gender else None, "age": p.age,
             "department": p.department, "isolation_order": p.isolation_order,
-            "isolation_type": p.isolation_type.value if p.isolation_type else None}
+            "isolation_type": p.isolation_type.value if p.isolation_type else None,
+            "precautions": [x.value for x in p.precautions], "organism": p.organism,
+            "precaution_status": p.precaution_status.value if p.precaution_status else None,
+            "isolation_ordered_by": p.isolation_ordered_by,
+            "immunocompromised": p.immunocompromised, "open_wound": p.open_wound}
 
 
 def _ceil_half_hour(dt: datetime) -> datetime:
@@ -66,8 +70,11 @@ class _Builder:
         self.add(c, "guardian_arrived", EventType.GUARDIAN_ARRIVED, t.guardian_arrived_at, "human")
         self.add(c, "patient_departed", EventType.PATIENT_DEPARTED, t.departed_at, bed_id=bed)
         ctype = d.cleaning_type.value
+        req = {"aerosol_wait_min": d.aerosol_wait_min} if d.aerosol_wait_min else {}
+        if d.sporicidal:
+            req["sporicidal"] = True
         self.add(c, "cleaning_requested", EventType.CLEANING_REQUESTED, t.baseline_cleaning_requested_at, "human",
-                 bed_id=bed, cleaning_type=ctype)
+                 bed_id=bed, cleaning_type=ctype, **req)
         self.add(c, "cleaning_started", EventType.CLEANING_STARTED, t.cleaning_started_at, "human", bed_id=bed)
         self.add(c, "cleaning_done", EventType.CLEANING_DONE, t.cleaning_done_at, "human", bed_id=bed,
                  cleaning_type=ctype)

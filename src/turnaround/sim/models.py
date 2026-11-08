@@ -28,8 +28,35 @@ class CleaningType(str, Enum):
 
 
 class IsolationType(str, Enum):
-    AIRBORNE = "airborne"  # 공기감염 격리
-    CONTACT = "contact"  # 접촉 격리
+    """전파경로별 주의 (질병관리청 의료관련감염 표준예방지침). 엄격한 순서: 공기 > 비말 > 접촉."""
+
+    AIRBORNE = "airborne"  # 공기주의: 음압격리실
+    DROPLET = "droplet"  # 비말주의: 1인실 또는 같은 병원체 코호트
+    CONTACT = "contact"  # 접촉주의: 1인실 또는 같은 병원체 코호트
+
+
+_STRICTNESS = {IsolationType.AIRBORNE: 3, IsolationType.DROPLET: 2, IsolationType.CONTACT: 1}
+
+
+class PrecautionStatus(str, Enum):
+    CONFIRMED = "confirmed"  # 확진
+    SUSPECTED = "suspected"  # 의심
+    PREEMPTIVE = "preemptive"  # 선제 격리 (선별검사 결과 대기)
+
+
+# 병원체(코호트 키) → 필요한 주의. 지침 부록1 기준. 합성 데이터용 코드다.
+ORGANISM_PRECAUTIONS: dict[str, tuple[IsolationType, ...]] = {
+    "MTB": (IsolationType.AIRBORNE,),  # 활동성 폐결핵: 방 공유 금지
+    "MEASLES": (IsolationType.AIRBORNE,),
+    "VARICELLA": (IsolationType.AIRBORNE, IsolationType.CONTACT),
+    "INFLUENZA": (IsolationType.DROPLET,),
+    "PERTUSSIS": (IsolationType.DROPLET,),
+    "ADENOVIRUS": (IsolationType.CONTACT, IsolationType.DROPLET),
+    "MRSA": (IsolationType.CONTACT,),
+    "VRE": (IsolationType.CONTACT,),
+    "CRE": (IsolationType.CONTACT,),
+    "CDIFF": (IsolationType.CONTACT,),  # 퇴실 시 아포 대응 소독
+}
 
 
 class _Frozen(BaseModel):
@@ -74,6 +101,8 @@ class Room(_Frozen):
     room_type: RoomType
     capacity: int = Field(ge=1, le=4)  # 의료법 시행규칙: 병실 최대 4병상
     gender: Gender | None = None  # 다인실만 성별 지정
+    cohort_key: str | None = None  # 같은 병원체 환자 코호트실로 지정된 다인실
+    near_nurse_station: bool = False  # 낙상·섬망 고위험 환자 배치 점수용
 
 
 class Bed(_Frozen):
@@ -88,10 +117,33 @@ class Patient(_Frozen):
     gender: Gender | None  # None은 입력 누락
     age: int = Field(ge=0, le=110)
     department: str
-    isolation_order: bool = False  # 주치의 오더 값
-    isolation_type: IsolationType | None = None
+    isolation_order: bool = False  # 격리 오더 값 (주치의 또는 감염관리실)
+    isolation_type: IsolationType | None = None  # 가장 엄격한 주의 하나 (호환 필드)
+    precautions: tuple[IsolationType, ...] = ()  # 전파경로 주의 집합 (LP-16)
+    organism: str | None = None  # 병원체 = 코호트 키
+    precaution_status: PrecautionStatus | None = None
+    isolation_ordered_by: Literal["physician", "ipc"] | None = None  # ipc = 감염관리실
+    immunocompromised: bool = False  # 코호트실 배치 금지
+    open_wound: bool = False  # 코호트실 배치 금지
     high_fall_risk: bool = False
+    delirium_positive: bool = False
     synthetic: Literal[True] = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_precautions(cls, data):
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        prec = tuple(data.get("precautions") or ())
+        if not prec and data.get("isolation_type") is not None:
+            prec = (IsolationType(data["isolation_type"]),)
+        prec = tuple(sorted({IsolationType(p) for p in prec}, key=lambda p: -_STRICTNESS[p]))
+        data["precautions"] = prec
+        if prec:
+            data["isolation_order"] = True
+            data["isolation_type"] = prec[0]
+        return data
 
 
 class DischargeTimeline(_Frozen):
@@ -121,6 +173,8 @@ class Discharge(_Frozen):
     cleaning_type: CleaningType
     cleaning_delayed: bool
     cleaning_extra_delay_min: int = Field(ge=0)
+    aerosol_wait_min: int = Field(default=0, ge=0)  # 비말·공기주의 퇴실 병실 환기 대기 (LP-20)
+    sporicidal: bool = False  # C. difficile 퇴실: 아포 대응 소독
     durations_min: dict[str, int]  # 단계별로 뽑은 소요시간
     actual: DischargeTimeline
 
@@ -133,6 +187,9 @@ class AdmissionRequest(_Frozen):
     preferred_ward_id: str
     from_icu: bool = False  # 중환자실 하향 전동
     wants_single_room: bool = False  # 1인실 희망 (병실료 차액 동의 필요)
+    single_room_reason: Literal["isolation", "preference"] | None = None  # 차액 동의는 preference만 (LP-22)
+    integrated_care_requested: bool = False  # 간호·간병통합서비스 병동 희망
+    integrated_care_consent: bool | None = None  # 환자(또는 보호자) 동의서. None은 미확인
     cancelled_at: datetime | None = None
 
 
@@ -146,6 +203,7 @@ class GeneratorConfig(_Frozen):
     unregistered_count: int = Field(default=2, ge=0)
     admission_cancel_count: int = Field(default=2, ge=0)
     isolation_discharge_count: int = Field(default=3, ge=0)
+    aerosol_wait_min: int = Field(default=30, ge=0)  # 정책값. 지침에 수치가 없어 설계 가정
 
     @property
     def discharge_count(self) -> int:
@@ -159,9 +217,12 @@ class GeneratorConfig(_Frozen):
                 raise ValueError(f"{name}가 퇴원 건수({total})보다 많다")
         if self.isolation_discharge_count > self.days:
             raise ValueError("격리 퇴실은 하루 1건까지만 둔다")
-        if self.admission_cancel_count > self.admission_count - 7:
+        if self.admission_cancel_count > self.admission_count - N_SPECIAL_ADMISSIONS:
             raise ValueError("입원 취소는 검토 사례가 아닌 일반 입원 대기에서만 고른다")
         return self
+
+
+N_SPECIAL_ADMISSIONS = 10  # 담당 검토 사례로 쓰는 입원 대기 건수 (generator.SPECIAL_KINDS)
 
 
 class SyntheticHospital(_Frozen):

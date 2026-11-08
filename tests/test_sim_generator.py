@@ -5,6 +5,7 @@
 """
 
 import random
+from datetime import timedelta
 import statistics
 from collections import Counter
 
@@ -192,10 +193,35 @@ def test_isolation_discharges_need_terminal_cleaning_in_isolation_rooms(hospital
         if d.patient.isolation_order:
             assert d.cleaning_type is CleaningType.TERMINAL
             assert room.room_type in {RoomType.NEGATIVE_PRESSURE, RoomType.SINGLE}
-            if d.patient.isolation_type is IsolationType.AIRBORNE:  # 공기감염은 음압격리실만
+            if IsolationType.AIRBORNE in d.patient.precautions:  # 공기주의는 음압격리실만 (LP-17)
                 assert room.room_type is RoomType.NEGATIVE_PRESSURE
         else:
             assert d.cleaning_type is CleaningType.GENERAL
+
+
+@pytest.mark.parametrize("seed", range(0, 30))
+def test_isolation_patients_follow_organism_precaution_table(seed):
+    from turnaround.sim.models import ORGANISM_PRECAUTIONS
+    h = generate(seed=seed)
+    patients = [d.patient for d in h.discharges] + [a.patient for a in h.admissions]
+    for p in patients:
+        if p.isolation_order:
+            assert p.organism in ORGANISM_PRECAUTIONS
+            assert set(p.precautions) == set(ORGANISM_PRECAUTIONS[p.organism])
+        else:
+            assert p.precautions == () and p.organism is None
+
+
+@pytest.mark.parametrize("seed", range(0, 30))
+def test_turnover_requirements_follow_precautions(seed):
+    """비말·공기주의 퇴실은 환기 대기 뒤 청소, C. difficile은 아포 대응 소독 (LP-20)."""
+    h = generate(seed=seed)
+    wait = h.config.aerosol_wait_min
+    for d in h.discharges:
+        aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(d.patient.precautions))
+        assert d.aerosol_wait_min == (wait if aerosol else 0)
+        assert d.actual.cleaning_started_at >= d.actual.departed_at + timedelta(minutes=d.aerosol_wait_min)
+        assert d.sporicidal == (d.patient.organism == "CDIFF")
 
 
 def test_patient_gender_matches_shared_room_gender(hospital):
@@ -216,6 +242,15 @@ def test_admissions_include_review_cases(hospital):
     assert any(a.from_icu for a in adm)
     assert any(a.wants_single_room for a in adm)
     assert any(a.patient.gender is None for a in adm)  # 입력 누락
+    assert any(IsolationType.DROPLET in a.patient.precautions for a in adm)  # 비말주의
+    pre = [a for a in adm if a.patient.precaution_status and a.patient.precaution_status.value == "preemptive"]
+    assert pre and all(a.patient.isolation_ordered_by == "ipc" for a in pre)  # 선제 격리는 감염관리실
+    assert any(a.integrated_care_requested and a.integrated_care_consent is None for a in adm)  # 동의 미확인
+    for a in adm:
+        if a.wants_single_room:
+            assert a.single_room_reason == "preference"
+        if a.patient.isolation_order:
+            assert a.single_room_reason == "isolation"  # 격리 사유 1인실은 차액 동의 대상 아님 (LP-22)
 
 
 def test_same_name_pair_exists_between_admission_and_inpatient(hospital):
