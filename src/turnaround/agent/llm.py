@@ -17,6 +17,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol
 
 import requests
@@ -79,7 +80,7 @@ class FakeLLM:
             best = max(cands, key=lambda c: (c["score"], -cands.index(c)))
             return {"bed_id": best["bed_id"], "rationale": f"점수 1순위 {best['bed_id']} ({best['score']:.1f})"}
         if task == "extract":
-            return _fake_extract(data.get("text", ""), data.get("reference_date"))
+            return _fake_extract(data.get("text", ""), data.get("reference_time"))
         if task == "parse_question":
             return _fake_parse(data.get("question", ""))
         raise LLMError(f"모르는 작업: {task}")
@@ -94,6 +95,10 @@ def _fake_extract(text: str, ref: str | None) -> dict:
             hh += 12  # "2시 도착"은 오후로 본다 (병원 낮 시간 가정)
         mm = 30 if m.group(4) else int(m.group(3) or 0)
         out["guardian_eta"] = f"{hh:02d}:{mm:02d}"
+    for code, words in (("guardian", ("보호자가", "출발이 늦")), ("billing", ("수납", "원무과", "정산")),
+                        ("medication", ("약",)), ("transport", ("구급차", "이송차", "택시"))):
+        if any(w in text for w in words) and ("늦" in text or "지연" in text or "대기" in text or "밀림" in text):
+            out.setdefault("delay_reason", code)
     if re.search(r"휠체어|부축", text):
         out["mobility_aid"] = True
     if re.search(r"1인실\s*(희망|원)", text):
@@ -168,12 +173,47 @@ class AnthropicLLM(_HttpLLM):
         return _first_json(text)
 
 
+@dataclass
+class LocalLLM:
+    """원내(온프레미스) 모델: llama.cpp로 GGUF 양자화 모델을 CPU·GPU에서 돌린다. 외부 전송 없음."""
+
+    model_path: str
+    name: str = ""
+    usage: Usage = field(default_factory=Usage)
+    n_ctx: int = 4096
+    n_threads: int | None = None
+    _llm: object = None
+
+    def __post_init__(self):
+        from llama_cpp import Llama  # 선택 의존성
+
+        self.name = self.name or f"local:{Path(self.model_path).name}"
+        self._llm = Llama(model_path=self.model_path, n_ctx=self.n_ctx, n_threads=self.n_threads, verbose=False)
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
+        t0 = time.monotonic()
+        try:
+            res = self._llm.create_chat_completion(
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                response_format={"type": "json_object"}, temperature=0.0, max_tokens=256)
+        except Exception as e:  # noqa: BLE001  모델 런타임 오류는 모두 장애로 본다
+            raise LLMError(f"로컬 모델 오류: {e}") from e
+        self.usage.latency_s += time.monotonic() - t0
+        self.usage.calls += 1
+        u = res.get("usage") or {}
+        self.usage.input_tokens += u.get("prompt_tokens", 0)
+        self.usage.output_tokens += u.get("completion_tokens", 0)
+        return _first_json(res["choices"][0]["message"]["content"] or "")
+
+
 def get_llm(env: dict | None = None) -> LLM:
     """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM."""
     env = os.environ if env is None else env
     kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
     if kind == "fake" or not model:
         return FakeLLM()
+    if kind == "local":
+        return LocalLLM(model_path=model)  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
     if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":
         raise LLMError("외부 LLM은 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 쓴다")
     if kind == "openai" and env.get("OPENAI_API_KEY"):
