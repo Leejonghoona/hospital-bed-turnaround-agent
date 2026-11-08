@@ -6,3 +6,7 @@ from .tools import Candidate, PlanningTools
 
 __all__ = ["LLM", "AnthropicLLM", "Candidate", "FakeLLM", "LLMError", "OpenAILLM", "PlanningAgent",
            "PlanningTools", "get_llm"]
+from .extract import ALLOWED_FIELDS, Extractor, sanitize  # noqa: E402
+from .qa import Answer, Appointment, QueryAgent, Records  # noqa: E402
+
+__all__ += ["ALLOWED_FIELDS", "Answer", "Appointment", "Extractor", "QueryAgent", "Records", "sanitize"]

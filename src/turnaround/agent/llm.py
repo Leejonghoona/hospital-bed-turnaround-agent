@@ -102,7 +102,7 @@ def _fake_extract(text: str, ref: str | None) -> dict:
 
 
 def _fake_parse(q: str) -> dict:
-    case = re.search(r"\b([A-Z]{1,3}-?[A-Z]?\d{1,4})\b", q)
+    case = re.search(r"(?<![A-Za-z0-9])([A-Z]{1,3}-?[A-Z]?\d{1,4})(?![A-Za-z0-9])", q)  # 한글 조사 앞도 잡는다
     if "수술" in q and "퇴원" in q:
         return {"intent": "discharges_with_attending_surgery", "day": "tomorrow" if "내일" in q else "today",
                 "period": "am" if "오전" in q else "any"}
