@@ -276,10 +276,12 @@ def test_noisy_stream_produces_same_saga_commands_as_clean_for_unaffected_cases(
 @pytest.mark.parametrize("seed", range(0, 10))
 def test_every_unregistered_discharge_is_detected(seed):
     h = generate(seed=seed)
-    store, _ = run(hospital_to_events(h, seed=seed), until=at(4, 0), start=at(-1, 16), step=timedelta(minutes=15))
+    evs = hospital_to_events(h, seed=seed)
+    store, _ = run(evs, until=at(4, 0), start=at(-1, 16), step=timedelta(minutes=15))
     flagged = {x.case_id for x in saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED)}
     expected = {d.id for d in h.discharges if d.registered_at is None}
-    late_registered = {d.id for d in h.discharges if d.registered_at and d.registered_at.hour >= 19}
+    # 사가는 "인지한 시각"으로 판정한다. 18:58 등록도 3분 늦게 인지되면 19시 확인 대상이다
+    late_registered = {x.case_id for x in evs if x.type is EventType.DISCHARGE_REGISTERED and x.observed_at.hour >= 19}
     assert expected <= flagged
     assert flagged - expected <= late_registered  # 오경보는 19시 이후 늦게 등록된 건만
 
@@ -468,3 +470,45 @@ def test_pinned_placement_gets_alert_when_patient_gets_isolation_order():
     store, _ = run(evs, until=at(0, 9, 10), start=at(-1, 17, 55))
     tasks = [t for t in saga_events(store, EventType.HUMAN_TASK_CREATED) if t.payload.get("reason") == "pinned_placement_review"]
     assert len(tasks) == 1 and tasks[0].payload["assignee"] == "u7" and tasks[0].payload["trigger"] == "isolation_order_added"
+
+
+# ---------- SAG-6 퇴원약: 처방 발행 기준 타이머, 처방 없음 알림, 수정 사유 (LP-27) ----------
+
+def rx(kind, when, **kw):
+    etype = {"issued": EventType.DISCHARGE_RX_ISSUED, "dispensed": EventType.DISCHARGE_RX_DISPENSED,
+             "revised": EventType.DISCHARGE_RX_REVISED}[kind]
+    return e("D1", f"rx_{kind}:{when:%H%M}", etype, when, **kw)
+
+
+def test_medication_timer_starts_from_rx_issue_not_order():
+    evs = [decided(), registered(), e("D1", "order_confirmed", EventType.ORDER_CONFIRMED, at(0, 9)),
+           rx("issued", at(0, 10)), e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 11, 30))]
+    store, _ = run(evs, until=at(0, 12, 30), start=at(0, 8))
+    assert not saga_events(store, EventType.READY_TIME_RECOMPUTED)  # 처방 발행 10:00 + 2시간 안에 도착
+
+
+def test_medication_late_after_rx_issue_triggers_recompute():
+    evs = [decided(), registered(), e("D1", "order_confirmed", EventType.ORDER_CONFIRMED, at(0, 9)),
+           rx("issued", at(0, 9, 10))]
+    store, _ = run(evs, until=at(0, 11, 30), start=at(0, 8))
+    rec = saga_events(store, EventType.READY_TIME_RECOMPUTED)
+    assert [r.payload["reason"] for r in rec] == ["medication_delay"]
+    assert rec[0].occurred_at == at(0, 11, 10)
+
+
+def test_no_rx_by_policy_time_alerts_ward_once():
+    store, _ = run([decided(), registered()], until=at(0, 12), start=at(0, 8))
+    tasks = [x for x in saga_events(store, EventType.HUMAN_TASK_CREATED) if x.payload.get("kind") == "rx_missing"]
+    assert len(tasks) == 1 and tasks[0].occurred_at == at(0, 11) and tasks[0].payload["assignee"] == "ward"
+
+
+def test_rx_issued_in_time_means_no_alert():
+    store, _ = run([decided(), registered(), rx("issued", at(0, 10, 50))], until=at(0, 12), start=at(0, 8))
+    assert not [x for x in saga_events(store, EventType.HUMAN_TASK_CREATED) if x.payload.get("kind") == "rx_missing"]
+
+
+def test_rx_revision_is_recorded_as_delay_reason():
+    evs = [decided(), registered(), rx("issued", at(0, 9, 30)), rx("revised", at(0, 10, 15), reason="discharge_hold")]
+    store, _ = run(evs, until=at(0, 10, 30), start=at(0, 9))
+    rec = saga_events(store, EventType.DELAY_REASON_RECORDED)
+    assert [(r.payload["reason"], r.payload.get("detail")) for r in rec] == [("rx_revised", "discharge_hold")]

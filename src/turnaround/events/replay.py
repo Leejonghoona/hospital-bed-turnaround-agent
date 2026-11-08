@@ -61,6 +61,12 @@ class _Builder:
         self.add(c, "guardian_eta_set", EventType.GUARDIAN_ETA_SET, eta_set_at, "human",
                  eta=d.guardian_expected_at.isoformat())
         self.add(c, "order_confirmed", EventType.ORDER_CONFIRMED, t.order_confirmed_at)
+        if t.rx_issued_at is not None:
+            self.add(c, "rx_issued", EventType.DISCHARGE_RX_ISSUED, t.rx_issued_at)
+        if t.rx_revised_at is not None:
+            self.add(c, "rx_revised", EventType.DISCHARGE_RX_REVISED, t.rx_revised_at, reason=d.rx_revision_reason)
+        if t.rx_dispensed_at is not None:
+            self.add(c, "rx_dispensed", EventType.DISCHARGE_RX_DISPENSED, t.rx_dispensed_at)
         self.add(c, "medication_ready", EventType.MEDICATION_READY, t.medication_ready_at)
         self.add(c, "education_done", EventType.EDUCATION_DONE, t.education_done_at, "human")
         self.add(c, "billing_done", EventType.BILLING_DONE, t.billing_done_at)
@@ -89,7 +95,8 @@ class _Builder:
             self.add(a.id, "admission_cancelled", EventType.ADMISSION_CANCELLED, a.cancelled_at)
 
 
-_REORDERABLE = {EventType.ORDER_CONFIRMED, EventType.MEDICATION_READY, EventType.BILLING_DONE,
+_REORDERABLE = {EventType.ORDER_CONFIRMED, EventType.DISCHARGE_RX_ISSUED, EventType.DISCHARGE_RX_DISPENSED,
+                EventType.MEDICATION_READY, EventType.BILLING_DONE,
                 EventType.PATIENT_DEPARTED, EventType.CLEANING_STARTED, EventType.BED_READY}
 
 

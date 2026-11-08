@@ -17,7 +17,10 @@ class EventType(str, Enum):
     GUARDIAN_ETA_SET = "guardian_eta_set"
     GUARDIAN_ETA_UPDATED = "guardian_eta_updated"
     ORDER_CONFIRMED = "order_confirmed"
-    MEDICATION_READY = "medication_ready"
+    DISCHARGE_RX_ISSUED = "discharge_rx_issued"  # 퇴원처방 발행 (DAT-7)
+    DISCHARGE_RX_REVISED = "discharge_rx_revised"  # 퇴원처방 수정 (사유: discharge_hold 등)
+    DISCHARGE_RX_DISPENSED = "discharge_rx_dispensed"  # 약제부 조제 완료
+    MEDICATION_READY = "medication_ready"  # 퇴원약 병동 도착
     EDUCATION_DONE = "education_done"
     BILLING_DONE = "billing_done"
     GUARDIAN_ARRIVED = "guardian_arrived"

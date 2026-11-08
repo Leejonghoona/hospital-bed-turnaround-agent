@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum
 from typing import Iterable
 
@@ -25,7 +25,8 @@ class SagaPolicy(BaseModel):
 
     model_config = ConfigDict(frozen=True)
     registration_check_at: time = time(19, 0)  # 전날 19:00 미등록 확인, 청소 예정표 공유
-    medication_delay: timedelta = timedelta(hours=2)
+    medication_delay: timedelta = timedelta(hours=2)  # 처방 발행부터 병동 도착까지 (SAG-6)
+    rx_expected_by: time = time(11, 0)  # 퇴원 당일 이 시각까지 퇴원처방이 없으면 병동에 알림 (설계 가정)
     cleaning_overdue_general: timedelta = timedelta(minutes=120)
     cleaning_overdue_terminal: timedelta = timedelta(minutes=180)
     # 환기 대기 (SAG-2a, LP-23): 병상별 공기순환 횟수로 지침 부록 3 표에서 찾는다. 모르는 병상은 일반실 4회
@@ -77,6 +78,8 @@ class DischargeCase:
     facts: dict[EventType, datetime] = field(default_factory=dict)  # 사실 → 처음 인지한 시각
     commands: set[str] = field(default_factory=set)  # 이미 낸 명령 키
     eta_updates: list[tuple[str, datetime]] = field(default_factory=list)
+    rx_revisions: list[tuple[str, datetime, str | None]] = field(default_factory=list)
+    discharge_date: date | None = None  # 퇴원 예정일
 
     def seen(self, t: EventType) -> datetime | None:
         return self.facts.get(t)
@@ -201,6 +204,10 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.isolation = bool(ev.payload.get("isolation_order"))
             d.precautions = tuple(ev.payload.get("precautions") or ())
             d.organism = ev.payload.get("organism")
+            planned = ev.payload.get("discharge_date")
+            # 예정일이 없으면 오후 결정은 다음 날, 오전 결정은 당일 퇴원으로 본다 (설계 가정)
+            d.discharge_date = (date.fromisoformat(planned) if planned else
+                                ev.observed_at.date() + timedelta(days=1 if ev.observed_at.hour >= 12 else 0))
         d = s.discharges.get(ev.case_id)
         if d is None:
             continue
@@ -213,6 +220,8 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.isolation = True
         if ev.type is EventType.GUARDIAN_ETA_UPDATED:
             d.eta_updates.append((ev.event_id.split(":", 1)[1], ev.observed_at))
+        if ev.type is EventType.DISCHARGE_RX_REVISED:
+            d.rx_revisions.append((ev.event_id.split(":", 1)[1], ev.observed_at, ev.payload.get("reason")))
         if ev.source == "saga":
             d.commands.add(ev.event_id)
         d.facts.setdefault(ev.type, ev.observed_at)
@@ -288,11 +297,24 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
     if now >= due19 and not by(EventType.DISCHARGE_REGISTERED, due19):
         out.cmd(d.id, "registration_check", EventType.REGISTRATION_CHECK_REQUESTED, due19, bed_id=bed)
 
-    # 퇴원약 2시간 지연
-    order = d.seen(EventType.ORDER_CONFIRMED)
-    if order and now >= order + p.medication_delay and not by(EventType.MEDICATION_READY, order + p.medication_delay):
-        out.cmd(d.id, "recompute:medication_delay", EventType.READY_TIME_RECOMPUTED, order + p.medication_delay,
+    # 퇴원약 지연 (SAG-6): 기준점은 처방 발행 시각. 처방 이벤트가 없는 원천이면 오더 확정 시각으로 대신한다
+    base = d.seen(EventType.DISCHARGE_RX_ISSUED) or d.seen(EventType.ORDER_CONFIRMED)
+    if base and now >= base + p.medication_delay and not by(EventType.MEDICATION_READY, base + p.medication_delay):
+        out.cmd(d.id, "recompute:medication_delay", EventType.READY_TIME_RECOMPUTED, base + p.medication_delay,
                 bed_id=bed, reason="medication_delay")
+
+    # 퇴원 당일 정책 시각까지 처방이 없으면 병동에 알림 (주치의 연락은 사람이)
+    if d.discharge_date is not None:
+        rx_due = datetime.combine(d.discharge_date, p.rx_expected_by)
+        if now >= rx_due and not any(by(t, rx_due) for t in (
+                EventType.DISCHARGE_RX_ISSUED, EventType.MEDICATION_READY, EventType.PATIENT_DEPARTED)):
+            out.cmd(d.id, "rx_missing", EventType.HUMAN_TASK_CREATED, rx_due, bed_id=bed, kind="rx_missing",
+                    assignee="ward")
+
+    # 처방 수정은 지연 사유로 기록
+    for key, seen_at, why in d.rx_revisions:
+        out.cmd(d.id, f"delay_reason:{key}", EventType.DELAY_REASON_RECORDED, seen_at, bed_id=bed,
+                reason="rx_revised", detail=why)
 
     # 보호자 도착 예정 변경: 준비 시각 재계산과 지연 사유 코드 기록
     for key, seen_at in d.eta_updates:

@@ -269,3 +269,16 @@ def test_admissions_spread_over_five_days(hospital):
 def test_config_counts_are_validated():
     with pytest.raises(ValueError):
         generate(seed=1, config=GeneratorConfig(guardian_delay_count=31))
+
+
+@pytest.mark.parametrize("seed", range(0, 20))
+def test_discharge_rx_stages_are_ordered_and_revision_rate_is_15pct(seed):
+    """DAT-7 퇴원약: 처방 발행 → (수정) → 조제 → 병동 도착. 수정 비율은 합성 가정 15%."""
+    h = generate(seed=seed)
+    revised = [d for d in h.discharges if d.actual.rx_revised_at is not None]
+    assert len(revised) == round(len(h.discharges) * 0.15)
+    for d in h.discharges:
+        t = d.actual
+        assert t.order_confirmed_at <= t.rx_issued_at < t.medication_ready_at
+        assert (t.rx_revised_at or t.rx_issued_at) <= t.rx_dispensed_at <= t.medication_ready_at
+        assert (d.rx_revision_reason is not None) == (t.rx_revised_at is not None)

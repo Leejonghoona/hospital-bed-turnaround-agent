@@ -9,6 +9,7 @@ from turnaround.rules import aerosol_wait_min
 
 from .distributions import DEFAULT_STAGE_DISTRIBUTIONS
 from .models import (
+    RX_REVISION_REASONS,
     AdmissionRequest,
     Bed,
     CleaningType,
@@ -70,6 +71,7 @@ def _layout() -> tuple[tuple[Room, ...], tuple[Bed, ...]]:
 class _Gen:
     def __init__(self, seed: int, config: GeneratorConfig, dists: dict[str, StageDistribution]):
         self.rng = random.Random(seed)
+        self.rx_rng = random.Random(f"rx-{seed}")  # 퇴원약 단계 전용: 기존 난수열을 바꾸지 않는다
         self.cfg = config
         self.dists = dists
         self.rooms, self.beds = _layout()
@@ -145,6 +147,7 @@ class _Gen:
         guardian_delayed = self.pick_indices(n, cfg.guardian_delay_count)
         cleaning_delayed = self.pick_indices(n, cfg.cleaning_delay_count)
         unregistered = self.pick_indices(n, cfg.unregistered_count)
+        rx_revised = set(self.rx_rng.sample(range(n), round(n * cfg.rx_revision_rate)))
 
         result = []
         for i, (day, bed, iso) in enumerate(plan):
@@ -174,7 +177,15 @@ class _Gen:
 
             m = lambda k: timedelta(minutes=k)  # noqa: E731
             order = self.day_at(day, time(8, 30)) + m(d["order_after_round"])
-            med = order + m(d["medication"])
+            # 퇴원약 (DAT-7): 처방 발행 → (수정) → 조제 → 병동 도착. 단계 시각은 설계 가정
+            rx_issued = order + m(self.rx_rng.randint(0, 30))
+            med = max(order + m(d["medication"]), rx_issued + m(20))
+            rx_revised_at = rx_reason = None
+            if i in rx_revised:
+                rx_revised_at = rx_issued + m(self.rx_rng.randint(15, 60))
+                rx_reason = self.rx_rng.choice(RX_REVISION_REASONS)
+                med = max(med, rx_revised_at + m(self.rx_rng.randint(30, 60)))  # 재조제
+            rx_dispensed = max(med - m(self.rx_rng.randint(10, 25)), rx_revised_at or rx_issued)
             edu = order + m(d["education"])
             billing = med + m(d["billing"])
             departed = max(billing, edu, guardian_arrived) + m(d["exit_prep"])
@@ -193,12 +204,13 @@ class _Gen:
                 guardian_expected_at=guardian_expected, guardian_delayed=i in guardian_delayed,
                 cleaning_type=cleaning_type, cleaning_delayed=i in cleaning_delayed,
                 cleaning_extra_delay_min=extra, durations_min=d,
-                aerosol_wait_min=wait, sporicidal=patient.organism == "CDIFF",
+                aerosol_wait_min=wait, sporicidal=patient.organism == "CDIFF", rx_revision_reason=rx_reason,
                 actual=DischargeTimeline(
                     order_confirmed_at=order, medication_ready_at=med, education_done_at=edu,
                     billing_done_at=billing, guardian_arrived_at=guardian_arrived, departed_at=departed,
                     baseline_cleaning_requested_at=requested, cleaning_started_at=clean_start,
                     cleaning_done_at=clean_done, bed_ready_at=ready,
+                    rx_issued_at=rx_issued, rx_revised_at=rx_revised_at, rx_dispensed_at=rx_dispensed,
                 ),
             ))
         return tuple(result)

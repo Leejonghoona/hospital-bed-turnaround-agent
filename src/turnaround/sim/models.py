@@ -154,6 +154,9 @@ class Patient(_Frozen):
         return data
 
 
+RX_REVISION_REASONS = ("discharge_hold", "dose_change", "add_medication")  # 수정 사유 1위는 퇴원 보류 (LP-27)
+
+
 class DischargeTimeline(_Frozen):
     """기존 방식(에이전트 없음) 기준선의 실제 시각."""
 
@@ -167,6 +170,9 @@ class DischargeTimeline(_Frozen):
     cleaning_started_at: datetime
     cleaning_done_at: datetime  # 청소 완료 신호
     bed_ready_at: datetime  # 침상 정리 후 준비 완료
+    rx_issued_at: datetime | None = None  # 퇴원처방 발행 (DAT-7)
+    rx_revised_at: datetime | None = None  # 퇴원처방 수정 (수정 사례만)
+    rx_dispensed_at: datetime | None = None  # 약제부 조제 완료. 병동 도착은 medication_ready_at
 
 
 class Discharge(_Frozen):
@@ -183,6 +189,7 @@ class Discharge(_Frozen):
     cleaning_extra_delay_min: int = Field(ge=0)
     aerosol_wait_min: int = Field(default=0, ge=0)  # 비말·공기주의 퇴실 병실 환기 대기 (LP-20)
     sporicidal: bool = False  # C. difficile 퇴실: 아포 대응 소독
+    rx_revision_reason: str | None = None  # 퇴원처방 수정 사유 (수정 사례만)
     durations_min: dict[str, int]  # 단계별로 뽑은 소요시간
     actual: DischargeTimeline
 
@@ -213,6 +220,7 @@ class GeneratorConfig(_Frozen):
     isolation_discharge_count: int = Field(default=3, ge=0)
     # 환기 대기: 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다 (LP-23). 병원 규칙으로 덮어쓰려면 값을 넣는다
     aerosol_wait_override_min: int | None = Field(default=None, ge=0)
+    rx_revision_rate: float = Field(default=0.15, ge=0, le=1)  # 퇴원처방 수정 비율 (LP-27, 합성 가정)
 
     @property
     def discharge_count(self) -> int:
