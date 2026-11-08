@@ -41,6 +41,18 @@ def test_external_llm_requires_synthetic_ack():
     assert llm.name == "openai:m"
 
 
+@pytest.mark.parametrize("model,has_temp", [("claude-haiku-5-5", False), ("claude-sonnet-5-5", False),
+                                            ("claude-opus-5-5", False), ("claude-3-5-haiku-latest", True),
+                                            ("claude-sonnet-4-5", True)])
+def test_anthropic_body_omits_temperature_for_new_models(model, has_temp):
+    """Claude 5 계열은 temperature를 받지 않는다(HTTP 400). 예전 모델만 온도 0을 보낸다."""
+    from turnaround.agent.llm import AnthropicLLM
+
+    body = AnthropicLLM(model=model).body("s", "u")
+    assert ("temperature" in body) is has_temp
+    assert body["model"] == model and body["messages"] == [{"role": "user", "content": "u"}]
+
+
 def test_fake_llm_is_deterministic():
     a, b = FakeLLM(), FakeLLM()
     u = '{"candidates": [{"bed_id": "X", "score": 1.0}, {"bed_id": "Y", "score": 3.0}]}'

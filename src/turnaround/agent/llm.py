@@ -174,12 +174,17 @@ class OpenAILLM(_HttpLLM):
 class AnthropicLLM(_HttpLLM):
     base_url: str = "https://api.anthropic.com/v1"
 
-    def complete_json(self, task: str, system: str, user: str) -> dict:
-        body = {"model": self.model, "max_tokens": 1024, "temperature": 0, "system": system + "\nJSON 객체 하나만 출력한다.",
+    def body(self, system: str, user: str) -> dict:
+        body = {"model": self.model, "max_tokens": 1024, "system": system + "\nJSON 객체 하나만 출력한다.",
                 "messages": [{"role": "user", "content": user}]}
+        if re.match(r"claude-(3|[a-z]+-4)", self.model):
+            body["temperature"] = 0  # 반복 일관성. Claude 5 계열은 temperature를 받지 않는다(HTTP 400)
+        return body
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
         res = self._post(f"{self.base_url}/messages",
                          {"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version": "2023-06-01"},
-                         body)
+                         self.body(system, user))
         u = res.get("usage") or {}
         self.usage.input_tokens += u.get("input_tokens", 0)
         self.usage.output_tokens += u.get("output_tokens", 0)
