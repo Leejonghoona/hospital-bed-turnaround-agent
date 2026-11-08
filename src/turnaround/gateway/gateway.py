@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterable, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -44,6 +44,14 @@ class Proposal(BaseModel):
     discharge_id: str | None = None  # 이 병상을 비우는 퇴원 사례 (사전 매칭이면)
     scores: dict[str, float] = Field(default_factory=dict)  # 후보 병상 점수 (1·2순위 차 판정)
     alternatives: list[str] = Field(default_factory=list)  # 검토 카드 대안
+
+
+def _next_workday_noon(now: datetime) -> datetime:
+    """사후 검토 기한: 다음 평일 정오. 공휴일은 반영하지 않는다 (MVP 가정)."""
+    d = now.date() + timedelta(days=1)
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return datetime(d.year, d.month, d.day, 12, tzinfo=now.tzinfo)
 
 
 @dataclass
@@ -476,7 +484,8 @@ class Gateway:
     # ---------- 관리자 직접 수정 ----------
 
     def manual_override(self, case: str, bed_id: str, actor: str, role: str, reason: str, now: datetime,
-                        safety_exception_by: tuple[str, str] | None = None) -> Decision:
+                        safety_exception_by: tuple[str, str] | None = None,
+                        reason_text: str | None = None) -> Decision:
         oid = f"mo{self.store.last_seq() + 1}"
         mo = self.policy.manual_override
         events = self._events()
@@ -495,13 +504,18 @@ class Gateway:
         else:
             violations = self._shacl(case, patient, bed_id, events)
             exception = None
+            tier = self._safety_tier(violations, patient) if violations else None
             if violations:
-                if not (safety_exception_by and safety_exception_by[1] in mo.safety_exception_roles):
-                    d = Decision("refused", "override", None, violations)
+                approved = bool(safety_exception_by and safety_exception_by[1] in mo.safety_exception_roles)
+                ok = (tier == "preapproval" and approved) or (tier == "reason_entry" and (reason_text or approved))
+                if not ok:
+                    d = Decision("refused", "override", tier, violations)
                     self._audit(f"gw:{oid}:override", case, now, "override", oid, d, actor=actor, role=role,
-                                reason_code=reason, bed_id=bed_id)
+                                reason_code=reason, bed_id=bed_id, reason_text=reason_text)
                     return d
-                exception = {"by": safety_exception_by[0], "role": safety_exception_by[1], "violations": violations}
+                exception = {"tier": tier, "violations": violations, "reason_text": reason_text}
+                if approved:
+                    exception.update(by=safety_exception_by[0], role=safety_exception_by[1])
             old = self._assignments(events).get(case)
             if old and old != bed_id:
                 self._emit(case, f"gw:{oid}:released", EventType.PREMATCH_RELEASED, now, bed_id=old,
@@ -514,10 +528,26 @@ class Gateway:
                        proposal_id=oid, manual=True, version=self.location_version(bed_id))
             self._emit(case, f"gw:{oid}:applied", EventType.MANUAL_OVERRIDE_APPLIED, now, bed_id=bed_id,
                        actor=actor, reason_code=reason)
-            d = Decision("applied", "override", None, [])
+            if tier == "reason_entry" and not (exception or {}).get("by"):
+                self._emit(case, f"gw:{oid}:post_review", EventType.HUMAN_TASK_CREATED, now, kind="post_review",
+                           assignee="ipc", bed_id=bed_id, violations=violations, reason_text=reason_text,
+                           due=_next_workday_noon(now).isoformat())
+            d = Decision("applied", "override", tier, [])
             self._audit(f"gw:{oid}:override", case, now, "override", oid, d, actor=actor, role=role,
-                        reason_code=reason, bed_id=bed_id, safety_exception=exception)
+                        reason_code=reason, bed_id=bed_id, safety_exception=exception, reason_text=reason_text)
             return d
         self._audit(f"gw:{oid}:override", case, now, "override", oid, d, actor=actor, role=role,
                     reason_code=reason, bed_id=bed_id)
         return d
+
+    _TIER_RANK = {"reason_entry": 1, "preapproval": 2, "forbidden": 3}
+
+    def _safety_tier(self, violations: list[str], patient: Patient) -> str:
+        mo = self.policy.manual_override
+        tiers = []
+        for v in violations:
+            t = mo.safety_tiers.get(v, "forbidden")  # 분류 안 된 위반은 가장 엄격하게
+            if patient.organism and patient.organism in mo.preapproval_organisms.get(v, []):
+                t = max(t, "preapproval", key=self._TIER_RANK.__getitem__)
+            tiers.append(t)
+        return max(tiers, key=self._TIER_RANK.__getitem__)

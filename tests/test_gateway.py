@@ -312,7 +312,8 @@ def test_manual_override_cannot_break_safety_rule_without_ipc_exception():
                             safety_exception_by=("ipc-1", "ipc"))
     assert d2.status == "applied"
     audit = [e for e in store.read() if e.type is EventType.GATEWAY_DECISION and e.payload["step"] == "override"][-1]
-    assert audit.payload["safety_exception"] == {"by": "ipc-1", "role": "ipc",
+    assert audit.payload["safety_exception"] == {"by": "ipc-1", "role": "ipc", "tier": "preapproval",
+                                                 "reason_text": None,
                                                  "violations": ["airborne_needs_negative_pressure"]}
 
 
@@ -440,3 +441,57 @@ def test_release_pin_returns_case_to_agent():
     assert "W72-R04-B3" not in gw.placement_tags(role="bed_manager")
     d = gw.submit(prop("p9", "A1", "W72-R04-B4", store=store), at(14))
     assert "pinned_by_human" not in d.reasons
+
+
+# ---------- GW-10 안전 예외 3단계 (LP-24) ----------
+
+def _mo(gw, case, bed, now, **kw):
+    return gw.manual_override(case, bed, actor="u1", role="bed_manager", reason="clinical", now=now, **kw)
+
+
+def test_tb_room_sharing_is_forbidden_even_with_ipc_approval():
+    census = {"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)}
+    store, gw = make([adm(gender="M", organism="MTB")], census=census)
+    d = _mo(gw, "A1", "W71-R03-B2", at(12), safety_exception_by=("ipc-1", "ipc"), reason_text="음압실 없음")
+    assert d.status == "refused" and d.tier == "forbidden"
+
+
+def test_same_room_same_name_is_forbidden():
+    census = {"W71-R04-B1": census_patient("SYN-C1", name="김가온")}
+    store, gw = make([adm(name="김가온")], census=census)
+    d = _mo(gw, "A1", "W71-R04-B3", at(12), safety_exception_by=("ipc-1", "ipc"), reason_text="보호자 요청")
+    assert d.status == "refused" and d.tier == "forbidden"
+
+
+def test_airborne_in_single_room_needs_preapproval_and_night_proxy_counts():
+    store, gw = make([adm(gender="M", organism="MEASLES")])
+    assert _mo(gw, "A1", "W71-R02-B1", at(12), reason_text="급함").tier == "preapproval"
+    d = _mo(gw, "A1", "W71-R02-B1", at(2, day=1), safety_exception_by=("dr-k", "id_oncall"))
+    assert d.status == "applied"
+
+
+def test_cre_in_multi_room_needs_preapproval_not_reason_only():
+    store, gw = make([adm(gender="M", organism="CRE")])
+    d = _mo(gw, "A1", "W71-R03-B2", at(12), reason_text="1인실 없음")
+    assert d.status == "refused" and d.tier == "preapproval"
+
+
+def test_contact_in_multi_room_proceeds_with_reason_and_creates_post_review():
+    store, gw = make([adm(gender="M", organism="MRSA")])
+    assert _mo(gw, "A1", "W71-R03-B2", at(12)).status == "refused"  # 사유 없으면 거부
+    d = _mo(gw, "A1", "W71-R03-B2", at(16, day=3), reason_text="1인실·코호트 없음, 커튼과 1m 간격")  # 목요일
+    assert d.status == "applied" and d.tier == "reason_entry"
+    task = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "post_review"][-1]
+    assert task.payload["due"] == at(12, day=4).isoformat()  # 다음 근무일(금) 정오
+
+
+def test_post_review_due_skips_weekend():
+    store, gw = make([adm(gender="M", organism="MRSA")])
+    _mo(gw, "A1", "W71-R03-B2", at(16, day=4), reason_text="커튼과 1m 간격")  # 금요일
+    task = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "post_review"][-1]
+    assert task.payload["due"] == at(12, day=7).isoformat()  # 월요일 정오
+
+
+def test_agent_proposal_never_uses_exceptions():
+    store, gw = make([adm(gender="M", organism="MRSA")])
+    assert gw.submit(prop(store=store, bed="W71-R03-B2"), at(9)).status == "rejected"

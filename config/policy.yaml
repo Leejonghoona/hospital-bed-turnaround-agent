@@ -23,6 +23,19 @@ query_fields:                # 역할별로 답할 수 있는 필드
 manual_override:
   roles: [bed_manager]
   reason_codes: [vip, patient_request, clinical, operational, other]
-  safety_exception_roles: [ipc]   # 안전 규칙 예외를 승인할 수 있는 역할 (감염관리실)
+  safety_exception_roles: [ipc, id_oncall]   # 감염관리실, 야간·휴일은 감염내과 당직이 대행 (id_oncall은 MVP 가정)
+  safety_tiers:              # GW-10 안전 예외 3단계 (LP-24, 표준예방지침 2017 근거)
+    tb_shared_room: forbidden              # 5.5.2.4 결핵 방 공유 금지
+    same_name_room: forbidden              # 환자 확인 오류 (설계 가정)
+    gender_missing: forbidden              # 입력 누락은 예외 대상 아님
+    unknown_bed: forbidden
+    airborne_needs_negative_pressure: preapproval  # 5.5.2.6 감염관리 전문가와 상의
+    non_cohort_in_cohort_room: preapproval
+    protective_in_cohort: preapproval      # 5.3.2.3 코호트 고위험 금지
+    preemptive_in_cohort: preapproval
+    isolation_room: reason_entry           # 5.3.2.4 / 5.4.2.5 커튼과 1m 차선책 + 사후 검토
+    gender_room: reason_entry
+  preapproval_organisms:
+    isolation_room: [CRE, CPE]             # 5.2.1 CRE 1인실 우선, 감염관리실무자 결정
 aerosol_wait_min: 30         # 비말·공기주의 퇴실 환기 대기 (LP-20, 설계 가정)
 external_llm: deny

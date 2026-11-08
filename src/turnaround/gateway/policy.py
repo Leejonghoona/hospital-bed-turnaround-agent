@@ -15,6 +15,9 @@ class ManualOverridePolicy(BaseModel):
     roles: list[str]
     reason_codes: list[str]
     safety_exception_roles: list[str]
+    # GW-10 안전 예외 3단계 (LP-24). 위반 코드 -> forbidden | preapproval | reason_entry
+    safety_tiers: dict[str, str] = Field(default_factory=dict)
+    preapproval_organisms: dict[str, list[str]] = Field(default_factory=dict)  # 병원체에 따라 단계를 올리는 코드
 
 
 class Policy(BaseModel):
