@@ -119,6 +119,8 @@ class SagaState:
     admission_facts: dict[str, dict[EventType, datetime]] = field(default_factory=dict)
     admission_payload: dict[str, dict] = field(default_factory=dict)
     corrections: list[Event] = field(default_factory=list)  # 입력 정정 (EVT-4)
+    pins: dict[str, str] = field(default_factory=dict)  # 고정된 입원 사례 → 직접 수정한 사람 (GW-11)
+    pin_triggers: list[Event] = field(default_factory=list)  # 고정 뒤 생긴 안전 관련 변화
     confirmed_corrections: set[str] = field(default_factory=set)
 
 
@@ -126,9 +128,37 @@ _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventTy
                 EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW, EventType.WARD_ACCEPTED}
 
 
+_PIN_TRIGGERS = {EventType.ISOLATION_ORDER_ADDED, EventType.PATIENT_INFO_CORRECTED, EventType.ISOLATION_RELEASED}
+
+
+def _bed_discharge(s: SagaState, bed: str | None) -> str | None:
+    for d in s.discharges.values():
+        if d.bed_id == bed and EventType.DISCHARGE_CANCELLED not in d.facts:
+            return d.id
+    return None
+
+
 def fold(events: Iterable[Event]) -> SagaState:
     s = SagaState()
     for ev in sorted(events, key=lambda x: (x.seq or 0, x.observed_at)):
+        if ev.type is EventType.MANUAL_OVERRIDE_APPLIED:
+            s.pins[ev.case_id] = ev.payload.get("actor", "")
+            continue
+        if ev.type is EventType.MANUAL_PIN_RELEASED:
+            s.pins.pop(ev.case_id, None)
+            continue
+        if ev.type in _PIN_TRIGGERS and ev.case_id in s.pins:
+            s.pin_triggers.append(ev)
+        if ev.type is EventType.MATCH_COMMITTED and ev.source == "gateway":
+            # 게이트웨이 확정과 직접 수정 배정도 매칭으로 본다 (SAG-7)
+            bed = ev.payload.get("bed_id")
+            cur = s.matches.get(ev.case_id)
+            if cur is None or cur.bed_id != bed or not cur.active:
+                s.matches[ev.case_id] = MatchCase(ev.case_id, bed, ev.payload.get("discharge_id") or _bed_discharge(s, bed),
+                                                  {ev.type: ev.observed_at})
+            else:
+                cur.facts.setdefault(ev.type, ev.observed_at)
+            continue
         if ev.type is EventType.PREMATCH_CREATED:
             s.matches[ev.case_id] = MatchCase(ev.case_id, ev.payload["bed_id"], ev.payload.get("discharge_id"),
                                               {ev.type: ev.observed_at})
@@ -196,6 +226,10 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
         if d.round > 1:
             out.scopes[d.id] = f"r{d.round}"
         _decide_discharge(d, s, now, out, policy)
+    for t in s.pin_triggers:  # 고정된 배치도 계속 감시: 안전 관련 변화는 직접 수정한 사람에게 (GW-11)
+        if t.case_id in s.pins:
+            out.cmd(t.case_id, f"task:pinned_review:{t.event_id}", EventType.HUMAN_TASK_CREATED, t.observed_at,
+                    reason="pinned_placement_review", assignee=s.pins[t.case_id], trigger=t.type.value)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \
@@ -311,6 +345,9 @@ def _compensate(d: DischargeCase, s: SagaState, now: datetime, out: _Out, depart
             out.cmd(m.admission_id, f"task:recontact:{bed}", EventType.HUMAN_TASK_CREATED, now,
                     bed_id=bed, reason="recontact")
         else:
+            if m.admission_id in s.pins:
+                out.cmd(m.admission_id, f"task:pinned_review:cancel:{bed}", EventType.HUMAN_TASK_CREATED, now,
+                        reason="pinned_placement_review", assignee=s.pins[m.admission_id], trigger="discharge_cancelled")
             out.cmd(m.admission_id, f"prematch_released:{bed}", EventType.PREMATCH_RELEASED, now,
                     bed_id=bed, reason="discharge_cancelled")
             _notify_ward_if_accepted(m, out, now, "discharge_cancelled")

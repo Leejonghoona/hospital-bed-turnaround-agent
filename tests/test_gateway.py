@@ -419,3 +419,24 @@ def test_roommate_state_is_updated_from_events_for_shacl():
     store.append(ev("SYN-C3", "correction:1", EventType.PATIENT_INFO_CORRECTED, at(8), "his", field="name", value="김가온"))
     d = gw.submit(prop("p1", bed="W71-R04-B3", store=store), at(9))
     assert d.status == "rejected" and "same_name_room" in d.reasons
+
+
+# ---------- GW-11 직접 수정 태그, 고정 해제 ----------
+
+def test_manual_placement_tag_shows_who_when_and_masks_vip_for_others():
+    store, gw = make([adm()])
+    gw.manual_override("A1", "W72-R04-B3", actor="u1", role="bed_manager", reason="vip", now=at(12))
+    mgr = gw.placement_tags(role="bed_manager")["W72-R04-B3"]
+    assert mgr == {"manual": True, "by": "u1", "at": at(12).isoformat(), "reason": "vip"}
+    nurse = gw.placement_tags(role="ward_nurse")["W72-R04-B3"]
+    assert nurse["manual"] is True and nurse["reason"] == "요청 배치" and "by" not in nurse
+
+
+def test_release_pin_returns_case_to_agent():
+    store, gw = make([adm()])
+    gw.manual_override("A1", "W72-R04-B3", actor="u1", role="bed_manager", reason="clinical", now=at(12))
+    assert gw.release_pin("A1", actor="u1", role="ward_nurse", now=at(13)).status == "refused"
+    assert gw.release_pin("A1", actor="u1", role="bed_manager", now=at(13)).status == "released"
+    assert "W72-R04-B3" not in gw.placement_tags(role="bed_manager")
+    d = gw.submit(prop("p9", "A1", "W72-R04-B4", store=store), at(14))
+    assert "pinned_by_human" not in d.reasons

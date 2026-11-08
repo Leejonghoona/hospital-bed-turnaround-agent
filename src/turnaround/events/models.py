@@ -66,6 +66,7 @@ class EventType(str, Enum):
     QUERY_ANSWERED = "query_answered"
     QUERY_REFUSED = "query_refused"
     MANUAL_OVERRIDE_APPLIED = "manual_override_applied"  # 관리자 직접 수정, 사례 고정
+    MANUAL_PIN_RELEASED = "manual_pin_released"  # 고정 해제, 에이전트 관리로 복귀 (GW-11)
     LOCATION_UPDATED = "location_updated"  # HIS 병상 정보 변경 (가상 FHIR 버전 증가)
     PATIENT_INFO_UPDATED = "patient_info_updated"
     PATIENT_INFO_CORRECTED = "patient_info_corrected"  # 입력 정정 (EVT-4)

@@ -421,3 +421,41 @@ def test_loosening_correction_creates_confirmation_task_once():
     tasks = saga_events(store, EventType.HUMAN_TASK_CREATED)
     assert [t.payload["reason"] for t in tasks] == ["confirm_correction"]
     assert tasks[0].payload["correction_id"] == "P1:correction:1"
+
+
+# ---------- SAG-7 확정·직접 수정 배정 인식, GW-11 고정 배치 감시 ----------
+
+def _committed(adm="P1", bed="W72-R03-B1", manual=False, when=None, actor=None):
+    payload = {"bed_id": bed, "proposal_id": "x"}
+    if manual:
+        payload["manual"] = True
+    evs = [Event(event_id=f"gw:{adm}:committed", case_id=adm, type=EventType.MATCH_COMMITTED,
+                 occurred_at=when or at(-1, 18), observed_at=when or at(-1, 18), source="gateway", payload=payload)]
+    if manual:
+        evs.append(Event(event_id=f"gw:{adm}:applied", case_id=adm, type=EventType.MANUAL_OVERRIDE_APPLIED,
+                         occurred_at=when or at(-1, 18), observed_at=when or at(-1, 18), source="gateway",
+                         payload={"bed_id": bed, "actor": actor or "u1", "reason_code": "vip"}))
+    return evs
+
+
+def test_saga_compensates_gateway_committed_match_on_discharge_cancel():
+    evs = [decided(), registered(), *_committed(), e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11))]
+    store, _ = run(evs, until=at(0, 11, 10), start=at(-1, 17))
+    assert [x.case_id for x in saga_events(store, EventType.PREMATCH_RELEASED)] == ["P1"]
+
+
+def test_saga_compensates_manual_placement_too_and_alerts_actor():
+    evs = [decided(), registered(), *_committed(manual=True, actor="u7"),
+           e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11))]
+    store, _ = run(evs, until=at(0, 11, 10), start=at(-1, 17))
+    tasks = saga_events(store, EventType.HUMAN_TASK_CREATED)
+    assert any(t.payload.get("reason") == "pinned_placement_review" and t.payload.get("assignee") == "u7" for t in tasks)
+
+
+def test_pinned_placement_gets_alert_when_patient_gets_isolation_order():
+    evs = [*_committed(manual=True, actor="u7"),
+           e("P1", "isolation_order_added", EventType.ISOLATION_ORDER_ADDED, at(0, 9), "his",
+             organism="MTB", precautions=["airborne"])]
+    store, _ = run(evs, until=at(0, 9, 10), start=at(-1, 17, 55))
+    tasks = [t for t in saga_events(store, EventType.HUMAN_TASK_CREATED) if t.payload.get("reason") == "pinned_placement_review"]
+    assert len(tasks) == 1 and tasks[0].payload["assignee"] == "u7" and tasks[0].payload["trigger"] == "isolation_order_added"

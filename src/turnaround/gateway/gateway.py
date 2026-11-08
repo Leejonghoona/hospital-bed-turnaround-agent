@@ -148,8 +148,44 @@ class Gateway:
                 n += 1
         return n
 
+    def _pins(self, events: list[Event]) -> dict[str, Event]:
+        """현재 고정된 사례 → 마지막 직접 수정 이벤트. 해제되면 빠진다."""
+        pins: dict[str, Event] = {}
+        for e in events:
+            if e.type is EventType.MANUAL_OVERRIDE_APPLIED:
+                pins[e.case_id] = e
+            elif e.type is EventType.MANUAL_PIN_RELEASED:
+                pins.pop(e.case_id, None)
+        return pins
+
     def _pinned(self, case: str, events: list[Event]) -> bool:
-        return any(e.type is EventType.MANUAL_OVERRIDE_APPLIED and e.case_id == case for e in events)
+        return case in self._pins(events)
+
+    def placement_tags(self, role: str) -> dict[str, dict]:
+        """직접 수정 배치 태그 (GW-11). 관리 역할만 누가·사유를 보고, 다른 역할은 분류만 본다."""
+        full = role in self.policy.manual_override.roles
+        tags = {}
+        for case, e in self._pins(self._events()).items():
+            reason = e.payload.get("reason_code")
+            if full:
+                tags[e.payload["bed_id"]] = {"manual": True, "by": e.payload.get("actor"),
+                                             "at": e.occurred_at.isoformat(), "reason": reason}
+            else:
+                tags[e.payload["bed_id"]] = {"manual": True, "reason": "요청 배치" if reason in ("vip", "patient_request")
+                                             else "직접 배치"}
+        return tags
+
+    def release_pin(self, case: str, actor: str, role: str, now: datetime) -> Decision:
+        rid = f"rp{self.store.last_seq() + 1}"
+        if role not in self.policy.manual_override.roles:
+            d = Decision("refused", "release_pin", None, ["role_not_allowed"])
+        elif not self._pinned(case, self._events()):
+            d = Decision("refused", "release_pin", None, ["not_pinned"])
+        else:
+            self._emit(case, f"gw:{rid}:released", EventType.MANUAL_PIN_RELEASED, now, actor=actor)
+            d = Decision("released", "release_pin")
+        self._audit(f"gw:{rid}:release_pin", case, now, "release_pin", rid, d, actor=actor, role=role)
+        return d
 
     def _ward_accepted(self, pid: str, events: list[Event]) -> bool:
         return any(e.type is EventType.WARD_ACCEPTED and e.payload.get("proposal_id") == pid for e in events)
