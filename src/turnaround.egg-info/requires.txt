@@ -1,0 +1,7 @@
+pydantic>=2.6
+pyyaml>=6
+rdflib>=7
+pyshacl>=0.25
+
+[dev]
+pytest>=8

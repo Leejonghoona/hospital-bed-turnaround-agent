@@ -10,4 +10,11 @@
 이벤트 저장소 → 사례 워크플로(사가) → 계획 에이전트와 도구 → 실행 게이트웨이 → 부서 화면 공유, 병동 회신, 병상관리 검토, 환경 청소 요청
 
 ## 상태
-설계 완료(모델 선정 포함, `docs/DECISIONS.md`), 구현 시작 전.
+설계 완료(모델 선정 포함, `docs/DECISIONS.md`). 구현 1단계(합성 데이터 생성기) 완료.
+
+## 실행
+```bash
+pip install -e '.[dev]'
+pytest
+python -m turnaround.sim --seed 42 --out data/synthetic_seed42.json
+```
