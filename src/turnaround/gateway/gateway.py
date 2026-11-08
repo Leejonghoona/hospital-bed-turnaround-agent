@@ -424,6 +424,11 @@ class Gateway:
             d = Decision("refused", "override", None, ["reason_required"])
         elif patient is None or bed_id not in self.room_of:
             d = Decision("refused", "override", None, ["unknown_case_or_bed"])
+        elif bed_id in self._occupants(events, exclude_case=case):
+            # 물리 사실(병상 점유)은 누구도, 어떤 예외로도 넘지 못한다
+            d = Decision("refused", "override", None, ["bed_occupied"])
+        elif self._isolation_discharge_pending(bed_id, events):
+            d = Decision("refused", "override", None, ["precondition_unmet"])  # 종말소독 완료 전
         else:
             violations = self._shacl(case, patient, bed_id, events)
             exception = None

@@ -321,3 +321,30 @@ def test_vip_reason_is_not_exposed_to_vendor_query():
     gw.manual_override("A1", "W72-R04-B3", actor="u1", role="bed_manager", reason="vip", now=at(12))
     d = gw.query("environment_vendor", ["reason"], case="A1", now=at(12, 5))
     assert d.status == "refused"
+
+
+# ---------- 직접 수정도 물리 사실은 넘지 못한다 (조사에서 찾은 빈틈) ----------
+
+def test_manual_override_cannot_use_occupied_bed_even_with_exception():
+    store, gw = make([adm("A1"), adm("A2")])
+    _through_to_ward_acceptance(store, gw, "p1", "A1", "W72-R04-B2")
+    gw.commit("p1", gw.location_version("W72-R04-B2"), at(10))
+    d = gw.manual_override("A2", "W72-R04-B2", actor="u", role="bed_manager", reason="vip", now=at(12),
+                           safety_exception_by=("ipc-1", "ipc"))
+    assert d.status == "refused" and "bed_occupied" in d.reasons
+
+
+def test_manual_override_cannot_use_bed_with_current_inpatient():
+    store, gw = make([adm("A1")], census={"W72-R04-B2": census_patient("SYN-C")})
+    d = gw.manual_override("A1", "W72-R04-B2", actor="u", role="bed_manager", reason="vip", now=at(12))
+    assert d.status == "refused" and "bed_occupied" in d.reasons
+
+
+def test_manual_override_cannot_skip_terminal_cleaning_even_with_exception():
+    evs = [adm(), ev("D1", "discharge_decided", EventType.DISCHARGE_DECIDED, at(17, day=-1), bed_id="W71-R02-B1",
+                     isolation_order=True, precautions=["contact"], organism="MRSA"),
+           ev("D1", "patient_departed", EventType.PATIENT_DEPARTED, at(8), bed_id="W71-R02-B1")]
+    store, gw = make(evs)
+    d = gw.manual_override("A1", "W71-R02-B1", actor="u", role="bed_manager", reason="vip", now=at(9),
+                           safety_exception_by=("ipc-1", "ipc"))
+    assert d.status == "refused" and "precondition_unmet" in d.reasons
