@@ -35,7 +35,9 @@ def test_board_marks_unimplemented_scenarios_and_reports_safety():
     assert r["split"] == "dev"
     assert r["llm"] == "none"
     assert r["scenarios"]["total"] == 30
-    assert r["scenarios"]["not_implemented"] == 30  # 아직 실행기가 없다
+    assert r["scenarios"]["passed"] == 6  # 3단계 사가로 채점 가능한 C01, C02, C03, C05, E01, E03
+    assert r["scenarios"]["not_implemented"] == 24
+    assert r["scenarios"]["labels_approved"] == 0  # 사용자 승인 전
     assert r["scenarios"]["passed"] + r["scenarios"]["failed"] + r["scenarios"]["not_implemented"] == 30
     s1 = r["safety"]["S1"]
     assert s1["violations"] == 0 and s1["denominator"] > 0 and s1["upper_bound_95"] > 0

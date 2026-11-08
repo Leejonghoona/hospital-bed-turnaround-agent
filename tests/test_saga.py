@@ -282,3 +282,39 @@ def test_every_unregistered_discharge_is_detected(seed):
     late_registered = {d.id for d in h.discharges if d.registered_at and d.registered_at.hour >= 19}
     assert expected <= flagged
     assert flagged - expected <= late_registered  # 오경보는 19시 이후 늦게 등록된 건만
+
+
+# ---------- 중단 중 만료된 타이머 (C01 실행기가 찾은 버그) ----------
+
+@pytest.mark.parametrize("fact,due_evs,check", [
+    # 퇴원약: 09:30 오더 → 기한 11:30. 중단(11:00~12:00) 중 11:45에 퇴원약 준비
+    ("medication", [e("D1", "order_confirmed", EventType.ORDER_CONFIRMED, at(0, 9, 30)),
+                    e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 11, 45))],
+     ("recompute:medication_delay", EventType.READY_TIME_RECOMPUTED)),
+    # 청소 지연: 09:00 퇴실 → 기한 11:00. 중단(10:30~12:00) 중 11:20에 청소 완료
+    ("cleaning", [departed(when=at(0, 9)),
+                  e("D1", "cleaning_done", EventType.CLEANING_DONE, at(0, 11, 20), "human", bed_id="W72-R03-B1",
+                    cleaning_type="general")],
+     ("recompute:cleaning_overdue", EventType.READY_TIME_RECOMPUTED)),
+])
+def test_timer_that_expired_during_downtime_still_fires_on_resume(fact, due_evs, check):
+    evs = [decided(), registered()] + due_evs
+    store = EventStore(":memory:")
+    store.extend(evs)
+    r = SagaRunner(store)
+    down = at(0, 11) if fact == "medication" else at(0, 10, 30)
+    t = at(-1, 17)
+    while t < down:
+        r.step(t)
+        t += timedelta(minutes=5)
+    SagaRunner(store).resume(at(0, 12))
+    ids = {x.event_id for x in saga_events(store, check[1])}
+    assert f"D1:saga:{check[0]}" in ids
+
+
+def test_late_registration_after_19_still_gets_check_on_resume():
+    evs = [decided(), e("D1", "discharge_registered", EventType.DISCHARGE_REGISTERED, at(-1, 19, 20), bed_id="W72-R03-B1")]
+    store = EventStore(":memory:")
+    store.extend(evs)
+    SagaRunner(store).resume(at(-1, 20))  # 18:00~20:00 중단
+    assert len(saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED)) == 1

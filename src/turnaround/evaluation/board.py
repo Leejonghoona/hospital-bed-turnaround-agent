@@ -11,14 +11,15 @@ import json
 import subprocess
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Iterable
 
 from turnaround.events import EventStore, NoiseConfig, hospital_to_events
 from turnaround.sim import generate
 
 from .baselines import no_agent_baseline
 from .invariants import BedTurnover, check_assignment, check_turnover, zero_event_upper_bound
-from .scenario import Scenario, load_scenarios
+from .runners import RUNNERS, STAGE  # 시나리오 ID → 실행기, 현재 구현 단계
+from .scenario import load_scenarios
 
 ROOT = Path(__file__).resolve().parents[3]
 DEV_DIR = ROOT / "evals" / "scenarios" / "dev"
@@ -26,8 +27,6 @@ HEADER = "## 점수판 기록 v2"
 COLUMNS = ["날짜", "커밋", "시나리오 세트", "분리", "LLM", "정책", "S1 위반/분모", "S2 위반/분모", "S4 누수/절단",
            "통과/실패/미구현", "퇴실→준비 P50·P90(분)", "가정"]
 
-# 시나리오 ID → 실행기. 실행기는 통과하면 True. 구현 단계가 진행되면서 채운다.
-RUNNERS: dict[str, Callable[[Scenario], bool]] = {}
 
 
 def scenario_set_hash(directory: Path) -> str:
@@ -82,15 +81,23 @@ def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "
               llm: str = "none", policy: str = "none") -> dict:
     seeds = list(seeds)
     scenarios = load_scenarios(directory)
-    results = {}
+    results, failures = {}, {}
     for s in scenarios:
         runner = RUNNERS.get(s.id)
-        results[s.id] = "not_implemented" if runner is None else ("passed" if runner(s) else "failed")
+        if runner is None:
+            results[s.id] = "not_implemented"
+            continue
+        r = runner(s)
+        results[s.id] = "passed" if r.passed else "failed"
+        if r.failures:
+            failures[s.id] = r.failures
     counts = {k: sum(v == k for v in results.values()) for k in ("passed", "failed", "not_implemented")}
     return {
         "date": date.today().isoformat(), "commit": commit, "scenario_set": scenario_set_hash(directory),
         "split": split, "llm": llm, "policy": policy, "seeds": [seeds[0], seeds[-1]] if seeds else [],
-        "scenarios": {"total": len(scenarios), **counts, "by_id": results},
+        "stage": STAGE,
+        "scenarios": {"total": len(scenarios), **counts, "by_id": results, "failures": failures,
+                      "labels_approved": sum(s.status == "approved" for s in scenarios)},
         "safety": _safety(seeds), "baseline": no_agent_baseline(seeds),
         "note": "합성 데이터 기준 추정",
     }

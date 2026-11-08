@@ -188,17 +188,22 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         _compensate(d, s, now, out, departed)
         return
 
-    # 전날 19:00: 등록됐으면 청소 예정표 공유, 아니면 병동에 확인 요청
+    # 타이머는 "기한 시각까지 인지한 사실"로 판정한다. 중단 중 기한이 지나도 재개 뒤 똑같이 발화한다.
+    def by(t: EventType, due: datetime) -> bool:
+        seen_at = d.seen(t)
+        return seen_at is not None and seen_at <= due
+
+    # 전날 19:00: 등록됐으면 청소 예정표 공유, 19:00까지 미등록이면 병동에 확인 요청
     if registered is not None:
         due = max(due19, registered)
         if now >= due:
             out.cmd(d.id, "schedule_item", EventType.SCHEDULE_ITEM_CREATED, due, bed_id=bed)
-    elif now >= due19:
+    if now >= due19 and not by(EventType.DISCHARGE_REGISTERED, due19):
         out.cmd(d.id, "registration_check", EventType.REGISTRATION_CHECK_REQUESTED, due19, bed_id=bed)
 
     # 퇴원약 2시간 지연
     order = d.seen(EventType.ORDER_CONFIRMED)
-    if order and not d.seen(EventType.MEDICATION_READY) and now >= order + p.medication_delay:
+    if order and now >= order + p.medication_delay and not by(EventType.MEDICATION_READY, order + p.medication_delay):
         out.cmd(d.id, "recompute:medication_delay", EventType.READY_TIME_RECOMPUTED, order + p.medication_delay,
                 bed_id=bed, reason="medication_delay")
 
@@ -215,7 +220,8 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         limit = p.cleaning_overdue_terminal if d.isolation else p.cleaning_overdue_general
         done = d.seen(EventType.CLEANING_DONE)
         ready = d.seen(EventType.BED_READY)
-        if done is None and ready is None and now >= issued + limit:
+        due = issued + limit
+        if now >= due and not by(EventType.CLEANING_DONE, due) and not by(EventType.BED_READY, due):
             out.cmd(d.id, "recompute:cleaning_overdue", EventType.READY_TIME_RECOMPUTED, issued + limit,
                     bed_id=bed, reason="cleaning_overdue")
         if done is not None:
