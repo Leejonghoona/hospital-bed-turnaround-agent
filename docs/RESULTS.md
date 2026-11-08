@@ -5,3 +5,4 @@
 ## 2026-11-08
 - 설계 문서에 모델 선정 섹션 추가: 역할별 요구 능력, 선정 기준, 모델 비교표(학습 방식, 파라미터, 토큰 비용, 데이터 위치), 토큰 비용 추정, Claude 국외 서버 보안 검토, 교체 가능한 LLM 인터페이스.
 - 측정 결과: 아직 없음. 모델별 정답 일치율은 재생 평가 하네스 구현 뒤 기록한다.
+- 모델 비교표에 Artificial Analysis 지능 지수 v5.0.1과 IFBench, τ²-Bench를 넣음(2026-11-08 조회). 이전 세대 API 모델(GPT-5.5, Gemini 3 Flash)은 GPT-6.1 Sol, GPT-6 Luna, Gemini 4 Carbon, Gemini 3.8 Flash로 교체.

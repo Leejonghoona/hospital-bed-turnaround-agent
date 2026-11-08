@@ -10,15 +10,17 @@
 - 역할을 추출 LLM, 계획 에이전트, 질의 응답 셋으로 나누고 역할별로 모델을 고른다. 추출은 추론 모드를 끈 소형 모델, 계획은 추론 모드를 켠 중형 모델.
 - 선정 순서: 데이터 위치(관문) → 라이선스(관문) → 한국어 추출 정확도, 도구 호출 유효율, 인젝션 저항, 반복 일관성, 지연과 장비. 3번부터는 재생 평가 하네스로 측정한다.
 - 기본값은 결정적 가짜 LLM. 개발 단계에서 `ANTHROPIC_API_KEY`가 있으면 Claude Haiku 5.5(추출), Claude Sonnet 5.5(계획)를 상한 기준선으로 쓴다.
-- 운영 1안은 원내 오픈 가중치: 추출 gpt-oss-20b 또는 Gemma 4 26B, 계획 gpt-oss-120b 또는 Solar Open 100B. 최종 조합은 하네스 결과로 정한다.
+- 운영 1안은 원내 오픈 가중치: 추출 Gemma 4 26B 또는 gpt-oss-20b, 계획 gpt-oss-120b. 장비가 되면 K-EXAONE, 한국어 보강은 Solar Open 100B. 최종 조합은 하네스 결과로 정한다.
 - 운영 2안은 Bedrock 서울 단일 리전 Claude(계획만). 추출은 어떤 경우에도 원내 모델이 맡고, 클라우드에는 추출된 코드값과 사례 ID만 보낸다.
 
 **이유**
 - Claude 직접 API는 `inference_geo`가 `us`, `global`뿐이고 작업공간 저장 위치는 미국뿐이다(공식 문서, 2026-11 확인). 환자 데이터를 보내면 개인정보보호법 제28조의8 국외 이전과 민감정보 별도 동의 문제가 생기고, 병원 망분리와도 맞지 않는다.
-- 하루 퇴원 200건 가정에서 API 비용은 월 약 $44(Haiku 5.5)~$2,385(GPT-5.5) 수준이라 비용은 결정 요인이 아니다.
+- 하루 퇴원 200건 가정에서 API 비용은 월 약 $44(Haiku 5.5, GPT-6 Luna)~$1,770(Opus 5.5, Gemini 4 Carbon) 수준이라 비용은 결정 요인이 아니다.
+- Artificial Analysis 지능 지수 v5.0.1(2026-11-08 조회)은 API 모델만 측정돼 있고(Gemini 4 Carbon 60.0, Opus 5.5 59.1, Sonnet 5.5 54.5, Haiku 5.5 36.5), 원내 후보는 대부분 N/A다. 그래서 원내 후보는 같은 사이트의 IFBench(추출 대리 지표)와 τ²-Bench(계획 대리 지표)로 1차 선별했다: 추출은 Gemma 4 26B 72%, gpt-oss-20b 65%, 계획은 K-EXAONE 74%, gpt-oss-120b 66%.
 - EXAONE 4.0은 라이선스가 NC(연구·교육용)라 데모 비교에만 쓴다. K-EXAONE은 병원 서버 규모를 넘는다.
 
 **확인이 더 필요한 것**
 - Bedrock 서울 단일 리전 Claude 제공 범위(2차 보도 기준 Opus 5, Sonnet 5)와 가격: AWS 원문 확인.
 - Solar Open 100B 가중치 라이선스(Upstage Solar License)의 상업 이용 조건.
-- Artificial Analysis 지능 지수: 이 작업 환경 네트워크에서 사이트가 막혀 넣지 못함.
+- Solar Open2 250B, Solar Open 100B는 Artificial Analysis 측정치가 없음. 하네스로 직접 측정.
+- K-EXAONE 라이선스(K Exaone)의 상업 이용 조건.

@@ -364,43 +364,49 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
   </table></div>
 
   <h3 style="margin-top:28px;">모델 비교표</h3>
-  <p class="cap" style="margin:0 0 10px;">2026년 11월 기준. 비용은 1M 토큰당 미국 달러(입력/출력). *는 2차 출처라 원문 재확인 필요. Artificial Analysis 지능 지수는 이 작업 환경에서 사이트 접속이 막혀 넣지 못했고, 2026년 10월 v5 개편으로 이전 점수와 비교도 어려워 최종 판단은 아래 재생 하네스 결과로 합니다.</p>
+  <p class="cap" style="margin:0 0 10px;">2026년 11월 8일 기준. 비용은 1M 토큰당 미국 달러(입력/출력). <b>지능 지수</b>는 <a href="https://artificialanalysis.ai/ko/models">Artificial Analysis Intelligence Index v5.0.1</a>(9개 평가, 대부분 비공개 데이터셋, 높을수록 좋음)입니다. 사이트가 아직 v5로 측정하지 않은 모델은 N/A로 두고, 대신 같은 사이트의 세부 지표 두 개를 붙였습니다. <b>IFBench</b>는 지시 따르기로 추출 LLM의 스키마 준수와, <b>τ²-Bench</b>는 도구 호출 에이전트 과제로 계획 에이전트와 가장 가깝습니다. 오픈 가중치의 토큰 비용 괄호 안은 외부 호스팅 API 가격으로 참고만 합니다. *는 2차 출처.</p>
   <div class="tbl"><table>
-    <tr><th>모델</th><th>형태</th><th>파라미터 (총 / 활성)</th><th>학습 방식</th><th>토큰 비용</th><th>데이터 위치</th><th>이 서비스에서</th></tr>
-    <tr><td><b>Claude Haiku 5.5</b><br><span class="cap">Anthropic</span></td><td>API</td><td>비공개</td><td>대규모 사전학습 → 사람 피드백 강화학습(RLHF)과 헌법 기반 AI(원칙 문서로 AI가 피드백하는 강화학습). 적응형 사고</td><td>$0.10 / $0.50 (10만 토큰 이하)</td><td>직접 API: 추론 미국 또는 글로벌, 저장 미국</td><td><span class="tag next">개발</span> 추출 기준선</td></tr>
-    <tr><td><b>Claude Sonnet 5.5</b></td><td>API</td><td>비공개</td><td>위와 같은 계열. 도구 사용, 에이전트 작업 강화</td><td>$2 / $10</td><td>직접 API: 미국 또는 글로벌. Bedrock 서울은 Sonnet 5가 단일 리전 추론*</td><td><span class="tag next">개발</span> 계획 상한 기준선, 운영 2안</td></tr>
-    <tr><td><b>Claude Opus 5.5</b></td><td>API</td><td>비공개</td><td>위와 같은 계열. 사고 항상 켜짐</td><td>$4 / $20</td><td>위와 같음</td><td><span class="tag next">개발</span> 회귀 정답 라벨 검수 보조</td></tr>
-    <tr><td><b>GPT-5.5</b><br><span class="cap">OpenAI</span></td><td>API</td><td>비공개</td><td>사전학습 → RLHF, 추론 강화학습</td><td>$5 / $30 (2026.04 발표가)*</td><td>국외</td><td><span class="tag cut">비교만</span></td></tr>
-    <tr><td><b>Gemini 3 Flash</b><br><span class="cap">Google</span></td><td>API</td><td>비공개</td><td>사전학습 → 후학습(RLHF)</td><td>$0.50 / $3*</td><td>국외 (서울 리전 제공 여부 확인 못 함)</td><td><span class="tag cut">비교만</span></td></tr>
-    <tr class="pick"><td><b>gpt-oss-20b</b><br><span class="cap">OpenAI</span></td><td>오픈 가중치</td><td>21B / 3.6B (MoE, 전문가 32개)</td><td>SFT → 고연산 강화학습(o3 계열 사고 사슬 기법). 추론 강도 조절</td><td>원내 GPU 고정비 (16GB급 1장)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 추출 후보</td></tr>
-    <tr class="pick"><td><b>gpt-oss-120b</b></td><td>오픈 가중치</td><td>117B / 5.1B (MoE, 전문가 128개)</td><td>위와 같음. Apache 2.0</td><td>원내 GPU (80GB 1장, 4비트 가중치)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 계획 후보</td></tr>
-    <tr class="pick"><td><b>Solar Open 100B</b><br><span class="cap">업스테이지</span></td><td>오픈 가중치</td><td>102.6B / 12B (MoE, 전문가 129개)</td><td>19.7조 토큰 사전학습, 한국어 비중 높음, 128K 문맥. 가중치는 Upstage Solar License</td><td>원내 GPU (FP8 기준 80GB 2장)</td><td>원내, 국내 개발</td><td><span class="tag pick">운영 1안</span> 한국어 계획 후보 (라이선스 확인 후)</td></tr>
-    <tr><td><b>Gemma 4</b><br><span class="cap">Google</span></td><td>오픈 가중치</td><td>E4B(실효 4.5B) / 26B MoE(활성 3.8B) / 31B 밀집</td><td>상위 모델 지식 증류 + 후학습. Apache 2.0 (2026.04)</td><td>원내 GPU (소형은 CPU도 가능)</td><td>원내</td><td><span class="tag keep">후보</span> 추출 경량안</td></tr>
-    <tr><td><b>Qwen3.5</b><br><span class="cap">알리바바</span></td><td>오픈 가중치</td><td>397B / 17B (MoE), 소형 9B·27B</td><td>사전학습 → SFT → 강화학습, 사고/비사고 혼합. Apache 2.0, 262K 문맥*</td><td>397B는 GPU 8장급, 27B는 1장</td><td>원내</td><td><span class="tag keep">후보</span> 27B만. 공공기관은 해외 모델 도입 지침 확인</td></tr>
-    <tr><td><b>EXAONE 4.0</b><br><span class="cap">LG AI연구원</span></td><td>오픈 가중치</td><td>32B(임베딩 제외 30.95B) / 1.2B</td><td>추론·비추론 혼합 모드, SFT → 강화학습. 한국어·영어·스페인어</td><td>원내 GPU (32B는 1장)</td><td>원내, 국내 개발</td><td><span class="tag cut">데모 비교만</span> 라이선스 NC(연구·교육용)</td></tr>
-    <tr><td><b>K-EXAONE</b><br><span class="cap">LG AI연구원</span></td><td>오픈 가중치</td><td>236B / 23B (MoE, 256K), 2.0은 750B</td><td>국가대표 AI 사업 모델. 2.0은 Apache 2.0 전환(2026.07)*</td><td>다중 GPU 노드</td><td>원내 가능하나 장비 과다</td><td><span class="tag cut">제외</span> 병원 서버 규모 초과</td></tr>
+    <tr><th>모델</th><th>형태</th><th>파라미터 (총 / 활성)</th><th>학습 방식</th><th>지능 지수 v5.0.1</th><th>IFBench / τ²-Bench</th><th>토큰 비용</th><th>데이터 위치</th><th>이 서비스에서</th></tr>
+    <tr><td><b>Gemini 4 Carbon</b> (High)<br><span class="cap">Google</span></td><td>API</td><td>비공개</td><td>비공개. 사전학습 → 후학습(RLHF, 추론 강화학습)</td><td><b>60.0</b></td><td>-</td><td>$4 / $20</td><td>국외 (서울 리전 제공 확인 못 함)</td><td><span class="tag cut">비교만</span></td></tr>
+    <tr><td><b>Claude Opus 5.5</b> (Max)<br><span class="cap">Anthropic</span></td><td>API</td><td>비공개</td><td>대규모 사전학습 → 사람 피드백 강화학습(RLHF)과 헌법 기반 AI(원칙 문서로 AI가 피드백하는 강화학습). 사고 항상 켜짐</td><td><b>59.1</b></td><td>-</td><td>$4 / $20</td><td>직접 API: 추론 미국 또는 글로벌, 저장 미국</td><td><span class="tag next">개발</span> 회귀 정답 라벨 검수 보조</td></tr>
+    <tr><td><b>GPT-6.1 Sol</b> (Max)<br><span class="cap">OpenAI</span></td><td>API</td><td>비공개</td><td>비공개. 사전학습 → RLHF, 추론 강화학습</td><td><b>54.6</b></td><td>-</td><td>$2 / $10</td><td>국외</td><td><span class="tag cut">비교만</span></td></tr>
+    <tr><td><b>Claude Sonnet 5.5</b> (Max)</td><td>API</td><td>비공개</td><td>Claude 계열과 같음. 도구 사용, 에이전트 작업 강화</td><td><b>54.5</b></td><td>-</td><td>$2 / $10</td><td>직접 API: 미국 또는 글로벌. Bedrock 서울은 Sonnet 5가 단일 리전 추론*</td><td><span class="tag next">개발</span> 계획 상한 기준선, 운영 2안</td></tr>
+    <tr><td><b>Claude Haiku 5.5</b> (Max)</td><td>API</td><td>비공개</td><td>Claude 계열과 같음. 적응형 사고</td><td><b>36.5</b></td><td>-</td><td>$0.10 / $0.50 (10만 토큰 이하)</td><td>직접 API: 미국 또는 글로벌</td><td><span class="tag next">개발</span> 추출 기준선</td></tr>
+    <tr><td><b>Gemini 3.8 Flash</b> (High)</td><td>API</td><td>비공개</td><td>비공개</td><td>30.8</td><td>-</td><td>$0.75 / $3.75</td><td>국외</td><td><span class="tag cut">비교만</span></td></tr>
+    <tr><td><b>GPT-6 Luna</b> (Max)</td><td>API</td><td>비공개</td><td>비공개</td><td>27.9</td><td>-</td><td>$0.10 / $0.50</td><td>국외</td><td><span class="tag cut">비교만</span></td></tr>
+    <tr><td><b>Qwen3.8 27B</b> (Xhigh)<br><span class="cap">알리바바</span></td><td>오픈 가중치</td><td>27B 밀집</td><td>사전학습 → SFT → 강화학습, 사고/비사고 혼합. Apache 2.0, 256K 문맥</td><td>20.1</td><td>-</td><td>원내 GPU 1장 (참고 $0.50 / $3.00)</td><td>원내</td><td><span class="tag keep">후보</span> 공공기관은 해외 모델 도입 지침 확인</td></tr>
+    <tr><td><b>Gemma 4</b><br><span class="cap">Google</span></td><td>오픈 가중치</td><td>31B 밀집 / 26B(활성 3.8B) MoE / E4B(8B, 실효 4.5B)</td><td>상위 모델 지식 증류 + 후학습. Apache 2.0 (2026.04)</td><td>31B: 4.4<br>26B, E4B: N/A</td><td>31B 76% / 60%<br>26B 72% / 44%<br>E4B 44% / 21%</td><td>원내 GPU 1장 (26B 참고 $0.10 / $0.34)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 26B를 추출 후보. 31B는 환각률 0.86으로 높음</td></tr>
+    <tr class="pick"><td><b>gpt-oss-120b</b> (High)<br><span class="cap">OpenAI</span></td><td>오픈 가중치</td><td>117B / 5.1B (MoE, 전문가 128개)</td><td>SFT → 고연산 강화학습(o3 계열 사고 사슬 기법). 추론 강도 조절. Apache 2.0</td><td>N/A</td><td>69% / 66%</td><td>원내 GPU (80GB 1장, 4비트 가중치) (참고 $0.15 / $0.60)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 계획 후보</td></tr>
+    <tr class="pick"><td><b>gpt-oss-20b</b> (High)</td><td>오픈 가중치</td><td>21B / 3.6B (MoE, 전문가 32개)</td><td>위와 같음</td><td>N/A</td><td>65% / 60%</td><td>원내 GPU 16GB급 1장 (참고 $0.05 / $0.22)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 추출 후보</td></tr>
+    <tr><td><b>K-EXAONE</b> (추론)<br><span class="cap">LG AI연구원</span></td><td>오픈 가중치</td><td>236B / 23B (MoE, 256K)</td><td>국가대표 AI 사업 모델. 추론·비추론 모드. 라이선스 K Exaone (조건 확인 필요)</td><td>N/A</td><td>65% / <b>74%</b><br><span class="cap">비추론 40% / 59%</span></td><td>원내 GPU (FP8 기준 80GB 4장 이상)</td><td>원내, 국내 개발</td><td><span class="tag next">보류</span> 도구 호출은 후보 중 최고. 장비와 라이선스가 맞으면 계획 후보</td></tr>
+    <tr><td><b>Solar Open2 250B</b><br><span class="cap">업스테이지</span></td><td>오픈 가중치</td><td>250B / 15B (MoE, 1M 문맥)</td><td>추론 모델, 학습 데이터 기준일 2026.02. 가중치는 Upstage Solar License</td><td>N/A</td><td>-</td><td>원내 GPU (FP8 기준 80GB 4장)</td><td>원내, 국내 개발</td><td><span class="tag next">보류</span> 측정치 없음, 하네스로 확인</td></tr>
+    <tr><td><b>Solar Open 100B</b><br><span class="cap">업스테이지</span></td><td>오픈 가중치</td><td>102.6B / 12B (MoE, 전문가 129개)</td><td>19.7조 토큰 사전학습, 한국어 비중 높음, 128K 문맥. Upstage Solar License</td><td>사이트 미등재</td><td>-</td><td>원내 GPU (FP8 기준 80GB 2장)</td><td>원내, 국내 개발</td><td><span class="tag keep">후보</span> 한국어 계획 후보 (라이선스 확인 후)</td></tr>
+    <tr><td><b>EXAONE 4.0 32B</b> (비추론)<br><span class="cap">LG AI연구원</span></td><td>오픈 가중치</td><td>32B(임베딩 제외 30.95B)</td><td>추론·비추론 혼합 모드, SFT → 강화학습. 한국어·영어·스페인어</td><td>N/A</td><td>33% / 4%</td><td>원내 GPU 1장</td><td>원내, 국내 개발</td><td><span class="tag cut">데모 비교만</span> 라이선스 NC(연구·교육용)</td></tr>
   </table></div>
+  <p class="src">출처: <a href="https://artificialanalysis.ai/ko/models">Artificial Analysis 모델 비교</a>와 모델별 페이지(<a href="https://artificialanalysis.ai/ko/models/gpt-oss-120b">gpt-oss-120b</a>, <a href="https://artificialanalysis.ai/ko/models/gpt-oss-20b">gpt-oss-20b</a>, <a href="https://artificialanalysis.ai/ko/models/gemma-4-31b">Gemma 4 31B</a>, <a href="https://artificialanalysis.ai/ko/models/gemma-4-26b-a4b">Gemma 4 26B</a>, <a href="https://artificialanalysis.ai/ko/models/gemma-4-e4b">Gemma 4 E4B</a>, <a href="https://artificialanalysis.ai/ko/models/qwen3-8-27b">Qwen3.8 27B</a>, <a href="https://artificialanalysis.ai/ko/models/k-exaone">K-EXAONE</a>, <a href="https://artificialanalysis.ai/ko/models/solar-open2-250b">Solar Open2 250B</a>, <a href="https://artificialanalysis.ai/ko/models/exaone-4-0-32b">EXAONE 4.0 32B</a>), 2026-11-08 조회. 지능 지수, 가격, 파라미터, 라이선스, IFBench, τ²-Bench, 환각률이 이 출처 값입니다. Solar Open 100B는 <a href="https://huggingface.co/upstage/Solar-Open-100B">모델 카드</a>, 학습 방식은 각 모델 카드와 기술 보고서 기준.</p>
 
   <h3 style="margin-top:28px;">학습 방식이 서비스에 주는 차이</h3>
   <div class="tbl"><table>
     <tr><th>학습 방식</th><th>해당 모델</th><th>이 서비스에서 의미</th><th>배치</th></tr>
-    <tr><td>추론 강화학습 (사고 사슬을 길게 쓰도록 보상)</td><td>gpt-oss, Qwen3.5 사고 모드, EXAONE 추론 모드, Claude 적응형 사고</td><td>여러 도구를 차례로 부르는 재매칭 판단에 유리. 대신 출력 토큰과 지연이 늘어남</td><td>계획 에이전트에만 켬</td></tr>
+    <tr><td>추론 강화학습 (사고 사슬을 길게 쓰도록 보상)</td><td>gpt-oss, Qwen3.8 사고 모드, K-EXAONE·EXAONE 추론 모드, Claude 적응형 사고</td><td>여러 도구를 차례로 부르는 재매칭 판단에 유리(K-EXAONE τ²-Bench 추론 74% vs 비추론 59%). 대신 출력 토큰과 지연이 늘어남</td><td>계획 에이전트에만 켬</td></tr>
     <tr><td>지식 증류 소형 모델</td><td>Gemma 4 E4B·26B, gpt-oss-20b</td><td>좁은 작업(필드 추출)에서 큰 모델과 비슷한 정확도를 적은 장비로</td><td>추출 LLM</td></tr>
-    <tr><td>한국어 비중 높은 사전학습</td><td>Solar Open, EXAONE, K-EXAONE</td><td>병동 구어, 축약어("퇴약", "보호자 컨택") 추출에 유리할 가능성. 하네스로 확인</td><td>추출·계획 후보</td></tr>
+    <tr><td>한국어 비중 높은 사전학습</td><td>Solar Open, Solar Open2, EXAONE, K-EXAONE</td><td>병동 구어, 축약어("퇴약", "보호자 컨택") 추출에 유리할 가능성. 하네스로 확인</td><td>추출·계획 후보</td></tr>
     <tr><td>RLHF와 헌법 기반 AI (안전 정렬)</td><td>Claude, GPT, Gemini</td><td>인젝션 문장 거부 성향이 강하지만, 설계는 모델 성향에 기대지 않고 자유 서술을 정책 판단에서 뺌</td><td>성향은 가산점, 통제는 게이트웨이</td></tr>
-    <tr><td>MoE (전문가 혼합)</td><td>gpt-oss, Solar Open, Qwen3.5, Gemma 4 26B</td><td>메모리는 총 파라미터만큼, 속도는 활성 파라미터만큼. 서버실 GPU 수가 먼저 정해지면 활성 대비 총 크기로 고름</td><td>장비 산정</td></tr>
+    <tr><td>MoE (전문가 혼합)</td><td>gpt-oss, Solar Open, K-EXAONE, Gemma 4 26B</td><td>메모리는 총 파라미터만큼, 속도는 활성 파라미터만큼. 서버실 GPU 수가 먼저 정해지면 활성 대비 총 크기로 고름</td><td>장비 산정</td></tr>
   </table></div>
 
   <h3 style="margin-top:28px;">토큰 비용 추정</h3>
-  <p class="cap" style="margin:0 0 10px;">가정: 1,000병상급, 하루 퇴원 200건. 사례당 계획 호출 10회(입력 4천, 출력 5백), 추출 호출 5회(입력 1천, 출력 150). 하루 입력 900만, 출력 115만 토큰. 사고 토큰은 출력으로 과금돼 실제 출력은 2~3배 늘 수 있습니다. 합성 가정 기준 추정입니다.</p>
+  <p class="cap" style="margin:0 0 10px;">가격은 Artificial Analysis 표기 기준. 가정: 1,000병상급, 하루 퇴원 200건. 사례당 계획 호출 10회(입력 4천, 출력 5백), 추출 호출 5회(입력 1천, 출력 150). 하루 입력 900만, 출력 115만 토큰. 사고 토큰은 출력으로 과금돼 실제 출력은 2~3배 늘 수 있습니다. 합성 가정 기준 추정입니다.</p>
   <div class="tbl"><table>
     <tr><th>구성</th><th>하루</th><th>30일</th><th>비고</th></tr>
-    <tr><td>Claude Haiku 5.5 단독</td><td>약 $1.5</td><td>약 $44</td><td>계획 품질은 하네스로 확인 필요</td></tr>
+    <tr><td>Claude Haiku 5.5 단독</td><td>약 $1.5</td><td>약 $44</td><td>지능 지수 36.5. 계획 품질은 하네스로 확인 필요</td></tr>
     <tr><td>Claude Sonnet 5.5 계획 + Haiku 5.5 추출</td><td>약 $26</td><td>약 $785</td><td>미국 한정 추론 선택 시 1.1배</td></tr>
     <tr><td>Claude Sonnet 5.5 단독</td><td>약 $30</td><td>약 $885</td><td></td></tr>
     <tr><td>Claude Opus 5.5 단독</td><td>약 $59</td><td>약 $1,770</td><td></td></tr>
-    <tr><td>GPT-5.5 단독</td><td>약 $80</td><td>약 $2,385</td><td>*발표가 기준</td></tr>
-    <tr><td>Gemini 3 Flash 단독</td><td>약 $8</td><td>약 $240</td><td>*2차 출처 가격</td></tr>
+    <tr><td>GPT-6.1 Sol 단독</td><td>약 $30</td><td>약 $885</td><td>Sonnet 5.5와 같은 가격</td></tr>
+    <tr><td>Gemini 4 Carbon 단독</td><td>약 $59</td><td>약 $1,770</td><td>Opus 5.5와 같은 가격</td></tr>
+    <tr><td>Gemini 3.8 Flash 단독</td><td>약 $11</td><td>약 $330</td><td></td></tr>
+    <tr><td>GPT-6 Luna 단독</td><td>약 $1.5</td><td>약 $44</td><td>Haiku 5.5와 같은 가격, 지능 지수는 낮음</td></tr>
     <tr class="pick"><td>원내 gpt-oss-20b 추출 + gpt-oss-120b 계획</td><td>토큰 비용 0</td><td>GPU 서버 고정비</td><td>80GB GPU 1장 + 소형 GPU 1장 규모</td></tr>
   </table></div>
   <div class="dk"><span>결론</span>이 호출량에서는 API 비용이 월 수십~수천 달러라 결정 요인이 아님. 데이터 위치와 라이선스가 먼저 후보를 거름</div>
@@ -423,7 +429,7 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
     <tr><th>단계</th><th>추출 LLM</th><th>계획 에이전트, 질의 응답</th><th>조건</th></tr>
     <tr><td>기본값, 테스트</td><td colspan="2">결정적 가짜 LLM (API 키 없이 동작)</td><td>모든 테스트와 CI</td></tr>
     <tr><td>개발, 합성 데이터</td><td>Claude Haiku 5.5</td><td>Claude Sonnet 5.5</td><td><code>ANTHROPIC_API_KEY</code>가 있을 때만. 로컬 후보의 상한 기준선</td></tr>
-    <tr class="pick"><td>운영 1안, 내부망</td><td>gpt-oss-20b 또는 Gemma 4 26B</td><td>gpt-oss-120b 또는 Solar Open 100B</td><td>하네스에서 기준선 대비 정답 일치율 차이가 정책 파일 기준값 이내인 조합</td></tr>
+    <tr class="pick"><td>운영 1안, 내부망</td><td>Gemma 4 26B(IFBench 72%) 또는 gpt-oss-20b(65%)</td><td>gpt-oss-120b(τ²-Bench 66%). 장비가 되면 K-EXAONE(74%), 한국어 보강은 Solar Open 100B</td><td>하네스에서 기준선 대비 정답 일치율 차이가 정책 파일 기준값 이내인 조합</td></tr>
     <tr><td>운영 2안</td><td>원내 소형 모델</td><td>Bedrock 서울 단일 리전 Claude Sonnet 5</td><td>병원 클라우드 정책 승인, 가명 필드만</td></tr>
     <tr><td>LLM 장애</td><td colspan="2">규칙 모드 (자유 서술 필드는 비워 두고 사람 확인으로 넘김)</td><td>타임아웃, 스키마 오류 연속</td></tr>
   </table></div>
@@ -539,10 +545,9 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
     <li><a href="https://langchain-ai.github.io/langgraph/concepts/durable_execution/">LangGraph 내구 실행</a>, <a href="https://docs.temporal.io/workflows">Temporal 워크플로</a>, <a href="https://microservices.io/patterns/data/saga.html">사가 패턴</a>, <a href="https://hl7.org/fhir/R4/task.html">FHIR Task</a>, <a href="https://hl7.org/fhir/R4/appointment.html">FHIR Appointment</a></li>
     <li><a href="https://www.openpolicyagent.org/docs/latest/">Open Policy Agent</a>, <a href="https://genai.owasp.org/llmrisk/llm01-prompt-injection/">OWASP LLM01</a>, <a href="https://simonwillison.net/2023/Apr/25/dual-llm-pattern/">Dual LLM 패턴</a>, <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">OpenTelemetry GenAI</a></li>
     <li><a href="https://platform.claude.com/docs/en/build-with-claude/data-residency">Claude 데이터 위치 제어 (inference_geo, 작업공간 저장 위치)</a>, <a href="https://www.anthropic.com/pricing">Claude 가격</a>, <a href="https://aws-news.com/article/2026-09-30-introducing-anthropic-models-on-amazon-bedrock-for-in-region-inference-in-seoul-and-singapore">Bedrock 서울 단일 리전 추론 (2차 보도)</a></li>
-    <li><a href="https://artificialanalysis.ai/ko/models">Artificial Analysis 모델 비교</a>, <a href="https://artificialanalysis.ai/articles/glm-5-2-is-the-new-leading-open-weights-model-on-the-artificial-analysis-intelligence-index">오픈 가중치 지수 동향</a></li>
-    <li><a href="https://catalog.ngc.nvidia.com/orgs/nim/teams/openai/models/gpt-oss-120b">gpt-oss-120b 모델 카드</a>, <a href="https://huggingface.co/upstage/Solar-Open-100B">Solar Open 100B 모델 카드</a>, <a href="https://www.theregister.com/2026/04/02/googles_gemma_4_open_weights/">Gemma 4 공개</a>, <a href="https://www.morphllm.com/qwen-3-5">Qwen3.5 정리 (2차)</a></li>
+    <li><a href="https://artificialanalysis.ai/ko/models">Artificial Analysis 모델 비교 (Intelligence Index v5.0.1, 가격, IFBench, τ²-Bench, 2026-11-08 조회)</a>, <a href="https://artificialanalysis.ai/ko/models/gpt-oss-120b">gpt-oss-120b</a>, <a href="https://artificialanalysis.ai/ko/models/k-exaone">K-EXAONE</a>, <a href="https://artificialanalysis.ai/ko/models/solar-open2-250b">Solar Open2 250B</a>, <a href="https://artificialanalysis.ai/ko/models/gemma-4-26b-a4b">Gemma 4 26B</a></li>
+    <li><a href="https://catalog.ngc.nvidia.com/orgs/nim/teams/openai/models/gpt-oss-120b">gpt-oss-120b 모델 카드</a>, <a href="https://huggingface.co/upstage/Solar-Open-100B">Solar Open 100B 모델 카드</a>, <a href="https://www.theregister.com/2026/04/02/googles_gemma_4_open_weights/">Gemma 4 공개</a>, <a href="https://artificialanalysis.ai/ko/models/qwen3-8-27b">Qwen3.8 27B (Artificial Analysis)</a></li>
     <li><a href="https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B/blob/main/LICENSE">EXAONE 4.0 라이선스</a>, <a href="https://arxiv.org/abs/2601.01739">K-EXAONE 기술 보고서</a>, <a href="https://www.cio.com/article/4117770/">국가대표 AI 1차 평가</a></li>
-    <li><a href="https://morphllm.com/openai-api-pricing">OpenAI API 가격 정리 (2차)</a>, <a href="https://www.morphllm.com/gemini-api-pricing">Gemini API 가격 정리 (2차)</a></li>
     <li><a href="https://itwiki.kr/w/%EA%B0%9C%EC%9D%B8%EC%A0%95%EB%B3%B4_%EB%B3%B4%ED%98%B8%EB%B2%95_%EC%A0%9C28%EC%A1%B0%EC%9D%988">개인정보 보호법 제28조의8 국외 이전</a>, <a href="https://pipc.go.kr/np/default/page.do?mCode=D060040000">개인정보보호위원회 국외 이전 안내</a></li>
   </ul></div>
 </section>
