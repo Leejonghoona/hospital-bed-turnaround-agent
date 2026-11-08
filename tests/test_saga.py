@@ -355,8 +355,8 @@ def _decided_with(organism, precautions, bed="W72-R01-B1"):
 
 
 @pytest.mark.parametrize("organism,precautions,extra", [
-    ("INFLUENZA", ["droplet"], {"aerosol_wait_min": 30}),
-    ("MEASLES", ["airborne"], {"aerosol_wait_min": 30}),
+    ("INFLUENZA", ["droplet"], {"aerosol_wait_min": 104}),  # 병상 정보 없으면 일반실 4회
+    ("MEASLES", ["airborne"], {"aerosol_wait_min": 104}),
     ("CDIFF", ["contact"], {"sporicidal": True}),
     ("MRSA", ["contact"], {}),
 ])
@@ -365,6 +365,15 @@ def test_cleaning_request_carries_precaution_requirements(organism, precautions,
                     departed(bed="W72-R01-B1")], until=at(0, 11, 10))
     req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
     assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", **extra}
+
+
+def test_aerosol_wait_uses_room_ach_from_layout():
+    from turnaround.saga import SagaPolicy
+    from turnaround.sim.generator import generate
+    h = generate(seed=0)
+    p = SagaPolicy.for_layout(h.rooms, h.beds)
+    assert p.aerosol_wait("W71-R01-B1") == 35 and p.aerosol_wait("W72-R01-B1") == 104
+    assert SagaPolicy(aerosol_wait_override_min=60).aerosol_wait("W71-R01-B1") == 60
 
 
 # ---------- 4단계 보강: 지연 사유 기록, 수납 대기 공유 ----------

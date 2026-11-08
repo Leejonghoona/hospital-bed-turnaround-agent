@@ -103,6 +103,14 @@ class Room(_Frozen):
     gender: Gender | None = None  # 다인실만 성별 지정
     cohort_key: str | None = None  # 같은 병원체 환자 코호트실로 지정된 다인실
     near_nurse_station: bool = False  # 낙상·섬망 고위험 환자 배치 점수용
+    air_changes_per_hour: int | None = Field(default=None, ge=1)  # 시간당 공기순환 횟수 (DAT-9). 비우면 유형별 기본값
+
+    @model_validator(mode="after")
+    def _default_ach(self):
+        if self.air_changes_per_hour is None:
+            from turnaround.rules import DEFAULT_ACH
+            object.__setattr__(self, "air_changes_per_hour", DEFAULT_ACH[self.room_type.value])
+        return self
 
 
 class Bed(_Frozen):
@@ -203,7 +211,8 @@ class GeneratorConfig(_Frozen):
     unregistered_count: int = Field(default=2, ge=0)
     admission_cancel_count: int = Field(default=2, ge=0)
     isolation_discharge_count: int = Field(default=3, ge=0)
-    aerosol_wait_min: int = Field(default=30, ge=0)  # 정책값. 지침에 수치가 없어 설계 가정
+    # 환기 대기: 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다 (LP-23). 병원 규칙으로 덮어쓰려면 값을 넣는다
+    aerosol_wait_override_min: int | None = Field(default=None, ge=0)
 
     @property
     def discharge_count(self) -> int:

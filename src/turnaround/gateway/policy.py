@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DEFAULT_POLICY = Path(__file__).resolve().parents[3] / "config" / "policy.yaml"
 
@@ -20,6 +22,22 @@ class ManualOverridePolicy(BaseModel):
     preapproval_organisms: dict[str, list[str]] = Field(default_factory=dict)  # 병원체에 따라 단계를 올리는 코드
 
 
+class Ventilation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    removal_pct: float = 99.9
+    hospital_wait_min: int | None = Field(default=None, ge=0)  # 병원 규칙 덮어쓰기 (POL-2)
+
+
+class Provenance(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    tier: Literal["law", "guideline", "hospital_rule", "field_practice", "design_assumption"]
+    cite: str
+
+
+# 지침의 금지 조항: 병원 규칙으로 바꿀 수 없다 (POL-2). 위반 코드 -> 고정 단계
+LOCKED_SAFETY_TIERS = {"tb_shared_room": "forbidden"}  # 표준예방지침 5.5.2.4
+
+
 class Policy(BaseModel):
     model_config = ConfigDict(frozen=True)
     version: str
@@ -31,8 +49,17 @@ class Policy(BaseModel):
     auto_actions: list[str]
     query_fields: dict[str, list[str]]
     manual_override: ManualOverridePolicy
-    aerosol_wait_min: int = 30
+    ventilation: Ventilation = Field(default_factory=Ventilation)
     external_llm: str = "deny"
+    provenance: dict[str, Provenance] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _locked(self):
+        for code, tier in LOCKED_SAFETY_TIERS.items():
+            got = self.manual_override.safety_tiers.get(code, tier)
+            if got != tier:
+                raise ValueError(f"{code}는 지침 금지 조항이라 병원 규칙으로 바꿀 수 없다 ({got} → {tier})")
+        return self
 
 
 def load_policy(path: Path = DEFAULT_POLICY) -> Policy:

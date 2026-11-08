@@ -5,6 +5,8 @@ from __future__ import annotations
 import random
 from datetime import datetime, time, timedelta
 
+from turnaround.rules import aerosol_wait_min
+
 from .distributions import DEFAULT_STAGE_DISTRIBUTIONS
 from .models import (
     AdmissionRequest,
@@ -178,7 +180,9 @@ class _Gen:
             departed = max(billing, edu, guardian_arrived) + m(d["exit_prep"])
             requested = departed + m(d["baseline_cleaning_request_delay"])
             aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(patient.precautions))
-            wait = cfg.aerosol_wait_min if aerosol else 0
+            room = self.room_by_id[bed.room_id]
+            wait = (cfg.aerosol_wait_override_min if cfg.aerosol_wait_override_min is not None
+                    else aerosol_wait_min(room.air_changes_per_hour)) if aerosol else 0
             clean_start = max(requested + m(d["cleaning_response"] + extra), departed + m(wait))  # 환기 대기 (LP-20)
             clean_done = clean_start + m(d["cleaning"])
             ready = clean_done + m(d["bed_make"])

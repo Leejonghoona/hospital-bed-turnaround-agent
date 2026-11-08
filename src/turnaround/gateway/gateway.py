@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from turnaround.events.corrections import apply_correction, apply_release, correction_direction
 from turnaround.events.models import Event, EventType
+from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, guideline_delta
 from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
 from turnaround.saga import fold
@@ -181,6 +182,18 @@ class Gateway:
                                   assignee="ipc", bed_id=bed_id, room_id=room_id):
                         raised.append(bed_id)
         return raised
+
+    def aerosol_wait(self, bed_id: str) -> dict:
+        """환기 대기 분 (SAG-2a). 병원 규칙이 있으면 그 값, 지침과 다르면 차이 표시 (POL-2)."""
+        room = self.room_by_id.get(self.room_of.get(bed_id, ""))
+        ach = room.air_changes_per_hour if room else DEFAULT_ACH["multi"]
+        v = self.policy.ventilation
+        guide = aerosol_wait_min(ach, v.removal_pct)
+        out = {"aerosol_wait_min": v.hospital_wait_min if v.hospital_wait_min is not None else guide}
+        delta = guideline_delta(guide, v.hospital_wait_min)
+        if delta:
+            out["guideline_delta"] = delta
+        return out
 
     def location_version(self, bed_id: str) -> int:
         """가상 FHIR Location 버전. 병상 정보 변경과 확정마다 1씩 오른다."""
@@ -496,7 +509,7 @@ class Gateway:
             return Decision("duplicate", "cleaning")
         payload: dict = {"bed_id": d.bed_id, "cleaning_type": "terminal" if d.isolation else cleaning_type}
         if d.isolation and {"droplet", "airborne"} & set(d.precautions):
-            payload["aerosol_wait_min"] = self.policy.aerosol_wait_min
+            payload.update(self.aerosol_wait(d.bed_id))
         if d.isolation and d.organism == "CDIFF":
             payload["sporicidal"] = True
         reasons = []

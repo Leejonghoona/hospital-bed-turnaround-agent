@@ -12,7 +12,7 @@ from typing import Callable
 
 from turnaround.events import Event, EventStore, EventType
 from turnaround.gateway import Gateway, Proposal, load_policy
-from turnaround.saga import SagaRunner
+from turnaround.saga import SagaPolicy, SagaRunner
 from turnaround.sim import Gender, generate
 from turnaround.sim.models import ORGANISM_PRECAUTIONS, Patient
 
@@ -62,7 +62,7 @@ class _GwRun:
         self.store = EventStore(":memory:")
         self.alias = alias
         self.gw = Gateway(self.store, rooms or _LAYOUT.rooms, _LAYOUT.beds, policy or load_policy(), census=census)
-        self.saga = SagaRunner(self.store)
+        self.saga = SagaRunner(self.store, SagaPolicy.for_layout(rooms or _LAYOUT.rooms, _LAYOUT.beds))
         self.extra: list[Produced] = []
 
     def feed(self, events):

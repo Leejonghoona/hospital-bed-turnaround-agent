@@ -214,12 +214,13 @@ def test_isolation_patients_follow_organism_precaution_table(seed):
 
 @pytest.mark.parametrize("seed", range(0, 30))
 def test_turnover_requirements_follow_precautions(seed):
-    """비말·공기주의 퇴실은 환기 대기 뒤 청소, C. difficile은 아포 대응 소독 (LP-20)."""
+    """비말·공기주의 퇴실은 병실 공기순환 횟수로 정한 환기 대기 뒤 청소, C. difficile은 아포 대응 소독 (LP-23)."""
+    from turnaround.rules import aerosol_wait_min
     h = generate(seed=seed)
-    wait = h.config.aerosol_wait_min
+    ach = {b.id: r.air_changes_per_hour for r in h.rooms for b in h.beds if b.room_id == r.id}
     for d in h.discharges:
         aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(d.patient.precautions))
-        assert d.aerosol_wait_min == (wait if aerosol else 0)
+        assert d.aerosol_wait_min == (aerosol_wait_min(ach[d.bed_id]) if aerosol else 0)
         assert d.actual.cleaning_started_at >= d.actual.departed_at + timedelta(minutes=d.aerosol_wait_min)
         assert d.sporicidal == (d.patient.organism == "CDIFF")
 

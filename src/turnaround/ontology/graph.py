@@ -36,7 +36,7 @@ def node(kind: str, ident: str) -> URIRef:
 
 def build_graph(rooms: Iterable[Room], beds: Iterable[Bed], occupants: Mapping[str, Patient],
                 turnovers: Iterable[BedTurnover] = (), extra_triples: Iterable[tuple] = (),
-                aerosol_wait_min: int = 30) -> Graph:
+                aerosol_wait_min: int = 104) -> Graph:
     g = load_concepts()
     for r in rooms:
         rn = node("room", r.id)
@@ -86,7 +86,7 @@ def build_graph(rooms: Iterable[Room], beds: Iterable[Bed], occupants: Mapping[s
             g.add((tn, TA.sporicidalDone, Literal(True)))
         # 환기 대기가 필요한 퇴실이면 "청소 시작 가능 시각"을 정책값으로 미리 계산해 둔다 (SPARQL 날짜 연산 회피)
         if {IsolationType(x) for x in t.previous_precautions} & _AEROSOL and t.departed_at is not None:
-            g.add((tn, TA.aerosolReadyAt, Literal(t.departed_at + timedelta(minutes=aerosol_wait_min),
+            g.add((tn, TA.aerosolReadyAt, Literal(t.departed_at + timedelta(minutes=t.aerosol_wait_min if t.aerosol_wait_min is not None else aerosol_wait_min),
                                                    datatype=XSD.dateTime)))
     for triple in extra_triples:
         g.add(triple)

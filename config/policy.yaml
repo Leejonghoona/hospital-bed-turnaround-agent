@@ -37,5 +37,20 @@ manual_override:
     gender_room: reason_entry
   preapproval_organisms:
     isolation_room: [CRE, CPE]             # 5.2.1 CRE 1인실 우선, 감염관리실무자 결정
-aerosol_wait_min: 30         # 비말·공기주의 퇴실 환기 대기 (LP-20, 설계 가정)
+ventilation:                 # 비말·공기주의 퇴실 환기 대기 (LP-23). 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다
+  removal_pct: 99.9
+  hospital_wait_min: null    # 병원 규칙으로 덮어쓸 때만 분 단위로 넣는다. 지침 값과 다르면 "지침 대비" 표시 (POL-2)
 external_llm: deny
+provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. law > guideline > hospital_rule > field_practice > design_assumption
+  autonomy_stage: {tier: design_assumption, cite: "설계 문서 자율화 단계. 1단계 HITL로 시작"}
+  promoted_departments: {tier: design_assumption, cite: "자율화 2단계 승격은 운영 지표로 정한다"}
+  pediatric_age: {tier: design_assumption, cite: "소아 기준 연령은 병원마다 다르다. 근거 미확인, 병원 규칙으로 바꾼다"}
+  score_gap_min: {tier: design_assumption, cite: "1·2순위 점수 차 임계값. 재생 평가로 조정"}
+  review_reasons: {tier: design_assumption, cite: "LP-21 담당 검토 사유. 현직자 확인 목록(SPEC 1.5절)"}
+  auto_actions: {tier: design_assumption, cite: "되돌릴 수 있는 행동만 자동 실행 (설계 원칙)"}
+  query_fields: {tier: hospital_rule, cite: "개인정보 최소 제공. 청소 협력업체는 병상·시각·청소 유형만"}
+  manual_override.roles: {tier: hospital_rule, cite: "병상 배정 권한은 병원 직제에 따름 (합성 병원 가정)"}
+  manual_override.safety_exception_roles: {tier: guideline, cite: "표준예방지침 5.5.2.6 감염관리 전문가와 상의. 야간 대행 id_oncall은 설계 가정(MA-01)"}
+  manual_override.safety_tiers: {tier: guideline, cite: "표준예방지침 5.5.2.4, 5.5.2.6, 5.2.1, 5.3.2.3, 5.3.2.4, 5.4.2.5 (LP-24)"}
+  ventilation: {tier: guideline, cite: "표준예방지침 제5장 부록 3 공기순환 횟수별 제거 시간, 99.9% 열. 병실 순환 횟수 기본값(음압 12, 일반 4)은 설계 가정"}
+  external_llm: {tier: hospital_rule, cite: "환자정보 국외 이전 금지 운영 원칙 (설계 문서 보안 절)"}

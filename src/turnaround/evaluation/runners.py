@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Callable
 
 from turnaround.events import Event, EventStore, EventType, hospital_to_events
-from turnaround.saga import SagaRunner, fold
+from turnaround.saga import SagaPolicy, SagaRunner, fold
 from turnaround.sim import generate
 
 from .scenario import Scenario
@@ -46,12 +46,16 @@ def _prematch(adm, disc, bed):
                bed_id=bed, discharge_id=disc)
 
 
+_L = generate(seed=0)  # 병원 배치는 시드와 무관하게 같다
+SAGA_POLICY = SagaPolicy.for_layout(_L.rooms, _L.beds)
+
+
 class _Run:
     """저장소와 사가를 묶어 돌리고, 중복 도착(ignore_duplicate)도 행동으로 기록한다."""
 
     def __init__(self):
         self.store = EventStore(":memory:")
-        self.saga = SagaRunner(self.store)
+        self.saga = SagaRunner(self.store, SAGA_POLICY)
         self.extra: list[Produced] = []
 
     def feed(self, events, alias):
@@ -107,7 +111,7 @@ def run_c01(s: Scenario) -> ScoreResult:
     run = _Run()
     run.feed(events, alias)
     run.until(start, kill)
-    run.saga = SagaRunner(run.store)  # 재시작: 새 실행기, 같은 저장소
+    run.saga = SagaRunner(run.store, SAGA_POLICY)  # 재시작: 새 실행기, 같은 저장소
     run.saga.resume(restart)
     run.until(restart, end)
     r = run.score(s, alias)

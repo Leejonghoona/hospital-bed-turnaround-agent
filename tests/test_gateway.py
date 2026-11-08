@@ -267,7 +267,7 @@ def test_general_cleaning_for_isolation_discharge_is_corrected_not_rejected():
     assert d.status == "executed"
     req = [e for e in store.read() if e.type is EventType.CLEANING_REQUEST_ISSUED]
     assert len(req) == 1
-    assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", "aerosol_wait_min": 30,
+    assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", "aerosol_wait_min": 104,
                               "overridden_from": "general"}
     assert gw.request_cleaning("D1", "general", at(11, 5)).status == "duplicate"
 
@@ -558,3 +558,16 @@ def test_failure_in_regular_room_raises_no_alarm():
     store.append(room_off("W72-R04", "equipment_failure", at(10)))
     gw.check_room_alerts(at(10, 1))
     assert not [e for e in store.read() if e.payload.get("kind") == "negative_pressure_failure"]
+
+
+# ---------- SAG-2a / POL-2 환기 대기 ----------
+
+def test_aerosol_wait_from_room_ach_and_hospital_rule_shows_guideline_delta():
+    store, gw = make()
+    assert gw.aerosol_wait("W71-R01-B1") == {"aerosol_wait_min": 35}  # 음압실 12회
+    assert gw.aerosol_wait("W72-R01-B1") == {"aerosol_wait_min": 104}  # 일반 1인실 4회
+    pol = load_policy().model_copy(update={"ventilation": load_policy().ventilation.model_copy(
+        update={"hospital_wait_min": 60})})
+    store, gw = make(policy=pol)
+    w = gw.aerosol_wait("W72-R01-B1")
+    assert w["aerosol_wait_min"] == 60 and w["guideline_delta"]["label"] == "지침 대비 44분 단축"

@@ -52,8 +52,10 @@ def to(**kw):
 
 DEP = T0 - timedelta(hours=2)
 TURNOVER_CASES = [
-    ("비말 퇴실 환기 대기 후 청소", to(previous_precautions=("droplet",), departed_at=DEP,
-                                    cleaning_started_at=DEP + timedelta(minutes=30)), []),
+    ("비말 퇴실 환기 대기 후 청소", to(previous_precautions=("droplet",), departed_at=DEP, aerosol_wait_min=35,
+                                    cleaning_started_at=DEP + timedelta(minutes=35)), []),
+    ("대기 값 없으면 일반실 4회 104분", to(previous_precautions=("droplet",), departed_at=DEP,
+                                    cleaning_started_at=DEP + timedelta(minutes=60)), ["cleaning_before_aerosol_wait"]),
     ("비말 퇴실 환기 대기 전 청소", to(previous_precautions=("droplet",), departed_at=DEP,
                                     cleaning_started_at=DEP + timedelta(minutes=10)), ["cleaning_before_aerosol_wait"]),
     ("접촉 퇴실은 환기 대기 없음", to(previous_precautions=("contact",), departed_at=DEP,
