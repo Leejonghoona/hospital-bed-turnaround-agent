@@ -1,0 +1,118 @@
+"""점수판. 시나리오 통과 현황, 안전 지표, 기준선을 JSON으로 내고 RESULTS.md에 한 줄 추가한다.
+
+    python -m turnaround.evaluation.board --seeds 0-199 --write
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import subprocess
+from datetime import date
+from pathlib import Path
+from typing import Callable, Iterable
+
+from turnaround.sim import generate
+
+from .baselines import no_agent_baseline
+from .invariants import BedTurnover, check_assignment, check_turnover, zero_event_upper_bound
+from .scenario import Scenario, load_scenarios
+
+ROOT = Path(__file__).resolve().parents[3]
+DEV_DIR = ROOT / "evals" / "scenarios" / "dev"
+HEADER = "## 점수판 기록"
+COLUMNS = ["날짜", "커밋", "시나리오 세트", "분리", "LLM", "정책", "S1 위반/분모", "S2 위반/분모",
+           "통과/실패/미구현", "퇴실→준비 P50·P90(분)", "가정"]
+
+# 시나리오 ID → 실행기. 실행기는 통과하면 True. 구현 단계가 진행되면서 채운다.
+RUNNERS: dict[str, Callable[[Scenario], bool]] = {}
+
+
+def scenario_set_hash(directory: Path) -> str:
+    h = hashlib.sha256()
+    for p in sorted(Path(directory).glob("*.yaml")):
+        h.update(p.name.encode())
+        h.update(p.read_bytes())
+    return h.hexdigest()[:12]
+
+
+def _safety(seeds: Iterable[int]) -> dict:
+    """지금은 생성기 상태를 검사한다. 사가와 게이트웨이가 생기면 시스템이 실행한 상태로 바꾼다."""
+    s1_v = s1_n = s2_v = s2_n = 0
+    for seed in seeds:
+        h = generate(seed=seed)
+        for day in range(h.config.days):
+            occ = {d.bed_id: d.patient for d in h.discharges if d.day == day}
+            s1_v += len(check_assignment(h.rooms, h.beds, occ))
+            s1_n += len(occ)
+        for d in h.discharges:
+            if not d.patient.isolation_order:
+                continue
+            s2_n += 1
+            s2_v += len(check_turnover(BedTurnover(
+                bed_id=d.bed_id, previous_isolation=True, cleaning_type=d.cleaning_type,
+                cleaning_done_at=d.actual.cleaning_done_at, committed_at=None, vacant_at=d.actual.bed_ready_at)))
+
+    def row(v, n):
+        return {"violations": v, "denominator": n,
+                "upper_bound_95": round(zero_event_upper_bound(n), 5) if v == 0 and n else None}
+
+    return {"source": "generator_state", "S1": row(s1_v, s1_n), "S2": row(s2_v, s2_n)}
+
+
+def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "dev",
+              llm: str = "none", policy: str = "none") -> dict:
+    seeds = list(seeds)
+    scenarios = load_scenarios(directory)
+    results = {}
+    for s in scenarios:
+        runner = RUNNERS.get(s.id)
+        results[s.id] = "not_implemented" if runner is None else ("passed" if runner(s) else "failed")
+    counts = {k: sum(v == k for v in results.values()) for k in ("passed", "failed", "not_implemented")}
+    return {
+        "date": date.today().isoformat(), "commit": commit, "scenario_set": scenario_set_hash(directory),
+        "split": split, "llm": llm, "policy": policy, "seeds": [seeds[0], seeds[-1]] if seeds else [],
+        "scenarios": {"total": len(scenarios), **counts, "by_id": results},
+        "safety": _safety(seeds), "baseline": no_agent_baseline(seeds),
+        "note": "합성 데이터 기준 추정",
+    }
+
+
+def append_results_row(results_md: Path, r: dict) -> None:
+    text = results_md.read_text(encoding="utf-8")
+    if HEADER not in text:
+        text = text.rstrip("\n") + f"\n\n{HEADER}\n`python -m turnaround.evaluation.board --write`가 추가한다. 손으로 고치지 않는다.\n\n"
+        text += "| " + " | ".join(COLUMNS) + " |\n|" + "---|" * len(COLUMNS) + "\n"
+    s, b, sc = r["safety"], r["baseline"], r["scenarios"]
+    cells = [r["date"], r["commit"], r["scenario_set"], r["split"], r["llm"], r["policy"],
+             f"{s['S1']['violations']}/{s['S1']['denominator']}", f"{s['S2']['violations']}/{s['S2']['denominator']}",
+             f"{sc['passed']}/{sc['failed']}/{sc['not_implemented']}",
+             f"{b['bed_prep_min']['p50']}·{b['bed_prep_min']['p90']} (기존 방식)", ",".join(b["assumptions"]) or "-"]
+    results_md.write_text(text.rstrip("\n") + "\n| " + " | ".join(map(str, cells)) + " |\n", encoding="utf-8")
+
+
+def _parse_seeds(s: str) -> range:
+    a, _, b = s.partition("-")
+    return range(int(a), int(b or a) + 1)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="평가 점수판")
+    p.add_argument("--seeds", default="0-199")
+    p.add_argument("--write", action="store_true", help="evals/results에 JSON 저장, RESULTS.md에 한 줄 추가")
+    a = p.parse_args()
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
+                            cwd=ROOT).stdout.strip() or "unknown"
+    r = run_board(DEV_DIR, _parse_seeds(a.seeds), commit)
+    if a.write:
+        out = ROOT / "evals" / "results" / f"{r['date']}_{commit}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
+        append_results_row(ROOT / "docs" / "RESULTS.md", r)
+    print(json.dumps({k: r[k] for k in ("commit", "scenario_set", "safety")} | {"scenarios": {
+        k: r["scenarios"][k] for k in ("total", "passed", "failed", "not_implemented")}}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
