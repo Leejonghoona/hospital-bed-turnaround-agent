@@ -190,6 +190,7 @@ class Discharge(_Frozen):
     aerosol_wait_min: int = Field(default=0, ge=0)  # 비말·공기주의 퇴실 병실 환기 대기 (LP-20)
     sporicidal: bool = False  # C. difficile 퇴실: 아포 대응 소독
     rx_revision_reason: str | None = None  # 퇴원처방 수정 사유 (수정 사례만)
+    discharge_type: Literal["normal", "death", "ama"] = "normal"  # 사망(임종실 전실), 자의 퇴원 (DAT-10)
     durations_min: dict[str, int]  # 단계별로 뽑은 소요시간
     actual: DischargeTimeline
 
@@ -221,6 +222,8 @@ class GeneratorConfig(_Frozen):
     # 환기 대기: 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다 (LP-23). 병원 규칙으로 덮어쓰려면 값을 넣는다
     aerosol_wait_override_min: int | None = Field(default=None, ge=0)
     rx_revision_rate: float = Field(default=0.15, ge=0, le=1)  # 퇴원처방 수정 비율 (LP-27, 합성 가정)
+    death_count: int = Field(default=1, ge=0)  # 임종실 전실 사례 (DAT-10, 합성 가정)
+    ama_count: int = Field(default=1, ge=0)  # 자의 퇴원 사례
 
     @property
     def discharge_count(self) -> int:

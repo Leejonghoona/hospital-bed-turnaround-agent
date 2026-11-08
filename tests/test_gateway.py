@@ -571,3 +571,10 @@ def test_aerosol_wait_from_room_ach_and_hospital_rule_shows_guideline_delta():
     store, gw = make(policy=pol)
     w = gw.aerosol_wait("W72-R01-B1")
     assert w["aerosol_wait_min"] == 60 and w["guideline_delta"]["label"] == "지침 대비 44분 단축"
+
+
+def test_death_information_is_not_queryable_by_vendor_or_manager():
+    eol = ev("D9", "eol_transfer", EventType.END_OF_LIFE_ROOM_TRANSFER, at(9), bed_id="W72-R03-B2", isolation_order=False)
+    store, gw = make([eol])
+    assert gw.query("environment_vendor", ["discharge_type"], "D9", at(10)).status != "answered"
+    assert gw.query("bed_manager", ["discharge_type"], "D9", at(10)).status != "answered"

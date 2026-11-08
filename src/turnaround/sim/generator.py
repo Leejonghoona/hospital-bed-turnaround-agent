@@ -148,6 +148,11 @@ class _Gen:
         cleaning_delayed = self.pick_indices(n, cfg.cleaning_delay_count)
         unregistered = self.pick_indices(n, cfg.unregistered_count)
         rx_revised = set(self.rx_rng.sample(range(n), round(n * cfg.rx_revision_rate)))
+        # 사망·자의 퇴원 (DAT-10): 격리·미등록·보호자 지연이 아닌 건에서 고른다. 별도 난수열
+        iso_idx = {i for i, (_, _, iso) in enumerate(plan) if iso}
+        pool = sorted(set(range(n)) - iso_idx - unregistered - guardian_delayed)
+        special = self.rx_rng.sample(pool, cfg.death_count + cfg.ama_count)
+        dtype = {i: "death" for i in special[:cfg.death_count]} | {i: "ama" for i in special[cfg.death_count:]}
 
         result = []
         for i, (day, bed, iso) in enumerate(plan):
@@ -205,6 +210,7 @@ class _Gen:
                 cleaning_type=cleaning_type, cleaning_delayed=i in cleaning_delayed,
                 cleaning_extra_delay_min=extra, durations_min=d,
                 aerosol_wait_min=wait, sporicidal=patient.organism == "CDIFF", rx_revision_reason=rx_reason,
+                discharge_type=dtype.get(i, "normal"),
                 actual=DischargeTimeline(
                     order_confirmed_at=order, medication_ready_at=med, education_done_at=edu,
                     billing_done_at=billing, guardian_arrived_at=guardian_arrived, departed_at=departed,

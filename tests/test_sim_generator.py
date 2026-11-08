@@ -282,3 +282,17 @@ def test_discharge_rx_stages_are_ordered_and_revision_rate_is_15pct(seed):
         assert t.order_confirmed_at <= t.rx_issued_at < t.medication_ready_at
         assert (t.rx_revised_at or t.rx_issued_at) <= t.rx_dispensed_at <= t.medication_ready_at
         assert (d.rx_revision_reason is not None) == (t.rx_revised_at is not None)
+
+
+@pytest.mark.parametrize("seed", range(0, 20))
+def test_death_and_ama_discharges_exist_once_each(seed):
+    """DAT-10: 임종실 전실 1건, 자의 퇴원 1건. 격리·미등록·보호자 지연 건은 고르지 않는다."""
+    from turnaround.events import EventType, hospital_to_events
+    h = generate(seed=seed)
+    kinds = [d.discharge_type for d in h.discharges]
+    assert kinds.count("death") == 1 and kinds.count("ama") == 1
+    death = next(d for d in h.discharges if d.discharge_type == "death")
+    assert not death.patient.isolation_order and death.registered_at is not None and not death.guardian_delayed
+    evs = [e for e in hospital_to_events(h, seed=seed) if e.case_id == death.id]
+    assert evs[0].type is EventType.END_OF_LIFE_ROOM_TRANSFER
+    assert not {EventType.DISCHARGE_DECIDED, EventType.BILLING_DONE, EventType.GUARDIAN_ARRIVED} & {e.type for e in evs}

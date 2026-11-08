@@ -53,8 +53,15 @@ class _Builder:
 
     def discharge(self, d: Discharge) -> None:
         t, c, bed = d.actual, d.id, d.bed_id
+        if d.discharge_type == "death":
+            # 임종실 전실: 퇴원 결정 없이 병상이 빈다. 이후는 병상 준비 흐름만 (SAG-9)
+            self.add(c, "eol_transfer", EventType.END_OF_LIFE_ROOM_TRANSFER, t.departed_at, bed_id=bed,
+                     **_patient(d.patient))
+            self._cleaning(d)
+            return
+        extra = {"discharge_type": "ama"} if d.discharge_type == "ama" else {}
         self.add(c, "discharge_decided", EventType.DISCHARGE_DECIDED, d.decided_at, bed_id=bed, day=d.day,
-                 **_patient(d.patient))
+                 **_patient(d.patient), **extra)
         if d.registered_at is not None:
             self.add(c, "discharge_registered", EventType.DISCHARGE_REGISTERED, d.registered_at, bed_id=bed)
         eta_set_at = datetime.combine(t.order_confirmed_at.date(), time(8, 0)) + self.rng.randint(0, 30) * _M
@@ -75,6 +82,10 @@ class _Builder:
                      "human", eta=_ceil_half_hour(t.guardian_arrived_at).isoformat())
         self.add(c, "guardian_arrived", EventType.GUARDIAN_ARRIVED, t.guardian_arrived_at, "human")
         self.add(c, "patient_departed", EventType.PATIENT_DEPARTED, t.departed_at, bed_id=bed)
+        self._cleaning(d)
+
+    def _cleaning(self, d: Discharge) -> None:
+        t, c, bed = d.actual, d.id, d.bed_id
         ctype = d.cleaning_type.value
         req = {"aerosol_wait_min": d.aerosol_wait_min} if d.aerosol_wait_min else {}
         if d.sporicidal:

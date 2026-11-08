@@ -130,6 +130,9 @@ def test_unregistered_discharge_has_no_registration_event(hospital):
     events = hospital_to_events(hospital)
     registered = {e.case_id for e in events if e.type is EventType.DISCHARGE_REGISTERED}
     for d in hospital.discharges:
+        if d.discharge_type == "death":  # 임종실 전실은 퇴원 등록 없이 병상이 빈다 (SAG-9)
+            assert d.id not in registered
+            continue
         assert (d.id in registered) == (d.registered_at is not None)
 
 

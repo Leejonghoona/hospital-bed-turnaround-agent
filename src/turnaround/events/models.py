@@ -25,6 +25,7 @@ class EventType(str, Enum):
     BILLING_DONE = "billing_done"
     GUARDIAN_ARRIVED = "guardian_arrived"
     PATIENT_DEPARTED = "patient_departed"
+    END_OF_LIFE_ROOM_TRANSFER = "end_of_life_room_transfer"  # 임종실 전실: 원래 병상이 빈다 (SAG-9, LP-28)
     # 병상 준비
     CLEANING_REQUESTED = "cleaning_requested"
     CLEANING_STARTED = "cleaning_started"

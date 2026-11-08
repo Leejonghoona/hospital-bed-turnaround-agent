@@ -512,3 +512,47 @@ def test_rx_revision_is_recorded_as_delay_reason():
     store, _ = run(evs, until=at(0, 10, 30), start=at(0, 9))
     rec = saga_events(store, EventType.DELAY_REASON_RECORDED)
     assert [(r.payload["reason"], r.payload.get("detail")) for r in rec] == [("rx_revised", "discharge_hold")]
+
+
+# ---------- SAG-9 사망 퇴원(임종실 전실), 자의 퇴원 (LP-28) ----------
+
+def eol(case="D9", bed="W72-R03-B2", when=None, **kw):
+    return e(case, "eol_transfer", EventType.END_OF_LIFE_ROOM_TRANSFER, when or at(0, 14), bed_id=bed,
+             isolation_order=False, **kw)
+
+
+def test_eol_transfer_without_decision_vacates_bed_and_requests_cleaning():
+    store, _ = run([eol()], until=at(0, 14, 10), start=at(0, 14))
+    req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert [(r.case_id, r.payload["bed_id"], r.occurred_at) for r in req] == [("D9", "W72-R03-B2", at(0, 14))]
+    assert fold(store.read()).discharges["D9"].stage is DischargeStage.CLEANING_REQUESTED
+
+
+def test_death_suppresses_registration_medication_guardian_billing_alerts():
+    evs = [eol(when=at(0, 9)), e("D9", "order_confirmed", EventType.ORDER_CONFIRMED, at(0, 9)),
+           e("D9", "guardian_eta_updated", EventType.GUARDIAN_ETA_UPDATED, at(0, 9, 30), "human", eta="2026-03-02T15:00")]
+    store, _ = run(evs, until=at(0, 20), start=at(0, 9))
+    kinds = {x.type for x in saga_events(store)}
+    assert not kinds & {EventType.REGISTRATION_CHECK_REQUESTED, EventType.DELAY_REASON_RECORDED,
+                        EventType.SHARE_WAITING_INFO, EventType.SCHEDULE_ITEM_CREATED}
+    reasons = {x.payload.get("reason") for x in saga_events(store, EventType.READY_TIME_RECOMPUTED)}
+    assert reasons <= {"cleaning_overdue", "cleaning_done"}  # 청소 지연만 남는다
+    assert not [x for x in saga_events(store, EventType.HUMAN_TASK_CREATED) if x.payload.get("kind") == "rx_missing"]
+
+
+def test_death_after_decision_still_suppresses_later_alerts():
+    evs = [decided(), registered(), eol(case="D1", bed="W72-R03-B1", when=at(0, 8))]
+    store, _ = run(evs, until=at(0, 12), start=at(0, 8))
+    assert not [x for x in saga_events(store, EventType.HUMAN_TASK_CREATED) if x.payload.get("kind") == "rx_missing"]
+
+
+def test_ama_discharge_skips_rx_missing_alert():
+    ama = decided().model_copy(update={"payload": {**decided().payload, "discharge_type": "ama"}})
+    store, _ = run([ama, registered()], until=at(0, 12), start=at(0, 8))
+    assert not [x for x in saga_events(store, EventType.HUMAN_TASK_CREATED) if x.payload.get("kind") == "rx_missing"]
+
+
+def test_death_information_never_leaves_in_saga_commands():
+    store, _ = run([eol(when=at(0, 9))], until=at(0, 12), start=at(0, 9))
+    for x in saga_events(store):
+        assert "death" not in str(x.payload) and "discharge_type" not in x.payload

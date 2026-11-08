@@ -80,6 +80,7 @@ class DischargeCase:
     eta_updates: list[tuple[str, datetime]] = field(default_factory=list)
     rx_revisions: list[tuple[str, datetime, str | None]] = field(default_factory=list)
     discharge_date: date | None = None  # 퇴원 예정일
+    discharge_type: str = "normal"  # normal | death(임종실 전실·사망) | ama(자의 퇴원) (SAG-9)
 
     def seen(self, t: EventType) -> datetime | None:
         return self.facts.get(t)
@@ -204,10 +205,23 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.isolation = bool(ev.payload.get("isolation_order"))
             d.precautions = tuple(ev.payload.get("precautions") or ())
             d.organism = ev.payload.get("organism")
+            d.discharge_type = ev.payload.get("discharge_type") or d.discharge_type
             planned = ev.payload.get("discharge_date")
             # 예정일이 없으면 오후 결정은 다음 날, 오전 결정은 당일 퇴원으로 본다 (설계 가정)
             d.discharge_date = (date.fromisoformat(planned) if planned else
                                 ev.observed_at.date() + timedelta(days=1 if ev.observed_at.hour >= 12 else 0))
+        if ev.type is EventType.END_OF_LIFE_ROOM_TRANSFER:
+            # 임종실 전실: 그 시각에 원래 병상이 빈다. 퇴원 결정 없이 올 수 있다 (LP-28)
+            d = s.discharges.get(ev.case_id)
+            if d is None:
+                d = s.discharges[ev.case_id] = DischargeCase(ev.case_id)
+                d.bed_id = ev.payload.get("bed_id")
+                d.isolation = bool(ev.payload.get("isolation_order"))
+                d.precautions = tuple(ev.payload.get("precautions") or ())
+                d.organism = ev.payload.get("organism")
+                d.facts.setdefault(EventType.DISCHARGE_DECIDED, ev.observed_at)
+            d.discharge_type = "death"
+            d.facts.setdefault(EventType.PATIENT_DEPARTED, ev.observed_at)
         d = s.discharges.get(ev.case_id)
         if d is None:
             continue
@@ -289,48 +303,50 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         seen_at = d.seen(t)
         return seen_at is not None and seen_at <= due
 
-    # 전날 19:00: 등록됐으면 청소 예정표 공유, 19:00까지 미등록이면 병동에 확인 요청
-    if registered is not None:
-        due = max(due19, registered)
-        if now >= due:
-            out.cmd(d.id, "schedule_item", EventType.SCHEDULE_ITEM_CREATED, due, bed_id=bed)
-    if now >= due19 and not by(EventType.DISCHARGE_REGISTERED, due19):
-        out.cmd(d.id, "registration_check", EventType.REGISTRATION_CHECK_REQUESTED, due19, bed_id=bed)
+    # 사망 퇴원(임종실 전실)은 퇴실 전 경보를 모두 억제한다: 등록 확인, 퇴원약, 보호자, 수납 (SAG-9, LP-28)
+    if d.discharge_type != "death":
+        # 전날 19:00: 등록됐으면 청소 예정표 공유, 19:00까지 미등록이면 병동에 확인 요청
+        if registered is not None:
+            due = max(due19, registered)
+            if now >= due:
+                out.cmd(d.id, "schedule_item", EventType.SCHEDULE_ITEM_CREATED, due, bed_id=bed)
+        if now >= due19 and not by(EventType.DISCHARGE_REGISTERED, due19):
+            out.cmd(d.id, "registration_check", EventType.REGISTRATION_CHECK_REQUESTED, due19, bed_id=bed)
 
-    # 퇴원약 지연 (SAG-6): 기준점은 처방 발행 시각. 처방 이벤트가 없는 원천이면 오더 확정 시각으로 대신한다
-    base = d.seen(EventType.DISCHARGE_RX_ISSUED) or d.seen(EventType.ORDER_CONFIRMED)
-    if base and now >= base + p.medication_delay and not by(EventType.MEDICATION_READY, base + p.medication_delay):
-        out.cmd(d.id, "recompute:medication_delay", EventType.READY_TIME_RECOMPUTED, base + p.medication_delay,
-                bed_id=bed, reason="medication_delay")
+        # 퇴원약 지연 (SAG-6): 기준점은 처방 발행 시각. 처방 이벤트가 없는 원천이면 오더 확정 시각으로 대신한다
+        base = d.seen(EventType.DISCHARGE_RX_ISSUED) or d.seen(EventType.ORDER_CONFIRMED)
+        if base and now >= base + p.medication_delay and not by(EventType.MEDICATION_READY, base + p.medication_delay):
+            out.cmd(d.id, "recompute:medication_delay", EventType.READY_TIME_RECOMPUTED, base + p.medication_delay,
+                    bed_id=bed, reason="medication_delay")
 
-    # 퇴원 당일 정책 시각까지 처방이 없으면 병동에 알림 (주치의 연락은 사람이)
-    if d.discharge_date is not None:
-        rx_due = datetime.combine(d.discharge_date, p.rx_expected_by)
-        if now >= rx_due and not any(by(t, rx_due) for t in (
-                EventType.DISCHARGE_RX_ISSUED, EventType.MEDICATION_READY, EventType.PATIENT_DEPARTED)):
-            out.cmd(d.id, "rx_missing", EventType.HUMAN_TASK_CREATED, rx_due, bed_id=bed, kind="rx_missing",
-                    assignee="ward")
+        # 퇴원 당일 정책 시각까지 처방이 없으면 병동에 알림 (주치의 연락은 사람이)
+        if d.discharge_date is not None and d.discharge_type != "ama":  # 자의 퇴원은 처방 없이 나갈 수 있다
+            rx_due = datetime.combine(d.discharge_date, p.rx_expected_by)
+            if now >= rx_due and not any(by(t, rx_due) for t in (
+                    EventType.DISCHARGE_RX_ISSUED, EventType.MEDICATION_READY, EventType.PATIENT_DEPARTED)):
+                out.cmd(d.id, "rx_missing", EventType.HUMAN_TASK_CREATED, rx_due, bed_id=bed, kind="rx_missing",
+                        assignee="ward")
 
-    # 처방 수정은 지연 사유로 기록
-    for key, seen_at, why in d.rx_revisions:
-        out.cmd(d.id, f"delay_reason:{key}", EventType.DELAY_REASON_RECORDED, seen_at, bed_id=bed,
-                reason="rx_revised", detail=why)
+        # 처방 수정은 지연 사유로 기록
+        for key, seen_at, why in d.rx_revisions:
+            out.cmd(d.id, f"delay_reason:{key}", EventType.DELAY_REASON_RECORDED, seen_at, bed_id=bed,
+                    reason="rx_revised", detail=why)
 
-    # 보호자 도착 예정 변경: 준비 시각 재계산과 지연 사유 코드 기록
-    for key, seen_at in d.eta_updates:
-        out.cmd(d.id, f"recompute:guardian_eta:{key}", EventType.READY_TIME_RECOMPUTED, seen_at,
-                bed_id=bed, reason="guardian_eta")
-        out.cmd(d.id, "delay_reason:guardian", EventType.DELAY_REASON_RECORDED, seen_at, bed_id=bed, reason="guardian")
+        # 보호자 도착 예정 변경: 준비 시각 재계산과 지연 사유 코드 기록
+        for key, seen_at in d.eta_updates:
+            out.cmd(d.id, f"recompute:guardian_eta:{key}", EventType.READY_TIME_RECOMPUTED, seen_at,
+                    bed_id=bed, reason="guardian_eta")
+            out.cmd(d.id, "delay_reason:guardian", EventType.DELAY_REASON_RECORDED, seen_at, bed_id=bed, reason="guardian")
 
-    # 수납 대기 기준 초과: 다음 환자가 기다리면 원무 화면에 대기 정보 공유 (자동)
-    med = d.seen(EventType.MEDICATION_READY)
-    if med and now >= med + p.billing_wait and not by(EventType.BILLING_DONE, med + p.billing_wait):
-        waiting = any(m.discharge_id == d.id and m.active for m in s.matches.values())
-        if waiting:
-            out.cmd(d.id, "share:billing", EventType.SHARE_WAITING_INFO, med + p.billing_wait, bed_id=bed,
-                    target="원무", reason="billing_wait")
-            out.cmd(d.id, "delay_reason:billing", EventType.DELAY_REASON_RECORDED, med + p.billing_wait,
-                    bed_id=bed, reason="billing")
+        # 수납 대기 기준 초과: 다음 환자가 기다리면 원무 화면에 대기 정보 공유 (자동)
+        med = d.seen(EventType.MEDICATION_READY)
+        if med and now >= med + p.billing_wait and not by(EventType.BILLING_DONE, med + p.billing_wait):
+            waiting = any(m.discharge_id == d.id and m.active for m in s.matches.values())
+            if waiting:
+                out.cmd(d.id, "share:billing", EventType.SHARE_WAITING_INFO, med + p.billing_wait, bed_id=bed,
+                        target="원무", reason="billing_wait")
+                out.cmd(d.id, "delay_reason:billing", EventType.DELAY_REASON_RECORDED, med + p.billing_wait,
+                        bed_id=bed, reason="billing")
 
     # 퇴실 즉시 청소 요청 (AS-01). 격리면 종말소독 강제
     if departed is not None:
