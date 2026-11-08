@@ -1,0 +1,22 @@
+@prefix ta:   <urn:turnaround:> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# 경량 온톨로지: 개념 계층. 설계 문서 데이터 섹션의 예시를 그대로 옮겼다.
+# 새 질환이나 병실 유형은 여기 한 줄로 추가하면 SHACL 제약이 하위 개념까지 따라간다.
+
+# 병실: 음압격리실 → 1인실 → 병실
+ta:Room                 a rdfs:Class ; rdfs:label "병실" .
+ta:SingleRoom           rdfs:subClassOf ta:Room ; rdfs:label "1인실" .
+ta:NegativePressureRoom rdfs:subClassOf ta:SingleRoom ; rdfs:label "음압격리실" .
+ta:MultiRoom            rdfs:subClassOf ta:Room ; rdfs:label "다인실" .
+ta:Bed                  a rdfs:Class ; rdfs:label "병상" .
+
+# 환자: 결핵 의심 → 공기감염 격리 필요 → 격리 필요 (LP-01)
+ta:Patient                      a rdfs:Class ; rdfs:label "환자" .
+ta:IsolationPatient             rdfs:subClassOf ta:Patient ; rdfs:label "격리 필요" .
+ta:AirborneIsolationPatient     rdfs:subClassOf ta:IsolationPatient ; rdfs:label "공기감염 격리 필요" .
+ta:ContactIsolationPatient      rdfs:subClassOf ta:IsolationPatient ; rdfs:label "접촉 격리 필요" .
+ta:SuspectedTuberculosisPatient rdfs:subClassOf ta:AirborneIsolationPatient ; rdfs:label "결핵 의심" .
+
+# 병상 회전 기록
+ta:BedTurnover a rdfs:Class ; rdfs:label "병상 회전(퇴실부터 다음 확정까지)" .

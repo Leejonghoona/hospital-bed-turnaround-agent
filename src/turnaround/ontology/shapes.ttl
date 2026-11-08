@@ -1,0 +1,79 @@
+@prefix ta:   <urn:turnaround:> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# SHACL 제약 (최소판). 각 형상의 rdfs:comment가 위반 코드다. 하위 개념은 rdfs:subClassOf 사슬로 따라간다.
+
+ta:shapes sh:declare [ sh:prefix "ta" ; sh:namespace "urn:turnaround:"^^xsd:anyURI ] .
+
+# 배정된 병상은 알려진 병상이어야 한다
+ta:KnownBedShape a sh:NodeShape ;
+    rdfs:comment "unknown_bed" ;
+    sh:targetSubjectsOf ta:assignedTo ;
+    sh:property [ sh:path ta:assignedTo ; sh:class ta:Bed ; sh:message "없는 병상에 배정" ] .
+
+# 격리 필요 환자는 1인실(음압격리실 포함)
+ta:IsolationRoomShape a sh:NodeShape ;
+    rdfs:comment "isolation_room" ;
+    sh:targetClass ta:IsolationPatient ;
+    sh:property [ sh:path ( ta:assignedTo ta:inRoom ) ; sh:class ta:SingleRoom ;
+                  sh:message "격리 필요 환자는 음압격리실 또는 1인실" ] .
+
+# 공기감염 격리 필요 환자는 음압격리실만 (LP-01)
+ta:AirborneRoomShape a sh:NodeShape ;
+    rdfs:comment "airborne_needs_negative_pressure" ;
+    sh:targetClass ta:AirborneIsolationPatient ;
+    sh:property [ sh:path ( ta:assignedTo ta:inRoom ) ; sh:class ta:NegativePressureRoom ;
+                  sh:message "공기감염 격리 필요 환자는 음압격리실만" ] .
+
+# 다인실 배정 환자는 성별 값이 있어야 한다 (sh:minCount 없이는 누락 환자가 통과하는 구멍)
+ta:GenderPresentShape a sh:NodeShape ;
+    rdfs:comment "gender_missing" ;
+    sh:targetClass ta:Patient ;
+    sh:sparql [ sh:message "성별 입력 누락 환자를 다인실에 배정" ; sh:prefixes ta:shapes ;
+        sh:select """SELECT $this WHERE { $this ta:assignedTo/ta:inRoom ?room . ?room a ta:MultiRoom .
+                     FILTER NOT EXISTS { $this ta:gender ?g } }""" ] .
+
+# 다인실은 성별 일치
+ta:GenderRoomShape a sh:NodeShape ;
+    rdfs:comment "gender_room" ;
+    sh:targetClass ta:Patient ;
+    sh:sparql [ sh:message "성별 병실 불일치" ; sh:prefixes ta:shapes ;
+        sh:select """SELECT $this WHERE { $this ta:assignedTo/ta:inRoom ?room ; ta:gender ?g .
+                     ?room a ta:MultiRoom ; ta:gender ?rg . FILTER (?g != ?rg) }""" ] .
+
+# 동명이인 같은 병실 금지 (SHACL-SPARQL, 두 환자 비교). 병실 하나에 위반 하나
+ta:SameNameShape a sh:NodeShape ;
+    rdfs:comment "same_name_room" ;
+    sh:targetClass ta:Room ;
+    sh:sparql [ sh:message "동명이인이 같은 병실" ; sh:prefixes ta:shapes ;
+        sh:select """SELECT DISTINCT $this WHERE { ?a ta:assignedTo/ta:inRoom $this ; ta:name ?n .
+                     ?b ta:assignedTo/ta:inRoom $this ; ta:name ?n . FILTER (?a != ?b) }""" ] .
+
+# 격리 퇴실 병상은 종말소독
+ta:TerminalCleaningShape a sh:NodeShape ;
+    rdfs:comment "terminal_cleaning_missing" ;
+    sh:targetClass ta:BedTurnover ;
+    sh:sparql [ sh:message "격리 퇴실인데 종말소독이 아님" ; sh:prefixes ta:shapes ;
+        sh:select """SELECT $this WHERE { $this ta:previousIsolation true .
+                     FILTER NOT EXISTS { $this ta:cleaningType "terminal" } }""" ] .
+
+# 종말소독 완료 전 매칭 확정 금지
+ta:CommitBeforeDisinfectionShape a sh:NodeShape ;
+    rdfs:comment "commit_before_disinfection" ;
+    sh:targetClass ta:BedTurnover ;
+    sh:sparql [ sh:message "종말소독 완료 전 매칭 확정" ; sh:prefixes ta:shapes ;
+        sh:select """SELECT $this WHERE { $this ta:previousIsolation true ; ta:cleaningType "terminal" ;
+                     ta:committedAt ?c . OPTIONAL { $this ta:cleaningDoneAt ?d }
+                     FILTER (!BOUND(?d) || ?c < ?d) }""" ] .
+
+# 종말소독 완료 전 빈 병상 전환 금지
+ta:VacantBeforeDisinfectionShape a sh:NodeShape ;
+    rdfs:comment "vacant_before_disinfection" ;
+    sh:targetClass ta:BedTurnover ;
+    sh:sparql [ sh:message "종말소독 완료 전 빈 병상 전환" ; sh:prefixes ta:shapes ;
+        sh:select """SELECT $this WHERE { $this ta:previousIsolation true ; ta:cleaningType "terminal" ;
+                     ta:vacantAt ?v . OPTIONAL { $this ta:cleaningDoneAt ?d }
+                     FILTER (!BOUND(?d) || ?v < ?d) }""" ] .
