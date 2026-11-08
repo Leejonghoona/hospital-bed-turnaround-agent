@@ -46,6 +46,7 @@ class Proposal(BaseModel):
     discharge_id: str | None = None  # 이 병상을 비우는 퇴원 사례 (사전 매칭이면)
     scores: dict[str, float] = Field(default_factory=dict)  # 후보 병상 점수 (1·2순위 차 판정)
     alternatives: list[str] = Field(default_factory=list)  # 검토 카드 대안
+    rationale: str = ""  # 에이전트 설명 (검토 카드). 판단 근거로 쓰지 않는다
 
 
 @dataclass
@@ -363,6 +364,8 @@ class Gateway:
             self._emit(prop.case, f"gw:{prop.proposal_id}:no_bed", EventType.NO_BED_REPORTED, now,
                        proposal_id=prop.proposal_id)
             self._route_review(prop, reasons or ["no_bed"], now)
+            if "missing_input" in reasons:
+                self._task(prop.case, prop.proposal_id, "data_fix", now)
             return Decision("awaiting_review", "proposal", "review", reasons or ["no_bed"])
         if prop.bed_id not in self.room_of:
             return self._reject(prop, "proposal", ["unknown_bed"], now)
@@ -484,6 +487,11 @@ class Gateway:
         self._emit(prop.case, f"gw:{prop.proposal_id}:committed", EventType.MATCH_COMMITTED, now,
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id, version=version,
                    discharge_id=prop.discharge_id)
+        # 재매칭으로 다른 병상을 확정했으면 이전 사전 매칭을 푼다 (E02)
+        for m in fold(events).matches.values():
+            if m.admission_id == prop.case and m.active and m.bed_id != prop.bed_id:
+                self._emit(prop.case, f"gw:{prop.proposal_id}:release_prev:{m.bed_id}", EventType.PREMATCH_RELEASED,
+                           now, bed_id=m.bed_id, reason="rematched", discharge_id=m.discharge_id)
         return Decision("committed", stage)
 
     def _reject_commit(self, prop: Proposal, reasons: list[str], now: datetime, tag: str) -> Decision:

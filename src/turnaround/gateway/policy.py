@@ -28,6 +28,19 @@ class Ventilation(BaseModel):
     hospital_wait_min: int | None = Field(default=None, ge=0)  # 병원 규칙 덮어쓰기 (POL-2)
 
 
+class Scoring(BaseModel):
+    """목표 함수 4~5항 점수 가중치 (SPEC 3절). 값은 설계 가정이며 재생 평가로 조정한다."""
+    model_config = ConfigDict(frozen=True)
+    department_ward_match: float = 30.0
+    negative_pressure_preserve: float = -40.0
+    single_room_requested: float = 20.0
+    single_room_unrequested: float = -15.0
+    near_nurse_station_high_risk: float = 10.0
+    ward_load_per_pending: float = -3.0
+    ready_delay_per_10min: float = -1.0
+    rematch_gain_min: float = 3.0  # 6항 변동 최소: 재매칭은 이득이 이 값을 넘을 때만 (준비 30분 단축)
+
+
 class Provenance(BaseModel):
     model_config = ConfigDict(frozen=True)
     tier: Literal["law", "guideline", "hospital_rule", "field_practice", "design_assumption"]
@@ -50,6 +63,7 @@ class Policy(BaseModel):
     query_fields: dict[str, list[str]]
     manual_override: ManualOverridePolicy
     ventilation: Ventilation = Field(default_factory=Ventilation)
+    scoring: Scoring = Field(default_factory=Scoring)
     external_llm: str = "deny"
     provenance: dict[str, Provenance] = Field(default_factory=dict)
 

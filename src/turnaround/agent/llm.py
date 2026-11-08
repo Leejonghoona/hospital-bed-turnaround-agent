@@ -1,0 +1,183 @@
+"""교체 가능한 LLM 인터페이스 (AGT-1).
+
+기본은 API 키 없이 도는 결정적 가짜 LLM이다. 실제 모델은 환경 변수가 모두 있을 때만 붙는다.
+- TURNAROUND_LLM=openai | anthropic
+- TURNAROUND_LLM_MODEL=<모델 ID>
+- TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only  (외부 API에는 합성 데이터만 보낸다는 확인. 운영 정책은 deny)
+- OPENAI_API_KEY 또는 ANTHROPIC_API_KEY
+
+LLM이 하는 일은 판단(후보 중 선택), 설명, 자유 서술 추출, 질문 해석뿐이다. 숫자 계산과 배정 규칙은 도구가 한다.
+모든 호출은 JSON 하나를 돌려받는다. 형식이 틀리면 호출한 쪽이 규칙 모드로 내려간다.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import time
+from dataclasses import dataclass, field
+from typing import Protocol
+
+import requests
+
+
+class LLMError(RuntimeError):
+    """모델 장애, 형식 오류. 호출한 쪽은 규칙 모드로 내려간다 (NFR-4)."""
+
+
+@dataclass
+class Usage:
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_s: float = 0.0
+
+
+class LLM(Protocol):
+    name: str
+    usage: Usage
+
+    def complete_json(self, task: str, system: str, user: str) -> dict: ...
+
+
+# ---------- 결정적 가짜 LLM ----------
+
+_TIME = re.compile(r"(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?")
+
+
+def _first_json(text: str) -> dict:
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", text, re.S)
+        if not m:
+            raise LLMError("JSON 없음")
+        try:
+            return json.loads(m.group(0))
+        except json.JSONDecodeError as e:
+            raise LLMError(f"JSON 형식 오류: {e}") from e
+
+
+@dataclass
+class FakeLLM:
+    """테스트용 결정적 LLM. 같은 입력이면 같은 출력 (NFR-2). 규칙은 단순하게 둔다."""
+
+    name: str = "fake"
+    usage: Usage = field(default_factory=Usage)
+    fail: bool = False  # 장애 주입 (NFR-4 시험)
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
+        self.usage.calls += 1
+        if self.fail:
+            raise LLMError("가짜 장애")
+        data = _first_json(user)
+        if task == "choose_bed":
+            cands = data.get("candidates") or []
+            if not cands:
+                return {"bed_id": None, "rationale": "조건에 맞는 병상 없음"}
+            best = max(cands, key=lambda c: (c["score"], -cands.index(c)))
+            return {"bed_id": best["bed_id"], "rationale": f"점수 1순위 {best['bed_id']} ({best['score']:.1f})"}
+        if task == "extract":
+            return _fake_extract(data.get("text", ""), data.get("reference_date"))
+        if task == "parse_question":
+            return _fake_parse(data.get("question", ""))
+        raise LLMError(f"모르는 작업: {task}")
+
+
+def _fake_extract(text: str, ref: str | None) -> dict:
+    out: dict = {}
+    m = _TIME.search(text)
+    if m and ("도착" in text or "온다" in text or "오신다" in text):
+        hh = int(m.group(2))
+        if m.group(1) == "오후" and hh < 12 or (m.group(1) is None and 1 <= hh <= 7):
+            hh += 12  # "2시 도착"은 오후로 본다 (병원 낮 시간 가정)
+        mm = 30 if m.group(4) else int(m.group(3) or 0)
+        out["guardian_eta"] = f"{hh:02d}:{mm:02d}"
+    if re.search(r"휠체어|부축", text):
+        out["mobility_aid"] = True
+    if re.search(r"1인실\s*(희망|원)", text):
+        out["single_room_wish"] = True
+    return out
+
+
+def _fake_parse(q: str) -> dict:
+    case = re.search(r"\b([A-Z]{1,3}-?[A-Z]?\d{1,4})\b", q)
+    if "수술" in q and "퇴원" in q:
+        return {"intent": "discharges_with_attending_surgery", "day": "tomorrow" if "내일" in q else "today",
+                "period": "am" if "오전" in q else "any"}
+    if "재입원" in q:
+        return {"intent": "readmission_plan", "case": case.group(1) if case else None}
+    if "청소" in q and case:
+        return {"intent": "cleaning_status", "case": case.group(1)}
+    return {"intent": "unknown"}
+
+
+# ---------- 실제 모델 (환경 변수가 있을 때만) ----------
+
+@dataclass
+class _HttpLLM:
+    model: str
+    name: str = ""
+    usage: Usage = field(default_factory=Usage)
+    timeout_s: float = 60.0
+
+    def _post(self, url: str, headers: dict, body: dict) -> dict:
+        t0 = time.monotonic()
+        try:
+            r = requests.post(url, headers=headers, json=body, timeout=self.timeout_s)
+        except requests.RequestException as e:
+            raise LLMError(f"연결 실패: {e}") from e
+        self.usage.latency_s += time.monotonic() - t0
+        self.usage.calls += 1
+        if r.status_code != 200:
+            raise LLMError(f"HTTP {r.status_code}: {r.text[:200]}")
+        return r.json()
+
+
+@dataclass
+class OpenAILLM(_HttpLLM):
+    base_url: str = "https://api.openai.com/v1"
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
+        body = {"model": self.model, "messages": [{"role": "system", "content": system},
+                                                   {"role": "user", "content": user}],
+                "response_format": {"type": "json_object"}}
+        res = self._post(f"{self.base_url}/chat/completions",
+                         {"Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY', '')}"}, body)
+        u = res.get("usage") or {}
+        self.usage.input_tokens += u.get("prompt_tokens", 0)
+        self.usage.output_tokens += u.get("completion_tokens", 0)
+        return _first_json(res["choices"][0]["message"]["content"] or "")
+
+
+@dataclass
+class AnthropicLLM(_HttpLLM):
+    base_url: str = "https://api.anthropic.com/v1"
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
+        body = {"model": self.model, "max_tokens": 1024, "system": system + "\nJSON 객체 하나만 출력한다.",
+                "messages": [{"role": "user", "content": user}]}
+        res = self._post(f"{self.base_url}/messages",
+                         {"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version": "2023-06-01"},
+                         body)
+        u = res.get("usage") or {}
+        self.usage.input_tokens += u.get("input_tokens", 0)
+        self.usage.output_tokens += u.get("output_tokens", 0)
+        text = "".join(b.get("text", "") for b in res.get("content", []) if b.get("type") == "text")
+        return _first_json(text)
+
+
+def get_llm(env: dict | None = None) -> LLM:
+    """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM."""
+    env = os.environ if env is None else env
+    kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
+    if kind == "fake" or not model:
+        return FakeLLM()
+    if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":
+        raise LLMError("외부 LLM은 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 쓴다")
+    if kind == "openai" and env.get("OPENAI_API_KEY"):
+        return OpenAILLM(model=model, name=f"openai:{model}")
+    if kind == "anthropic" and env.get("ANTHROPIC_API_KEY"):
+        return AnthropicLLM(model=model, name=f"anthropic:{model}")
+    raise LLMError(f"{kind} 키가 없다")

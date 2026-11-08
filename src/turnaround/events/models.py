@@ -59,6 +59,9 @@ class EventType(str, Enum):
     WARD_NOTIFIED = "ward_notified"  # 수용 회신 철회 통지
     SHARE_WAITING_INFO = "share_waiting_info"  # 부서 화면에 다음 환자 대기 정보 공유
     DELAY_REASON_RECORDED = "delay_reason_recorded"  # 퇴원 지연 사유 코드
+    FREE_TEXT_NOTE = "free_text_note"  # 병동 전달사항, 보호자 통화 메모 (자유 서술. 추출 필드만 쓴다, SEC-3)
+    FIELDS_EXTRACTED = "fields_extracted"  # 추출 LLM 결과 (AGT-5)
+    QUERY_NO_RECORD = "query_no_record"  # 근거 레코드 없음 (AGT-6)
     # 실행 게이트웨이
     PROPOSAL_RECEIVED = "proposal_received"
     GATEWAY_DECISION = "gateway_decision"  # 감사 로그
