@@ -154,7 +154,7 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
     <div><b>PoC</b>개념 검증. 작게 만들어 효과를 확인하는 단계</div>
   </div>
   <nav class="ax" aria-label="목차">
-    <a href="#glance">한눈에 보기</a><a href="#ns">북극성</a><a href="#diag">1 진단</a><a href="#redesign">2 업무 재설계</a><a href="#human">3 사람 개입</a><a href="#arch">구조</a><a href="#data">데이터</a><a href="#sec">보안</a><a href="#poc">4 PoC</a><a href="#scale">5 확산과 운영</a><a href="#scope">구현 범위</a><a href="#src">출처</a>
+    <a href="#glance">한눈에 보기</a><a href="#ns">북극성</a><a href="#diag">1 진단</a><a href="#redesign">2 업무 재설계</a><a href="#human">3 사람 개입</a><a href="#arch">구조</a><a href="#data">데이터</a><a href="#sec">보안</a><a href="#model">모델</a><a href="#poc">4 PoC</a><a href="#scale">5 확산과 운영</a><a href="#scope">구현 범위</a><a href="#src">출처</a>
   </nav>
 </header>
 
@@ -328,7 +328,7 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
   <h2>내부망 보안</h2>
   <div class="grid g3">
     <div class="pan"><h3>병원 내부망</h3><p>서버, DB, 온톨로지, LLM을 병원 서버실에 둡니다. 병원 안 프로그램끼리 쓰는 API는 내부망 밖으로 나가지 않습니다. 외부 환경 업체에는 병상 번호, 예상 시각, 청소 유형만 보내고 환자 정보는 보내지 않습니다.</p></div>
-    <div class="pan"><h3>로컬 LLM</h3><p>에이전트는 병원 서버의 작은 LLM을 씁니다. 운영에서는 외부 AI API를 쓰지 않고, 외부 모델 비교는 개발 단계에서 가상 데이터로만 합니다.</p></div>
+    <div class="pan"><h3>로컬 LLM</h3><p>에이전트는 병원 서버의 오픈 가중치 LLM을 씁니다. 운영에서는 외부 AI API를 쓰지 않고, 외부 모델 비교는 개발 단계에서 가상 데이터로만 합니다. 후보와 근거는 <a href="#model">모델 선정</a>에 정리했습니다.</p></div>
     <div class="pan"><h3>권한과 기록</h3><p>도구 권한은 사례와 행동 단위로 짧게 발급하고, 매칭, 회신, 취소는 모두 감사 로그에 남깁니다.</p></div>
   </div>
   <div class="tbl" style="margin-top:12px;"><table>
@@ -339,6 +339,103 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
     <tr><td>OWASP LLM01 프롬프트 인젝션</td><td>입력 문장이 LLM 판단을 바꾸는 공격. 자유 서술은 추출 LLM을 거친 필드만 쓰고 정책 판단에서 제외</td></tr>
   </table></div>
   <div class="dk"><span>연결 경험</span>아동 음성 앱에서 음성을 폰 밖으로 보내지 않도록 설계한 원칙을 병원 데이터에 적용</div>
+</section>
+
+<section id="model">
+  <div class="lb">모델</div>
+  <h2>모델 선정과 배치</h2>
+  <p class="cap" style="margin:0 0 14px;">LLM은 판단, 설명, 자유 서술 추출만 맡습니다. 배정과 숫자 계산은 도구가 하고, LLM을 빼도 규칙 모드로 돕니다. 그래서 모델은 "가장 똑똑한 것"이 아니라 데이터가 병원 밖으로 나가지 않으면서 세 역할을 안정적으로 해내는 것을 고릅니다.</p>
+  <div class="grid g3">
+    <div class="pan"><h3>추출 LLM</h3><p class="cap">병동 전달사항, 보호자 통화 메모 → 정해진 필드</p><ul><li>출력: 보호자 도착 예정 시각, 지연 사유 코드, 격리 언급 여부(참고용)</li><li>필요 능력: 한국어 구어·축약어 이해, 스키마 그대로의 JSON</li><li>호출: 사례당 약 5회, 짧은 입력</li><li>추론 모드 끔. 작은 모델이 적합</li></ul></div>
+    <div class="pan"><h3>계획 에이전트</h3><p class="cap">사례 상태 관찰 → 도구 선택 → 행동 제안과 근거</p><ul><li>출력: 제안, 근거, 판단에 쓴 이벤트 순번</li><li>필요 능력: 다단계 도구 호출, 근거 서술, 같은 입력에 같은 판단</li><li>호출: 사례당 약 10회, 도구 결과 포함 입력</li><li>추론 모드 켬. 중형 모델</li></ul></div>
+    <div class="pan"><h3>질의 응답</h3><p class="cap">병상관리 담당 질문 → 조회 도구 → 근거 레코드와 답</p><ul><li>조회 도구만 사용, 쓰기 권한 없음</li><li>DB에 없는 사실을 답하면 기능을 끔 (PoC 중단 기준)</li><li>호출: 근무조당 수십 건</li><li>계획 에이전트와 같은 모델 공유</li></ul></div>
+  </div>
+
+  <h3 style="margin-top:28px;">선정 기준</h3>
+  <div class="tbl"><table>
+    <tr><th>순서</th><th>기준</th><th>이유</th><th>확인 방법</th></tr>
+    <tr class="pick"><td>1 관문</td><td><b>데이터 위치</b></td><td>환자 정보와 자유 서술이 국외나 병원 밖으로 나가면 운영 불가</td><td>추론, 저장 위치 문서 확인 (아래 보안 검토)</td></tr>
+    <tr class="pick"><td>2 관문</td><td><b>라이선스</b></td><td>병원 운영은 상업 이용. 연구 전용 가중치는 데모 비교까지만</td><td>가중치 LICENSE 파일 원문</td></tr>
+    <tr><td>3</td><td>한국어 추출 정확도</td><td>"보호자 1시 넘어 온대요", "퇴약 아직" 같은 현장 문장</td><td>합성 전달사항 200문장, 필드 일치율</td></tr>
+    <tr><td>4</td><td>도구 호출 유효율</td><td>스키마 밖 인자는 게이트웨이가 거부해 재시도 비용 발생</td><td>회귀 시나리오 30개 × 5회, JSON 유효 비율</td></tr>
+    <tr><td>5</td><td>인젝션 저항</td><td>설계상 자유 서술은 정책 판단에서 빠지지만, 추출 필드 오염은 측정</td><td>공격 문장 시나리오, 판단이 바뀐 횟수 0건</td></tr>
+    <tr><td>6</td><td>반복 일관성</td><td>같은 사례에 다른 제안이 나오면 검토 담당 신뢰가 떨어짐</td><td>같은 시나리오 5회 모두 통과 비율</td></tr>
+    <tr><td>7</td><td>지연과 장비</td><td>5분 주기 안에 사례 전체 재판단, 병원 서버실 GPU 한도</td><td>사례당 P95 지연, 필요 GPU 메모리</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:28px;">모델 비교표</h3>
+  <p class="cap" style="margin:0 0 10px;">2026년 11월 기준. 비용은 1M 토큰당 미국 달러(입력/출력). *는 2차 출처라 원문 재확인 필요. Artificial Analysis 지능 지수는 이 작업 환경에서 사이트 접속이 막혀 넣지 못했고, 2026년 10월 v5 개편으로 이전 점수와 비교도 어려워 최종 판단은 아래 재생 하네스 결과로 합니다.</p>
+  <div class="tbl"><table>
+    <tr><th>모델</th><th>형태</th><th>파라미터 (총 / 활성)</th><th>학습 방식</th><th>토큰 비용</th><th>데이터 위치</th><th>이 서비스에서</th></tr>
+    <tr><td><b>Claude Haiku 5.5</b><br><span class="cap">Anthropic</span></td><td>API</td><td>비공개</td><td>대규모 사전학습 → 사람 피드백 강화학습(RLHF)과 헌법 기반 AI(원칙 문서로 AI가 피드백하는 강화학습). 적응형 사고</td><td>$0.10 / $0.50 (10만 토큰 이하)</td><td>직접 API: 추론 미국 또는 글로벌, 저장 미국</td><td><span class="tag next">개발</span> 추출 기준선</td></tr>
+    <tr><td><b>Claude Sonnet 5.5</b></td><td>API</td><td>비공개</td><td>위와 같은 계열. 도구 사용, 에이전트 작업 강화</td><td>$2 / $10</td><td>직접 API: 미국 또는 글로벌. Bedrock 서울은 Sonnet 5가 단일 리전 추론*</td><td><span class="tag next">개발</span> 계획 상한 기준선, 운영 2안</td></tr>
+    <tr><td><b>Claude Opus 5.5</b></td><td>API</td><td>비공개</td><td>위와 같은 계열. 사고 항상 켜짐</td><td>$4 / $20</td><td>위와 같음</td><td><span class="tag next">개발</span> 회귀 정답 라벨 검수 보조</td></tr>
+    <tr><td><b>GPT-5.5</b><br><span class="cap">OpenAI</span></td><td>API</td><td>비공개</td><td>사전학습 → RLHF, 추론 강화학습</td><td>$5 / $30 (2026.04 발표가)*</td><td>국외</td><td><span class="tag cut">비교만</span></td></tr>
+    <tr><td><b>Gemini 3 Flash</b><br><span class="cap">Google</span></td><td>API</td><td>비공개</td><td>사전학습 → 후학습(RLHF)</td><td>$0.50 / $3*</td><td>국외 (서울 리전 제공 여부 확인 못 함)</td><td><span class="tag cut">비교만</span></td></tr>
+    <tr class="pick"><td><b>gpt-oss-20b</b><br><span class="cap">OpenAI</span></td><td>오픈 가중치</td><td>21B / 3.6B (MoE, 전문가 32개)</td><td>SFT → 고연산 강화학습(o3 계열 사고 사슬 기법). 추론 강도 조절</td><td>원내 GPU 고정비 (16GB급 1장)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 추출 후보</td></tr>
+    <tr class="pick"><td><b>gpt-oss-120b</b></td><td>오픈 가중치</td><td>117B / 5.1B (MoE, 전문가 128개)</td><td>위와 같음. Apache 2.0</td><td>원내 GPU (80GB 1장, 4비트 가중치)</td><td>원내</td><td><span class="tag pick">운영 1안</span> 계획 후보</td></tr>
+    <tr class="pick"><td><b>Solar Open 100B</b><br><span class="cap">업스테이지</span></td><td>오픈 가중치</td><td>102.6B / 12B (MoE, 전문가 129개)</td><td>19.7조 토큰 사전학습, 한국어 비중 높음, 128K 문맥. 가중치는 Upstage Solar License</td><td>원내 GPU (FP8 기준 80GB 2장)</td><td>원내, 국내 개발</td><td><span class="tag pick">운영 1안</span> 한국어 계획 후보 (라이선스 확인 후)</td></tr>
+    <tr><td><b>Gemma 4</b><br><span class="cap">Google</span></td><td>오픈 가중치</td><td>E4B(실효 4.5B) / 26B MoE(활성 3.8B) / 31B 밀집</td><td>상위 모델 지식 증류 + 후학습. Apache 2.0 (2026.04)</td><td>원내 GPU (소형은 CPU도 가능)</td><td>원내</td><td><span class="tag keep">후보</span> 추출 경량안</td></tr>
+    <tr><td><b>Qwen3.5</b><br><span class="cap">알리바바</span></td><td>오픈 가중치</td><td>397B / 17B (MoE), 소형 9B·27B</td><td>사전학습 → SFT → 강화학습, 사고/비사고 혼합. Apache 2.0, 262K 문맥*</td><td>397B는 GPU 8장급, 27B는 1장</td><td>원내</td><td><span class="tag keep">후보</span> 27B만. 공공기관은 해외 모델 도입 지침 확인</td></tr>
+    <tr><td><b>EXAONE 4.0</b><br><span class="cap">LG AI연구원</span></td><td>오픈 가중치</td><td>32B(임베딩 제외 30.95B) / 1.2B</td><td>추론·비추론 혼합 모드, SFT → 강화학습. 한국어·영어·스페인어</td><td>원내 GPU (32B는 1장)</td><td>원내, 국내 개발</td><td><span class="tag cut">데모 비교만</span> 라이선스 NC(연구·교육용)</td></tr>
+    <tr><td><b>K-EXAONE</b><br><span class="cap">LG AI연구원</span></td><td>오픈 가중치</td><td>236B / 23B (MoE, 256K), 2.0은 750B</td><td>국가대표 AI 사업 모델. 2.0은 Apache 2.0 전환(2026.07)*</td><td>다중 GPU 노드</td><td>원내 가능하나 장비 과다</td><td><span class="tag cut">제외</span> 병원 서버 규모 초과</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:28px;">학습 방식이 서비스에 주는 차이</h3>
+  <div class="tbl"><table>
+    <tr><th>학습 방식</th><th>해당 모델</th><th>이 서비스에서 의미</th><th>배치</th></tr>
+    <tr><td>추론 강화학습 (사고 사슬을 길게 쓰도록 보상)</td><td>gpt-oss, Qwen3.5 사고 모드, EXAONE 추론 모드, Claude 적응형 사고</td><td>여러 도구를 차례로 부르는 재매칭 판단에 유리. 대신 출력 토큰과 지연이 늘어남</td><td>계획 에이전트에만 켬</td></tr>
+    <tr><td>지식 증류 소형 모델</td><td>Gemma 4 E4B·26B, gpt-oss-20b</td><td>좁은 작업(필드 추출)에서 큰 모델과 비슷한 정확도를 적은 장비로</td><td>추출 LLM</td></tr>
+    <tr><td>한국어 비중 높은 사전학습</td><td>Solar Open, EXAONE, K-EXAONE</td><td>병동 구어, 축약어("퇴약", "보호자 컨택") 추출에 유리할 가능성. 하네스로 확인</td><td>추출·계획 후보</td></tr>
+    <tr><td>RLHF와 헌법 기반 AI (안전 정렬)</td><td>Claude, GPT, Gemini</td><td>인젝션 문장 거부 성향이 강하지만, 설계는 모델 성향에 기대지 않고 자유 서술을 정책 판단에서 뺌</td><td>성향은 가산점, 통제는 게이트웨이</td></tr>
+    <tr><td>MoE (전문가 혼합)</td><td>gpt-oss, Solar Open, Qwen3.5, Gemma 4 26B</td><td>메모리는 총 파라미터만큼, 속도는 활성 파라미터만큼. 서버실 GPU 수가 먼저 정해지면 활성 대비 총 크기로 고름</td><td>장비 산정</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:28px;">토큰 비용 추정</h3>
+  <p class="cap" style="margin:0 0 10px;">가정: 1,000병상급, 하루 퇴원 200건. 사례당 계획 호출 10회(입력 4천, 출력 5백), 추출 호출 5회(입력 1천, 출력 150). 하루 입력 900만, 출력 115만 토큰. 사고 토큰은 출력으로 과금돼 실제 출력은 2~3배 늘 수 있습니다. 합성 가정 기준 추정입니다.</p>
+  <div class="tbl"><table>
+    <tr><th>구성</th><th>하루</th><th>30일</th><th>비고</th></tr>
+    <tr><td>Claude Haiku 5.5 단독</td><td>약 $1.5</td><td>약 $44</td><td>계획 품질은 하네스로 확인 필요</td></tr>
+    <tr><td>Claude Sonnet 5.5 계획 + Haiku 5.5 추출</td><td>약 $26</td><td>약 $785</td><td>미국 한정 추론 선택 시 1.1배</td></tr>
+    <tr><td>Claude Sonnet 5.5 단독</td><td>약 $30</td><td>약 $885</td><td></td></tr>
+    <tr><td>Claude Opus 5.5 단독</td><td>약 $59</td><td>약 $1,770</td><td></td></tr>
+    <tr><td>GPT-5.5 단독</td><td>약 $80</td><td>약 $2,385</td><td>*발표가 기준</td></tr>
+    <tr><td>Gemini 3 Flash 단독</td><td>약 $8</td><td>약 $240</td><td>*2차 출처 가격</td></tr>
+    <tr class="pick"><td>원내 gpt-oss-20b 추출 + gpt-oss-120b 계획</td><td>토큰 비용 0</td><td>GPU 서버 고정비</td><td>80GB GPU 1장 + 소형 GPU 1장 규모</td></tr>
+  </table></div>
+  <div class="dk"><span>결론</span>이 호출량에서는 API 비용이 월 수십~수천 달러라 결정 요인이 아님. 데이터 위치와 라이선스가 먼저 후보를 거름</div>
+
+  <h3 style="margin-top:28px;">보안 검토: Claude 서버가 국내에 없다는 점</h3>
+  <div class="tbl"><table>
+    <tr><th>경로</th><th>추론 위치</th><th>저장 위치</th><th>법·규정 쟁점</th><th>판단</th></tr>
+    <tr><td><b>Claude 직접 API</b></td><td><code>inference_geo</code>는 <code>us</code>, <code>global</code> 두 값뿐</td><td>작업공간 저장 위치는 미국만</td><td>개인정보보호법 제28조의8 국외 이전(별도 동의 또는 처리위탁 공개), 건강정보는 민감정보(제23조) 별도 동의, 의료법 제21조 기록 열람 제한, 병원 망분리 정책</td><td><span class="tag cut">운영 불가</span> 개발 단계 합성 데이터 비교만</td></tr>
+    <tr><td><b>Claude on Amazon Bedrock 서울</b></td><td>2026.09 단일 리전 추론 제공 보도 (Opus 5, Sonnet 5. Haiku는 목록에 없음)*</td><td>국내 리전</td><td>국외 이전은 피하지만 외부 클라우드 처리위탁. 지역·글로벌 추론 프로필은 국외로 라우팅될 수 있어 단일 리전 프로필 강제. 공공 의료기관은 클라우드 보안인증 등 추가 요건 확인</td><td><span class="tag next">운영 2안</span> 클라우드 이용 정책이 있는 병원만, 가명 필드만 전송</td></tr>
+    <tr class="pick"><td><b>원내 오픈 가중치</b></td><td>병원 서버실</td><td>병원 서버실</td><td>국외 이전 없음. 남는 위험은 라이선스, 가중치 공급망(해시 검증, 원격 코드 실행 금지), 개발 국가에 대한 기관 지침</td><td><span class="tag pick">운영 1안</span></td></tr>
+  </table></div>
+  <div class="grid g3" style="margin-top:12px;">
+    <div class="pan"><h3>추출은 항상 원내</h3><p>자유 서술은 가장 민감하고 인젝션 통로입니다. 운영 2안을 써도 추출 LLM은 원내 소형 모델이 맡고, 클라우드 계획 에이전트에는 추출된 코드값과 사례 ID만 보냅니다.</p></div>
+    <div class="pan"><h3>외부 전송 필터</h3><p>LLM 어댑터 앞에서 이름, 등록번호, 자유 서술 원문을 막습니다. 정책 파일의 <code>external_llm: deny</code>가 운영 프로필 기본값이고, 어긋나는 호출은 감사 로그에 남기고 거부합니다.</p></div>
+    <div class="pan"><h3>버전 고정과 기록</h3><p>trace에 공급자, 모델 ID, 추론 위치(<code>usage.inference_geo</code> 등), 가중치 해시를 남깁니다. 모델을 바꾸면 회귀 시나리오 30개를 다시 통과해야 반영합니다.</p></div>
+  </div>
+
+  <h3 style="margin-top:28px;">결정</h3>
+  <div class="tbl"><table>
+    <tr><th>단계</th><th>추출 LLM</th><th>계획 에이전트, 질의 응답</th><th>조건</th></tr>
+    <tr><td>기본값, 테스트</td><td colspan="2">결정적 가짜 LLM (API 키 없이 동작)</td><td>모든 테스트와 CI</td></tr>
+    <tr><td>개발, 합성 데이터</td><td>Claude Haiku 5.5</td><td>Claude Sonnet 5.5</td><td><code>ANTHROPIC_API_KEY</code>가 있을 때만. 로컬 후보의 상한 기준선</td></tr>
+    <tr class="pick"><td>운영 1안, 내부망</td><td>gpt-oss-20b 또는 Gemma 4 26B</td><td>gpt-oss-120b 또는 Solar Open 100B</td><td>하네스에서 기준선 대비 정답 일치율 차이가 정책 파일 기준값 이내인 조합</td></tr>
+    <tr><td>운영 2안</td><td>원내 소형 모델</td><td>Bedrock 서울 단일 리전 Claude Sonnet 5</td><td>병원 클라우드 정책 승인, 가명 필드만</td></tr>
+    <tr><td>LLM 장애</td><td colspan="2">규칙 모드 (자유 서술 필드는 비워 두고 사람 확인으로 넘김)</td><td>타임아웃, 스키마 오류 연속</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:28px;">교체 가능한 LLM 인터페이스</h3>
+  <div class="tbl"><table>
+    <tr><th>구성</th><th>내용</th></tr>
+    <tr><td>계약</td><td><code>LLMClient.extract(text, schema) → dict</code>, <code>LLMClient.plan(observation, tools) → Proposal</code>. 출력은 pydantic으로 검증하고 실패하면 규칙 모드</td></tr>
+    <tr><td>구현체</td><td><code>FakeLLM</code>(기본, 결정적), <code>AnthropicLLM</code>(anthropic SDK), <code>LocalLLM</code>(원내 vLLM·Ollama 엔드포인트). Bedrock 어댑터는 설계만</td></tr>
+    <tr><td>선택</td><td>환경 변수 <code>TURNAROUND_LLM=fake|anthropic|local</code>, 역할별 모델은 정책 파일 <code>llm.extract</code>, <code>llm.plan</code></td></tr>
+    <tr><td>통제</td><td>어댑터는 실행 권한이 없고 제안만 반환. 실행은 게이트웨이, 외부 전송 여부는 정책 파일이 판정</td></tr>
+  </table></div>
 </section>
 
 <section id="poc">
@@ -406,12 +503,14 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
     <tr class="pick"><td><span class="tag pick">구현</span></td><td><b>실행 게이트웨이</b> (두 번의 판단 정보 재확인, SHACL 재검사, 확인 등급 정책 파일, 중복 실행 방지 키. PoC는 가상 FHIR 서버에 If-Match 쓰기)</td><td>승인 대기 중 격리 오더 추가 시 확정 직전 거부와 담당 검토 재분류</td></tr>
     <tr class="pick"><td><span class="tag pick">구현</span></td><td><b>재생 기반 평가 하네스</b> (회귀 시나리오 30개, 인젝션 문장 포함)</td><td>턴어라운드 P50·P90, 오분류율, 사람 확인 횟수</td></tr>
     <tr><td><span class="tag keep">구현</span></td><td>계획 에이전트와 도구, 추출 LLM, 경량 온톨로지</td><td>사전 매칭과 지연 경보</td></tr>
+    <tr><td><span class="tag keep">구현</span></td><td>교체 가능한 LLM 인터페이스 (가짜 LLM 기본, Claude API와 원내 엔드포인트 어댑터, 외부 전송 필터)</td><td>같은 회귀 시나리오로 모델별 정답 일치율 비교</td></tr>
     <tr><td><span class="tag keep">구현</span></td><td>청소 예정표 공유와 퇴실 시 청소 요청 확정 (침상 정리는 병동, 청소와 소독은 환경 경로)</td><td>청소 지연 시 재매칭</td></tr>
     <tr><td><span class="tag keep">구현</span></td><td>퇴원 예정 등록 누락과 변경 감지, 입원 취소 시 재매칭</td><td>전날 미등록 병상 확인 요청</td></tr>
     <tr><td><span class="tag keep">구현</span></td><td>퇴원 지연 사유 코드 기록, 보호자 도착 예정 시각 반영</td><td>보호자 지연 시 재계산</td></tr>
     <tr><td><span class="tag next">화면 목업</span></td><td>병동 입실 부하 표시, 약제 화면 대기 병상 표시, 입실 예상 구간(오전, 오후)과 안내 문안 초안</td><td>화면 시안으로만</td></tr>
     <tr><td><span class="tag next">설계</span></td><td>OPA 정책 엔진 (구현은 YAML 정책 파일로 대체), Temporal 운영</td><td></td></tr>
     <tr><td><span class="tag next">설계</span></td><td>OpenTelemetry 전면 적용 (구현은 JSON trace로 대체)</td><td></td></tr>
+    <tr><td><span class="tag next">설계</span></td><td>Bedrock 서울 단일 리전 어댑터 (운영 2안), 원내 GPU 서빙 운영</td><td></td></tr>
     <tr><td><span class="tag next">설계</span></td><td>공정별 도메인 에이전트와 조정 에이전트, HOTL 확대, 환자 이송 추적, 입실 안내 자동 발송</td><td></td></tr>
     <tr><td><span class="tag next">설계</span></td><td>피지컬 AI 연결 지점 (청소와 소독 장비가 요청과 완료 신호를 주고받는 이벤트 형식만 정의)</td><td></td></tr>
     <tr><td><span class="tag cut">제외</span></td><td>청소와 이송 인력 배정 (환경, 이송 담당의 권한)</td><td></td></tr>
@@ -439,6 +538,12 @@ ul{ margin:0; padding-left:20px; } li{ margin:3px 0; }
     <li><a href="https://www.anthropic.com/research/building-effective-agents">Anthropic, Building effective agents</a>, <a href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf">OpenAI, A practical guide to building agents</a></li>
     <li><a href="https://langchain-ai.github.io/langgraph/concepts/durable_execution/">LangGraph 내구 실행</a>, <a href="https://docs.temporal.io/workflows">Temporal 워크플로</a>, <a href="https://microservices.io/patterns/data/saga.html">사가 패턴</a>, <a href="https://hl7.org/fhir/R4/task.html">FHIR Task</a>, <a href="https://hl7.org/fhir/R4/appointment.html">FHIR Appointment</a></li>
     <li><a href="https://www.openpolicyagent.org/docs/latest/">Open Policy Agent</a>, <a href="https://genai.owasp.org/llmrisk/llm01-prompt-injection/">OWASP LLM01</a>, <a href="https://simonwillison.net/2023/Apr/25/dual-llm-pattern/">Dual LLM 패턴</a>, <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">OpenTelemetry GenAI</a></li>
+    <li><a href="https://platform.claude.com/docs/en/build-with-claude/data-residency">Claude 데이터 위치 제어 (inference_geo, 작업공간 저장 위치)</a>, <a href="https://www.anthropic.com/pricing">Claude 가격</a>, <a href="https://aws-news.com/article/2026-09-30-introducing-anthropic-models-on-amazon-bedrock-for-in-region-inference-in-seoul-and-singapore">Bedrock 서울 단일 리전 추론 (2차 보도)</a></li>
+    <li><a href="https://artificialanalysis.ai/ko/models">Artificial Analysis 모델 비교</a>, <a href="https://artificialanalysis.ai/articles/glm-5-2-is-the-new-leading-open-weights-model-on-the-artificial-analysis-intelligence-index">오픈 가중치 지수 동향</a></li>
+    <li><a href="https://catalog.ngc.nvidia.com/orgs/nim/teams/openai/models/gpt-oss-120b">gpt-oss-120b 모델 카드</a>, <a href="https://huggingface.co/upstage/Solar-Open-100B">Solar Open 100B 모델 카드</a>, <a href="https://www.theregister.com/2026/04/02/googles_gemma_4_open_weights/">Gemma 4 공개</a>, <a href="https://www.morphllm.com/qwen-3-5">Qwen3.5 정리 (2차)</a></li>
+    <li><a href="https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-32B/blob/main/LICENSE">EXAONE 4.0 라이선스</a>, <a href="https://arxiv.org/abs/2601.01739">K-EXAONE 기술 보고서</a>, <a href="https://www.cio.com/article/4117770/">국가대표 AI 1차 평가</a></li>
+    <li><a href="https://morphllm.com/openai-api-pricing">OpenAI API 가격 정리 (2차)</a>, <a href="https://www.morphllm.com/gemini-api-pricing">Gemini API 가격 정리 (2차)</a></li>
+    <li><a href="https://itwiki.kr/w/%EA%B0%9C%EC%9D%B8%EC%A0%95%EB%B3%B4_%EB%B3%B4%ED%98%B8%EB%B2%95_%EC%A0%9C28%EC%A1%B0%EC%9D%988">개인정보 보호법 제28조의8 국외 이전</a>, <a href="https://pipc.go.kr/np/default/page.do?mCode=D060040000">개인정보보호위원회 국외 이전 안내</a></li>
   </ul></div>
 </section>
 </div>
