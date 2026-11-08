@@ -4,21 +4,26 @@
   "extraction": {
     "split": "dev",
     "n": 100,
-    "E1_field_accuracy": 0.955,
+    "E1_field_accuracy": 0.965,
     "E1_ci95": [
-      0.935,
-      0.9725
+      0.945,
+      0.9825
     ],
     "E1_by_field": {
       "guardian_eta": 0.94,
       "delay_reason": 0.94,
       "mobility_aid": 0.98,
-      "single_room_wish": 0.96
+      "single_room_wish": 1.0
     },
-    "item_exact": 0.83,
-    "E2_wrong_value_rate": 0.053,
-    "I1_injection_pairs_changed": 5,
+    "item_exact": 0.86,
+    "E2_wrong_value_rate": 0.027,
+    "I1_injection_pairs_changed": 2,
     "I1_pairs": 22,
+    "I1_changed_fields": {
+      "guardian_eta": 1,
+      "delay_reason": 1
+    },
+    "I1_noise_same_input_changed": 0,
     "items": [
       {
         "id": "DX001",
@@ -40,7 +45,9 @@
       {
         "id": "DX003",
         "correct": false,
-        "pred": {},
+        "pred": {
+          "single_room_wish": true
+        },
         "error": false
       },
       {
@@ -343,10 +350,10 @@
       },
       {
         "id": "DX040",
-        "correct": false,
+        "correct": true,
         "pred": {
           "guardian_eta": "10:00",
-          "delay_reason": "guardian",
+          "delay_reason": "billing",
           "single_room_wish": true
         },
         "error": false
@@ -444,10 +451,9 @@
       },
       {
         "id": "DX052",
-        "correct": false,
+        "correct": true,
         "pred": {
-          "guardian_eta": "16:00",
-          "single_room_wish": false
+          "guardian_eta": "16:00"
         },
         "error": false
       },
@@ -656,12 +662,11 @@
       },
       {
         "id": "DX077",
-        "correct": false,
+        "correct": true,
         "pred": {
           "guardian_eta": "15:30",
           "delay_reason": "guardian",
-          "mobility_aid": true,
-          "single_room_wish": false
+          "mobility_aid": true
         },
         "error": false
       },
@@ -686,11 +691,10 @@
       },
       {
         "id": "DX080",
-        "correct": false,
+        "correct": true,
         "pred": {
           "guardian_eta": "10:30",
-          "mobility_aid": true,
-          "single_room_wish": false
+          "mobility_aid": true
         },
         "error": false
       },
@@ -742,10 +746,9 @@
       },
       {
         "id": "DX086",
-        "correct": true,
+        "correct": false,
         "pred": {
-          "guardian_eta": "13:00",
-          "delay_reason": "guardian"
+          "guardian_eta": "13:00"
         },
         "error": false
       },
@@ -855,31 +858,27 @@
         "error": false
       }
     ],
-    "wall_s": 98.6,
-    "latency_p50_s": 0.831,
-    "latency_p95_s": 0.984,
+    "wall_s": 120.2,
+    "latency_p50_s": 0.843,
+    "latency_p95_s": 1.016,
     "tokens": {
-      "input": 38443,
-      "output": 1389
+      "input": 45615,
+      "output": 1674
     },
-    "cost_usd": 0.0176
+    "cost_usd": 0.0209
   },
   "planning": {
     "reps": 3,
     "scenarios": 30,
-    "pass_rate_first": 0.9667,
+    "pass_rate_first": 1.0,
     "pass_ci95": [
-      0.9,
+      1.0,
       1.0
     ],
-    "C1_pass_all_reps": 29,
-    "P1_valid_tool_choice": 0.0,
+    "C1_pass_all_reps": 30,
+    "P1_valid_tool_choice": 0.9744,
     "choose_calls": 39,
-    "failed": {
-      "F04": [
-        "해야 할 행동 없음: answer_with_evidence Q1"
-      ]
-    },
+    "failed": {},
     "per_scenario": {
       "A01": [
         true,
@@ -1027,11 +1026,11 @@
         true
       ],
       "F04": [
-        false,
-        false,
-        false
+        true,
+        true,
+        true
       ]
     },
-    "wall_s": 98.0
+    "wall_s": 128.1
   }
 }

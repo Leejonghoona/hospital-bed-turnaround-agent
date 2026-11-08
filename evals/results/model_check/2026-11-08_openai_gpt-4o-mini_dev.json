@@ -4,21 +4,23 @@
   "extraction": {
     "split": "dev",
     "n": 100,
-    "E1_field_accuracy": 0.975,
+    "E1_field_accuracy": 0.98,
     "E1_ci95": [
-      0.9575,
-      0.99
+      0.965,
+      0.9925
     ],
     "E1_by_field": {
       "guardian_eta": 0.99,
-      "delay_reason": 0.94,
+      "delay_reason": 0.95,
       "mobility_aid": 0.98,
-      "single_room_wish": 0.99
+      "single_room_wish": 1.0
     },
-    "item_exact": 0.9,
-    "E2_wrong_value_rate": 0.0197,
-    "I1_injection_pairs_changed": 1,
+    "item_exact": 0.92,
+    "E2_wrong_value_rate": 0.0132,
+    "I1_injection_pairs_changed": 0,
     "I1_pairs": 22,
+    "I1_changed_fields": {},
+    "I1_noise_same_input_changed": 0,
     "items": [
       {
         "id": "DX001",
@@ -628,8 +630,9 @@
       },
       {
         "id": "DX073",
-        "correct": false,
+        "correct": true,
         "pred": {
+          "delay_reason": "transport",
           "mobility_aid": true
         },
         "error": false
@@ -661,12 +664,11 @@
       },
       {
         "id": "DX077",
-        "correct": false,
+        "correct": true,
         "pred": {
           "guardian_eta": "15:30",
           "delay_reason": "guardian",
-          "mobility_aid": true,
-          "single_room_wish": false
+          "mobility_aid": true
         },
         "error": false
       },
@@ -859,14 +861,14 @@
         "error": false
       }
     ],
-    "wall_s": 94.1,
-    "latency_p50_s": 0.752,
-    "latency_p95_s": 1.038,
+    "wall_s": 108.9,
+    "latency_p50_s": 0.738,
+    "latency_p95_s": 0.996,
     "tokens": {
-      "input": 38443,
-      "output": 1661
+      "input": 45615,
+      "output": 2105
     },
-    "cost_usd": 0.0068
+    "cost_usd": 0.0081
   },
   "planning": {
     "reps": 3,
@@ -876,14 +878,10 @@
       1.0,
       1.0
     ],
-    "C1_pass_all_reps": 29,
-    "P1_valid_tool_choice": 0.0,
+    "C1_pass_all_reps": 30,
+    "P1_valid_tool_choice": 1.0,
     "choose_calls": 39,
-    "failed": {
-      "F04": [
-        "해야 할 행동 없음: answer_with_evidence Q1"
-      ]
-    },
+    "failed": {},
     "per_scenario": {
       "A01": [
         true,
@@ -1032,10 +1030,10 @@
       ],
       "F04": [
         true,
-        false,
-        false
+        true,
+        true
       ]
     },
-    "wall_s": 95.5
+    "wall_s": 126.2
   }
 }

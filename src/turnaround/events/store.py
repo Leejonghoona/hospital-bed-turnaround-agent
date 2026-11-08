@@ -36,7 +36,8 @@ def _ts(dt: datetime) -> str:
 
 class EventStore:
     def __init__(self, path: str | Path = ":memory:"):
-        self._conn = sqlite3.connect(str(path))
+        # 화면(Streamlit)은 다른 스레드에서 다시 그린다. 쓰기는 한 실행기에서만 하므로 스레드 검사를 끈다
+        self._conn = sqlite3.connect(str(path), check_same_thread=False)
         if str(path) != ":memory:":
             self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
