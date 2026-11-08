@@ -1,0 +1,284 @@
+"""3단계: 사례 사가 상태 머신 테스트.
+
+설계 요구: 환자-병상 쌍마다 상태, 타이머, 보상 단계. 프로세스를 강제 종료해도 이어서 실행.
+평가표: D1(재개 후 같은 최종 상태), D2(부수효과 중복 0건), D3(보상 잔여 0건, 연락 후 취소 담당 검토 전환), O4(미등록 감지).
+"""
+
+from datetime import datetime, timedelta
+
+import pytest
+
+from turnaround.events import Event, EventStore, EventType, NoiseConfig, hospital_to_events
+from turnaround.saga import DischargeStage, MatchStage, SagaRunner, fold
+from turnaround.sim import generate
+
+DAY0 = datetime(2026, 3, 2)
+
+
+def at(day, hh, mm=0):
+    return DAY0 + timedelta(days=day, hours=hh, minutes=mm)
+
+
+def e(case, key, etype, when, source="his", obs=None, **payload):
+    return Event(event_id=f"{case}:{key}", case_id=case, type=etype, occurred_at=when,
+                 observed_at=obs or when, source=source, payload=payload)
+
+
+def decided(case="D1", bed="W72-R03-B1", iso=False, day=0):
+    return e(case, "discharge_decided", EventType.DISCHARGE_DECIDED, at(day - 1, 17), bed_id=bed, day=day,
+             patient_id=f"SYN-P-{case}", name="가나다", gender="M", age=60, department="일반외과",
+             isolation_order=iso, isolation_type="contact" if iso else None)
+
+
+def registered(case="D1", bed="W72-R03-B1", day=0):
+    return e(case, "discharge_registered", EventType.DISCHARGE_REGISTERED, at(day - 1, 17, 30), bed_id=bed)
+
+
+def departed(case="D1", bed="W72-R03-B1", when=None, obs=None):
+    return e(case, "patient_departed", EventType.PATIENT_DEPARTED, when or at(0, 11), obs=obs, bed_id=bed)
+
+
+def prematch(adm="P1", disc="D1", bed="W72-R03-B1", when=None):
+    return e(adm, f"prematch_created:{bed}", EventType.PREMATCH_CREATED, when or at(-1, 17, 40), "agent",
+             bed_id=bed, discharge_id=disc)
+
+
+def contacted(adm="P1", when=None):
+    return e(adm, "patient_contacted", EventType.PATIENT_CONTACTED, when or at(0, 9), "human")
+
+
+def run(events, until, step=timedelta(minutes=5), start=None, store=None):
+    store = store or EventStore(":memory:")
+    store.extend(events)
+    runner = SagaRunner(store)
+    t = start or min(x.observed_at for x in events)
+    while t <= until:
+        runner.step(t)
+        t += step
+    return store, runner
+
+
+def saga_events(store, etype=None):
+    return [x for x in store.read() if x.source == "saga" and (etype is None or x.type is etype)]
+
+
+# ---------- 상태 접기 ----------
+
+def test_stage_follows_observed_facts():
+    s = fold([decided(), registered()])
+    assert s.discharges["D1"].stage is DischargeStage.REGISTERED
+    s = fold([decided(), registered(), departed()])
+    assert s.discharges["D1"].stage is DischargeStage.DEPARTED
+
+
+def test_stage_is_independent_of_arrival_order():
+    a = [decided(), registered(), departed(),
+         e("D1", "cleaning_started", EventType.CLEANING_STARTED, at(0, 11, 30), "human", bed_id="W72-R03-B1")]
+    assert fold(a).discharges["D1"].stage == fold(list(reversed(a))).discharges["D1"].stage
+
+
+def test_cancelled_overrides_stage():
+    s = fold([decided(), registered(), e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 8))])
+    assert s.discharges["D1"].stage is DischargeStage.CANCELLED
+
+
+def test_match_stage():
+    s = fold([decided(), prematch()])
+    assert s.matches["P1"].stage is MatchStage.PREMATCHED
+    s = fold([decided(), prematch(), contacted()])
+    assert s.matches["P1"].stage is MatchStage.CONTACTED
+
+
+# ---------- 명령: 퇴실 즉시 청소 요청 (AS-01) ----------
+
+def test_cleaning_request_issued_at_departure_observation():
+    store, _ = run([decided(), registered(), departed(when=at(0, 11), obs=at(0, 11, 2))], until=at(0, 11, 10))
+    req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert len(req) == 1
+    assert req[0].payload == {"bed_id": "W72-R03-B1", "cleaning_type": "general"}
+    assert req[0].occurred_at == at(0, 11, 2)  # 퇴실을 안 시각에 바로
+
+
+def test_isolation_discharge_forces_terminal_cleaning():
+    store, _ = run([decided(iso=True, bed="W72-R01-B1"), registered(bed="W72-R01-B1"),
+                    departed(bed="W72-R01-B1")], until=at(0, 11, 10))
+    req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert req[0].payload["cleaning_type"] == "terminal"
+
+
+def test_no_command_before_fact_is_observed():
+    store, _ = run([decided(), registered(), departed(when=at(0, 11), obs=at(0, 12))], until=at(0, 11, 55),
+                   start=at(-1, 17))
+    assert saga_events(store, EventType.CLEANING_REQUEST_ISSUED) == []
+
+
+# ---------- 타이머 ----------
+
+def test_unregistered_discharge_gets_check_request_at_19():
+    store, _ = run([decided()], until=at(-1, 19, 10), start=at(-1, 17))
+    req = saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED)
+    assert len(req) == 1 and req[0].occurred_at == at(-1, 19)
+
+
+def test_registered_discharge_gets_schedule_item_not_check():
+    store, _ = run([decided(), registered()], until=at(-1, 19, 10), start=at(-1, 17))
+    assert saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED) == []
+    assert len(saga_events(store, EventType.SCHEDULE_ITEM_CREATED)) == 1
+
+
+def test_medication_delay_over_two_hours_triggers_recompute():
+    order = e("D1", "order_confirmed", EventType.ORDER_CONFIRMED, at(0, 9, 30))
+    store, _ = run([decided(), registered(), order], until=at(0, 11, 40), start=at(0, 9))
+    rec = saga_events(store, EventType.READY_TIME_RECOMPUTED)
+    assert [r.payload["reason"] for r in rec] == ["medication_delay"]
+    assert rec[0].occurred_at == at(0, 11, 30)
+
+
+def test_medication_on_time_triggers_nothing():
+    evs = [decided(), registered(), e("D1", "order_confirmed", EventType.ORDER_CONFIRMED, at(0, 9, 30)),
+           e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 10, 30))]
+    store, _ = run(evs, until=at(0, 12), start=at(0, 9))
+    assert saga_events(store, EventType.READY_TIME_RECOMPUTED) == []
+
+
+def test_guardian_eta_update_triggers_recompute_once_per_update():
+    upd = e("D1", "guardian_eta_updated", EventType.GUARDIAN_ETA_UPDATED, at(0, 10, 5), "human", eta="2026-03-02T13:00:00")
+    store, _ = run([decided(), registered(), upd], until=at(0, 11), start=at(0, 10))
+    assert [r.payload["reason"] for r in saga_events(store, EventType.READY_TIME_RECOMPUTED)] == ["guardian_eta"]
+
+
+def test_cleaning_overdue_triggers_recompute():
+    store, _ = run([decided(), registered(), departed(when=at(0, 11))], until=at(0, 13, 10), start=at(0, 10, 55))
+    reasons = [r.payload["reason"] for r in saga_events(store, EventType.READY_TIME_RECOMPUTED)]
+    assert reasons == ["cleaning_overdue"]
+
+
+# ---------- 빈 병상 전환과 종말소독 (S2) ----------
+
+def _turnover(iso, with_done=True):
+    bed = "W72-R01-B1"
+    evs = [decided(iso=iso, bed=bed), registered(bed=bed), departed(bed=bed, when=at(0, 11))]
+    if with_done:
+        evs.append(e("D1", "cleaning_done", EventType.CLEANING_DONE, at(0, 12, 30), "human", bed_id=bed,
+                     cleaning_type="terminal" if iso else "general"))
+    evs.append(e("D1", "bed_ready", EventType.BED_READY, at(0, 12, 40), "human", bed_id=bed))
+    return evs
+
+
+def test_bed_marked_vacant_after_cleaning_done():
+    store, _ = run(_turnover(iso=True), until=at(0, 13), start=at(0, 10, 55))
+    vac = saga_events(store, EventType.BED_MARKED_VACANT)
+    assert len(vac) == 1 and vac[0].occurred_at >= at(0, 12, 30)
+
+
+def test_isolation_bed_without_cleaning_done_is_not_vacated():
+    store, _ = run(_turnover(iso=True, with_done=False), until=at(0, 13), start=at(0, 10, 55))
+    assert saga_events(store, EventType.BED_MARKED_VACANT) == []
+    tasks = saga_events(store, EventType.HUMAN_TASK_CREATED)
+    assert [t.payload["reason"] for t in tasks] == ["missing_cleaning_done"]
+
+
+def test_general_bed_ready_without_done_signal_is_vacated():
+    store, _ = run(_turnover(iso=False, with_done=False), until=at(0, 13), start=at(0, 10, 55))
+    assert len(saga_events(store, EventType.BED_MARKED_VACANT)) == 1
+
+
+# ---------- 보상 단계 (D3) ----------
+
+def test_cancel_before_contact_releases_schedule_and_prematch():
+    evs = [decided(), registered(), prematch(),
+           e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11))]
+    store, _ = run(evs, until=at(0, 11, 10), start=at(-1, 17))
+    assert len(saga_events(store, EventType.SCHEDULE_ITEM_RELEASED)) == 1
+    rel = saga_events(store, EventType.PREMATCH_RELEASED)
+    assert len(rel) == 1 and rel[0].case_id == "P1"
+    assert len(saga_events(store, EventType.REMATCH_REQUESTED)) == 1
+    assert saga_events(store, EventType.HUMAN_TASK_CREATED) == []
+    s = fold(store.read())
+    assert s.matches["P1"].stage is MatchStage.RELEASED
+
+
+def test_cancel_after_contact_goes_to_review_with_human_task():
+    evs = [decided(), registered(), prematch(), contacted(),
+           e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 11))]
+    store, _ = run(evs, until=at(0, 11, 10), start=at(-1, 17))
+    assert saga_events(store, EventType.PREMATCH_RELEASED) == []
+    assert [x.case_id for x in saga_events(store, EventType.CASE_RECLASSIFIED_REVIEW)] == ["P1"]
+    assert [x.payload["reason"] for x in saga_events(store, EventType.HUMAN_TASK_CREATED)] == ["recontact"]
+    assert fold(store.read()).matches["P1"].stage is MatchStage.REVIEW
+
+
+def test_admission_cancel_releases_prematch_and_requests_rematch_for_bed():
+    evs = [decided(), registered(), prematch(),
+           e("P1", "admission_cancelled", EventType.ADMISSION_CANCELLED, at(0, 8, 30))]
+    store, _ = run(evs, until=at(0, 8, 40), start=at(-1, 17))
+    assert [x.case_id for x in saga_events(store, EventType.PREMATCH_RELEASED)] == ["P1"]
+    rr = saga_events(store, EventType.REMATCH_REQUESTED)
+    assert len(rr) == 1 and rr[0].payload["bed_id"] == "W72-R03-B1"
+
+
+# ---------- 재시작 후 재개 (D1, D2) ----------
+
+def _signature(store):
+    return sorted((x.event_id, x.type.value, tuple(sorted(x.payload.items())))
+                  for x in store.read() if x.source == "saga" and x.type is not EventType.CASE_RESUMED)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_kill_and_resume_matches_uninterrupted_run(tmp_path, seed):
+    h = generate(seed=seed)
+    events = hospital_to_events(h, seed=seed)
+    start, end = at(-1, 16), at(0, 18)
+
+    ref, _ = run(events, until=end, start=start)
+
+    path = tmp_path / "events.sqlite"
+    s1 = EventStore(path)
+    s1.extend(events)
+    r1 = SagaRunner(s1)
+    t, kill_at = start, at(0, 10, 40)  # 설계 PoC: 10:40 강제 종료
+    while t <= kill_at:
+        r1.step(t)
+        t += timedelta(minutes=5)
+    del r1, s1  # 강제 종료 흉내: close 없이 버림
+
+    s2 = EventStore(path)
+    r2 = SagaRunner(s2)
+    resumed = r2.resume(t)
+    assert resumed  # 진행 중이던 사례가 있다
+    while t <= end:
+        r2.step(t)
+        t += timedelta(minutes=5)
+    assert _signature(s2) == _signature(ref)
+    s2.close()
+
+
+def test_repeated_steps_do_not_duplicate_side_effects():
+    evs = [decided(), registered(), departed()]
+    store, runner = run(evs, until=at(0, 11, 30), start=at(-1, 17))
+    n = len(saga_events(store))
+    for _ in range(5):
+        runner.step(at(0, 11, 30))
+    assert len(saga_events(store)) == n
+
+
+def test_noisy_stream_produces_same_saga_commands_as_clean_for_unaffected_cases():
+    h = generate(seed=4)
+    clean = hospital_to_events(h, seed=4)
+    noisy = hospital_to_events(h, seed=4, noise=NoiseConfig(duplicates=10))
+    a, _ = run(clean, until=at(4, 20), start=at(-1, 16), step=timedelta(minutes=15))
+    b, _ = run(noisy, until=at(4, 20), start=at(-1, 16), step=timedelta(minutes=15))
+    assert _signature(a) == _signature(b)  # 중복 도착은 결과를 바꾸지 않는다
+
+
+# ---------- 미등록 감지 재현율 (O4) ----------
+
+@pytest.mark.parametrize("seed", range(0, 10))
+def test_every_unregistered_discharge_is_detected(seed):
+    h = generate(seed=seed)
+    store, _ = run(hospital_to_events(h, seed=seed), until=at(4, 0), start=at(-1, 16), step=timedelta(minutes=15))
+    flagged = {x.case_id for x in saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED)}
+    expected = {d.id for d in h.discharges if d.registered_at is None}
+    late_registered = {d.id for d in h.discharges if d.registered_at and d.registered_at.hour >= 19}
+    assert expected <= flagged
+    assert flagged - expected <= late_registered  # 오경보는 19시 이후 늦게 등록된 건만

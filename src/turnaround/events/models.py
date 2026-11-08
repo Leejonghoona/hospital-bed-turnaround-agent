@@ -31,9 +31,26 @@ class EventType(str, Enum):
     ADMISSION_REQUESTED = "admission_requested"
     ADMISSION_CANCELLED = "admission_cancelled"
     ISOLATION_ORDER_ADDED = "isolation_order_added"
+    # 다른 구성요소가 남기는 매칭 이벤트 (계획 에이전트, 게이트웨이, 원무)
+    PREMATCH_CREATED = "prematch_created"
+    PATIENT_CONTACTED = "patient_contacted"  # 입실 안내 연락. 되돌릴 수 없는 분기점
+    MATCH_COMMITTED = "match_committed"
+    # 사가 명령
+    SCHEDULE_ITEM_CREATED = "schedule_item_created"
+    REGISTRATION_CHECK_REQUESTED = "registration_check_requested"
+    CLEANING_REQUEST_ISSUED = "cleaning_request_issued"
+    READY_TIME_RECOMPUTED = "ready_time_recomputed"
+    BED_MARKED_VACANT = "bed_marked_vacant"
+    SCHEDULE_ITEM_RELEASED = "schedule_item_released"
+    PREMATCH_RELEASED = "prematch_released"
+    CLEANING_REQUEST_CANCELLED = "cleaning_request_cancelled"
+    CASE_RECLASSIFIED_REVIEW = "case_reclassified_review"
+    HUMAN_TASK_CREATED = "human_task_created"
+    REMATCH_REQUESTED = "rematch_requested"
+    CASE_RESUMED = "case_resumed"
 
 
-Source = Literal["his", "timer", "human", "agent", "gateway", "equipment"]
+Source = Literal["his", "timer", "human", "agent", "gateway", "equipment", "saga"]
 
 
 class Event(BaseModel):
