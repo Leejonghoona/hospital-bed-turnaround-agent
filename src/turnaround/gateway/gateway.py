@@ -487,7 +487,7 @@ class Gateway:
         self._emit(prop.case, f"gw:{prop.proposal_id}:committed", EventType.MATCH_COMMITTED, now,
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id, version=version,
                    discharge_id=prop.discharge_id)
-        # 재매칭으로 다른 병상을 확정했으면 이전 사전 매칭을 푼다 (E02)
+        # 재매칭으로 다른 병상을 확정했으면 이전 사전 매칭을 푼다
         for m in fold(events).matches.values():
             if m.admission_id == prop.case and m.active and m.bed_id != prop.bed_id:
                 self._emit(prop.case, f"gw:{prop.proposal_id}:release_prev:{m.bed_id}", EventType.PREMATCH_RELEASED,

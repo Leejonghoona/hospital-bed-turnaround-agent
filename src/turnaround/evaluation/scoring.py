@@ -35,6 +35,7 @@ EVENT_TO_ACTION: dict[EventType, str] = {
     EventType.NO_BED_REPORTED: "report_no_bed",
     EventType.QUERY_REFUSED: "refuse_query",
     EventType.QUERY_ANSWERED: "answer_with_evidence",
+    EventType.QUERY_NO_RECORD: "answer_no_record",
     EventType.MANUAL_OVERRIDE_APPLIED: "apply_manual_override",
 }
 # 병원 밖이나 다른 부서로 나가는 부수효과 (중복 검사 대상)
@@ -64,6 +65,11 @@ def actions_from_events(events: Iterable[Event], alias: dict[str, str] | None = 
     alias = alias or {}
     out: list[Produced] = []
     for e in events:
+        if e.type is EventType.PROPOSAL_RECEIVED and e.source == "agent":
+            # 계획 에이전트의 제안 (실행 전). 실행기는 주입판 제안을 미리 빼고 넘긴다
+            out.append(Produced("propose_match", alias.get(e.case_id, e.case_id), e.payload.get("bed_id"),
+                                level="proposal", at=e.seq))
+            continue
         name = EVENT_TO_ACTION.get(e.type)
         if name is None or e.source not in ("saga", "gateway", "agent"):
             continue

@@ -11,18 +11,17 @@ DEV = Path(__file__).resolve().parents[1] / "evals" / "scenarios" / "dev"
 STAGE3 = ["C01", "C02", "C03", "C05", "E01", "E03"]
 STAGE4 = ["A01", "A02", "A03", "A04", "A05", "A06", "B01", "B02", "B03", "B04", "B05",
           "D01", "D02", "D03", "D04", "D05", "D06", "E02", "E04", "F03"]
-NOT_YET = ["C04", "F01", "F02", "F04"]  # 7단계(계획 에이전트, 추출, 질의) 필요
+STAGE7 = ["C04", "F01", "F02", "F04"]  # 7단계(계획 에이전트, 추출, 질의)
 
 
-@pytest.mark.parametrize("sid", STAGE3 + STAGE4)
+@pytest.mark.parametrize("sid", STAGE3 + STAGE4 + STAGE7)
 def test_stage3_scenarios_pass(sid):
     r = runners.RUNNERS[sid](load_scenario(DEV / f"{sid}.yaml"))
     assert r.passed, r.failures
 
 
 def test_runner_registry_matches_stage_lists():
-    assert sorted(runners.RUNNERS) == sorted(STAGE3 + STAGE4)
-    assert not set(runners.RUNNERS) & set(NOT_YET)
+    assert sorted(runners.RUNNERS) == sorted(STAGE3 + STAGE4 + STAGE7)
 
 
 @pytest.mark.parametrize("sid", ["H01", "H02", "H03", "H04", "H05"])

@@ -83,7 +83,9 @@ def _lookahead(seeds: Iterable[int]) -> dict:
 
 
 def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "dev",
-              llm: str = "none", policy: str = "none") -> dict:
+              llm: str | None = None, policy: str = "none") -> dict:
+    from .runners_gateway import AGENT_CONFIG
+    llm = llm or f"{AGENT_CONFIG['llm_factory']().name}/{AGENT_CONFIG['mode']}"
     seeds = list(seeds)
     scenarios = load_scenarios(directory)
     runners = HOLDOUT_RUNNERS if split == "holdout" else RUNNERS

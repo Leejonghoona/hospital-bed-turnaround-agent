@@ -17,7 +17,7 @@ from turnaround.sim import generate
 from .scenario import Scenario
 from .scoring import Produced, ScoreResult, actions_from_events, score
 
-STAGE = 4  # 현재 구현 단계
+STAGE = 7  # 채점할 수 있는 마지막 단계 (7단계 계획 에이전트까지)
 DAY0 = datetime(2026, 3, 2)
 _STEP = timedelta(minutes=5)
 

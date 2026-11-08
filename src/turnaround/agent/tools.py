@@ -35,7 +35,7 @@ class PlanningTools:
         self.gw = gateway
         self.wards = {w.id: w for w in wards}
         self.w = gateway.policy.scoring
-        self.score_overrides = dict(score_overrides or {})  # 시나리오 고정 주입 (D05)
+        self.score_overrides = dict(score_overrides or {})  # 평가용 점수 고정 주입
 
     # ---------- 상태 ----------
 
