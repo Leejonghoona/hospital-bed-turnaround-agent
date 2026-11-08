@@ -16,6 +16,7 @@ from typing import Iterable, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from turnaround.events.corrections import apply_correction, apply_release, correction_direction
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
@@ -26,7 +27,8 @@ from .policy import Policy
 
 # 판단 정보가 바뀌었다고 보는 이벤트
 _MATERIAL = {EventType.ISOLATION_ORDER_ADDED, EventType.DISCHARGE_CANCELLED, EventType.ADMISSION_CANCELLED,
-             EventType.PATIENT_INFO_UPDATED}
+             EventType.PATIENT_INFO_UPDATED, EventType.PATIENT_INFO_CORRECTED, EventType.CORRECTION_CONFIRMED,
+             EventType.ISOLATION_RELEASED}
 _INPUT_VIOLATIONS = {"gender_missing"}
 
 
@@ -76,6 +78,7 @@ class Gateway:
 
     def _admission(self, case: str, events: list[Event]) -> tuple[Patient | None, dict]:
         payload: dict = {}
+        confirmed = {e.payload.get("correction_id") for e in events if e.type is EventType.CORRECTION_CONFIRMED}
         for e in events:
             if e.case_id != case:
                 continue
@@ -85,6 +88,13 @@ class Gateway:
                 payload.update(e.payload)
                 if e.type is EventType.ISOLATION_ORDER_ADDED:
                     payload["isolation_order"] = True
+            elif e.type is EventType.ISOLATION_RELEASED:
+                apply_release(payload)
+            elif e.type is EventType.PATIENT_INFO_CORRECTED:
+                field_, value = e.payload["field"], e.payload.get("value")
+                if correction_direction(payload, field_, value) == "loosen" and e.event_id not in confirmed:
+                    continue  # 제약을 푸는 정정은 사람 확인 전까지 반영하지 않는다
+                apply_correction(payload, field_, value, e.payload)
         return (_patient_from_payload(case, payload) if payload else None), payload
 
     def _proposal(self, pid: str, events: list[Event]) -> Proposal | None:

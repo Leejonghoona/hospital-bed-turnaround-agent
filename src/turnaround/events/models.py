@@ -68,6 +68,9 @@ class EventType(str, Enum):
     MANUAL_OVERRIDE_APPLIED = "manual_override_applied"  # 관리자 직접 수정, 사례 고정
     LOCATION_UPDATED = "location_updated"  # HIS 병상 정보 변경 (가상 FHIR 버전 증가)
     PATIENT_INFO_UPDATED = "patient_info_updated"
+    PATIENT_INFO_CORRECTED = "patient_info_corrected"  # 입력 정정 (EVT-4)
+    CORRECTION_CONFIRMED = "correction_confirmed"  # 제약을 푸는 정정의 사람 확인
+    ISOLATION_RELEASED = "isolation_released"  # 격리 해제 오더 (주치의 또는 감염관리실)
 
 
 CLOCK_SKEW_TOLERANCE_S = 300  # 시계 차이 허용 범위 (정책값, 설계 가정)

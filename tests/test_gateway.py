@@ -348,3 +348,45 @@ def test_manual_override_cannot_skip_terminal_cleaning_even_with_exception():
     d = gw.manual_override("A1", "W71-R02-B1", actor="u", role="bed_manager", reason="vip", now=at(9),
                            safety_exception_by=("ipc-1", "ipc"))
     assert d.status == "refused" and "precondition_unmet" in d.reasons
+
+
+# ---------- EVT-4 정정과 격리 해제 ----------
+
+def _corr(case, n, when, field, value, **kw):
+    return ev(case, f"correction:{n}", EventType.PATIENT_INFO_CORRECTED, when, "his", field=field, value=value, **kw)
+
+
+def test_isolation_release_by_ipc_allows_multi_room():
+    store, gw = make([adm(gender="M", organism="CRE", status="preemptive")])
+    assert gw.submit(prop("p1", bed="W71-R03-B2", store=store), at(9)).status == "rejected"
+    store.append(ev("A1", "isolation_released", EventType.ISOLATION_RELEASED, at(10, day=1), "his",
+                    ordered_by="ipc", reason="screening_negative_x2"))
+    d = gw.submit(prop("p2", bed="W71-R03-B2", store=store), at(10, 5, day=1))
+    assert d.status != "rejected" and "preemptive_isolation" not in d.reasons
+
+
+def test_loosening_correction_waits_for_human_confirmation():
+    store, gw = make([adm(gender="M", organism="MRSA")])
+    store.append(_corr("A1", 1, at(8), "precautions", []))  # 격리 오입력이라며 삭제하는 정정
+    d = gw.submit(prop("p1", bed="W71-R03-B2", store=store), at(9))
+    assert d.status == "rejected" and "isolation_room" in d.reasons  # 확인 전에는 반영 안 함
+    store.append(ev("A1", "correction_confirmed:1", EventType.CORRECTION_CONFIRMED, at(9, 30), "human",
+                    correction_id="A1:correction:1", actor="ipc-1"))
+    d2 = gw.submit(prop("p2", bed="W71-R03-B2", store=store), at(9, 40))
+    assert d2.status != "rejected"
+
+
+def test_tightening_correction_applies_immediately_and_blocks_pending_commit():
+    store, gw = make([adm(gender="M")])
+    _through_to_ward_acceptance(store, gw, bed="W71-R03-B2")
+    store.append(_corr("A1", 1, at(9, 30), "precautions", ["contact"], organism="VRE"))
+    d = gw.commit("p1", gw.location_version("W71-R03-B2"), at(10))
+    assert d.status == "rejected" and "info_changed" in d.reasons
+
+
+def test_gender_correction_applies_and_is_material():
+    store, gw = make([adm(gender="F")])
+    _through_to_ward_acceptance(store, gw, bed="W71-R04-B2")
+    store.append(_corr("A1", 1, at(9, 30), "gender", "M"))
+    d = gw.commit("p1", gw.location_version("W71-R04-B2"), at(10))
+    assert d.status == "rejected" and "info_changed" in d.reasons

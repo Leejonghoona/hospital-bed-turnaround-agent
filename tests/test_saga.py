@@ -411,3 +411,13 @@ def test_discharge_redecided_after_cancel_starts_a_new_round():
     req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
     assert [r.event_id for r in req] == ["D1:r2:saga:cleaning_request"]
     assert len(saga_events(store, EventType.SCHEDULE_ITEM_CREATED)) == 2  # 회차마다 예정표
+
+
+def test_loosening_correction_creates_confirmation_task_once():
+    corr = e("P1", "correction:1", EventType.PATIENT_INFO_CORRECTED, at(0, 8), "his", field="precautions", value=[])
+    adm_ev = e("P1", "admission_requested", EventType.ADMISSION_REQUESTED, at(-1, 15), "his",
+               isolation_order=True, precautions=["contact"], organism="MRSA")
+    store, _ = run([adm_ev, corr], until=at(0, 8, 30), start=at(0, 7, 55))
+    tasks = saga_events(store, EventType.HUMAN_TASK_CREATED)
+    assert [t.payload["reason"] for t in tasks] == ["confirm_correction"]
+    assert tasks[0].payload["correction_id"] == "P1:correction:1"

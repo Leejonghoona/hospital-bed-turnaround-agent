@@ -14,6 +14,7 @@ from typing import Iterable
 
 from pydantic import BaseModel, ConfigDict
 
+from turnaround.events.corrections import correction_direction
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 
@@ -116,6 +117,9 @@ class SagaState:
     discharges: dict[str, DischargeCase] = field(default_factory=dict)
     matches: dict[str, MatchCase] = field(default_factory=dict)  # 입원 요청 ID → 현재 매칭
     admission_facts: dict[str, dict[EventType, datetime]] = field(default_factory=dict)
+    admission_payload: dict[str, dict] = field(default_factory=dict)
+    corrections: list[Event] = field(default_factory=list)  # 입력 정정 (EVT-4)
+    confirmed_corrections: set[str] = field(default_factory=set)
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
@@ -134,6 +138,14 @@ def fold(events: Iterable[Event]) -> SagaState:
             continue
         if ev.type in (EventType.ADMISSION_REQUESTED, EventType.ADMISSION_CANCELLED):
             s.admission_facts.setdefault(ev.case_id, {}).setdefault(ev.type, ev.observed_at)
+            if ev.type is EventType.ADMISSION_REQUESTED:
+                s.admission_payload[ev.case_id] = dict(ev.payload)
+            continue
+        if ev.type is EventType.PATIENT_INFO_CORRECTED:
+            s.corrections.append(ev)
+            continue
+        if ev.type is EventType.CORRECTION_CONFIRMED:
+            s.confirmed_corrections.add(ev.payload.get("correction_id"))
             continue
         if ev.type is EventType.DISCHARGE_DECIDED:
             r = int(ev.payload.get("round", 1))
@@ -184,6 +196,12 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
         if d.round > 1:
             out.scopes[d.id] = f"r{d.round}"
         _decide_discharge(d, s, now, out, policy)
+    for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
+        current = s.admission_payload.get(c.case_id) or {}
+        if c.event_id not in s.confirmed_corrections and \
+                correction_direction(current, c.payload["field"], c.payload.get("value")) == "loosen":
+            out.cmd(c.case_id, f"task:confirm_correction:{c.event_id}", EventType.HUMAN_TASK_CREATED, c.observed_at,
+                    reason="confirm_correction", correction_id=c.event_id)
     for m in sorted(s.matches.values(), key=lambda x: x.admission_id):
         if EventType.ADMISSION_CANCELLED in s.admission_facts.get(m.admission_id, {}) and m.active:
             out.cmd(m.admission_id, f"prematch_released:{m.bed_id}", EventType.PREMATCH_RELEASED, now,
