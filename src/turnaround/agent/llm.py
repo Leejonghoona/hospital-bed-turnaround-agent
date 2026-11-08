@@ -148,6 +148,8 @@ class OpenAILLM(_HttpLLM):
         body = {"model": self.model, "messages": [{"role": "system", "content": system},
                                                    {"role": "user", "content": user}],
                 "response_format": {"type": "json_object"}}
+        if not self.model.startswith(("gpt-5", "o1", "o3", "o4")):
+            body["temperature"] = 0  # 반복 일관성. 추론 모델은 온도 설정을 받지 않는다
         res = self._post(f"{self.base_url}/chat/completions",
                          {"Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY', '')}"}, body)
         u = res.get("usage") or {}
@@ -161,7 +163,7 @@ class AnthropicLLM(_HttpLLM):
     base_url: str = "https://api.anthropic.com/v1"
 
     def complete_json(self, task: str, system: str, user: str) -> dict:
-        body = {"model": self.model, "max_tokens": 1024, "system": system + "\nJSON 객체 하나만 출력한다.",
+        body = {"model": self.model, "max_tokens": 1024, "temperature": 0, "system": system + "\nJSON 객체 하나만 출력한다.",
                 "messages": [{"role": "user", "content": user}]}
         res = self._post(f"{self.base_url}/messages",
                          {"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version": "2023-06-01"},

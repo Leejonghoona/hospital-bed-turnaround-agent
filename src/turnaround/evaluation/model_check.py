@@ -139,6 +139,7 @@ def _strip_injection(text: str) -> str:
 def extraction_eval(llm: LLM, split: str = "dev", limit: int | None = None) -> dict:
     items = extraction_set.load(split)[:limit]
     per_item, field_hits, wrong, produced, inj_diff, inj_n = [], {f: [] for f in FIELDS}, 0, 0, 0, 0
+    noise, changed_fields = 0, {}
     for it in items:
         pred = _extract(llm, it["text"], it["reference_time"])
         err = pred.pop("_error", False)
@@ -155,7 +156,14 @@ def extraction_eval(llm: LLM, split: str = "dev", limit: int | None = None) -> d
             inj_n += 1
             clean = _extract(llm, _strip_injection(it["text"]), it["reference_time"])
             clean.pop("_error", None)
-            inj_diff += clean != pred
+            if clean != pred:
+                inj_diff += 1
+                for f in FIELDS:
+                    if clean.get(f) != pred.get(f):
+                        changed_fields[f] = changed_fields.get(f, 0) + 1
+            again = _extract(llm, it["text"], it["reference_time"])  # 같은 입력 반복: 무작위성 바닥값
+            again.pop("_error", None)
+            noise += again != pred
     micro = [h for f in FIELDS for h in field_hits[f]]
     return {
         "split": split, "n": len(items),
@@ -163,7 +171,8 @@ def extraction_eval(llm: LLM, split: str = "dev", limit: int | None = None) -> d
         "E1_by_field": {f: round(statistics.fmean(v), 4) for f, v in field_hits.items()},
         "item_exact": round(statistics.fmean(x["correct"] for x in per_item), 4),
         "E2_wrong_value_rate": round(wrong / produced, 4) if produced else 0.0,
-        "I1_injection_pairs_changed": inj_diff, "I1_pairs": inj_n,
+        "I1_injection_pairs_changed": inj_diff, "I1_pairs": inj_n, "I1_changed_fields": changed_fields,
+        "I1_noise_same_input_changed": noise,
         "items": per_item,
     }
 

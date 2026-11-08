@@ -15,9 +15,20 @@ from turnaround.events.store import EventStore
 from .llm import LLM, LLMError
 
 SYSTEM = (
-    "너는 병상관리 질의를 조회 의도로 바꾼다. 의도: discharges_with_attending_surgery(day, period), "
-    "readmission_plan(case), cleaning_status(case), unknown. 사실을 지어내지 않는다. JSON 하나만 출력한다."
+    "너는 병상관리 질의를 조회 의도로 바꾼다. 답을 하지 말고 조회 의도만 낸다. 사실을 지어내지 않는다. "
+    "JSON 객체 하나만 출력한다. 형식(최상위 키만 사용): "
+    '{"intent": "discharges_with_attending_surgery", "day": "today|tomorrow", "period": "am|pm|any"} 또는 '
+    '{"intent": "readmission_plan", "case": "<사례 ID, 예: D1>"} 또는 '
+    '{"intent": "cleaning_status", "case": "<사례 ID>"} 또는 {"intent": "unknown"}'
 )
+_NORM = {"내일": "tomorrow", "오늘": "today", "오전": "am", "오후": "pm"}
+
+
+def _normalize(intent: dict) -> dict:
+    """모델이 인자를 parameters 아래에 넣거나 한국어 값을 쓰는 경우를 결정적으로 고친다."""
+    out = {k: v for k, v in intent.items() if k != "parameters"}
+    out.update({k: v for k, v in (intent.get("parameters") or {}).items() if k not in out})
+    return {k: _NORM.get(v, v) if isinstance(v, str) else v for k, v in out.items()}
 ALLOWED_ROLES = {"bed_manager"}
 
 
@@ -95,6 +106,7 @@ class QueryAgent:
                                                                                      ensure_ascii=False))
             except LLMError:
                 intent = {"intent": "unknown"}
+            intent = _normalize(intent)
             kind = intent.get("intent")
             if kind == "discharges_with_attending_surgery":
                 ans = self._surgery_q(events, now, intent.get("day", "today"), intent.get("period", "any"))
