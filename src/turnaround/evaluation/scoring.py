@@ -37,11 +37,14 @@ EVENT_TO_ACTION: dict[EventType, str] = {
     EventType.QUERY_ANSWERED: "answer_with_evidence",
     EventType.QUERY_NO_RECORD: "answer_no_record",
     EventType.MANUAL_OVERRIDE_APPLIED: "apply_manual_override",
+    EventType.TASK_HANDED_OVER: "hand_over_task",
+    EventType.TASK_ESCALATED: "escalate_task",
 }
 # 병원 밖이나 다른 부서로 나가는 부수효과 (중복 검사 대상)
 SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED, EventType.WARD_NOTIFIED,
                 EventType.SHARE_WAITING_INFO, EventType.WARD_ACCEPTANCE_ASKED}
-_PARAM_KEYS = ("cleaning_type", "reason", "target", "aerosol_wait_min", "sporicidal", "kind", "overridden_from")
+_PARAM_KEYS = ("cleaning_type", "reason", "target", "aerosol_wait_min", "sporicidal", "kind", "overridden_from",
+               "to", "discharge_type")
 _META = {"count", "count_over"}
 
 

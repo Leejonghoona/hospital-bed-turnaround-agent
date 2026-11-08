@@ -1,0 +1,33 @@
+id: H10
+category: delay
+title: 처방 수정으로 늦어진 퇴원약
+tags:
+- rx_revised
+design_ref: 'DAT-7·SAG-6(LP-27): 지연 타이머는 처방 발행 기준, 처방 수정은 지연 사유로 기록'
+situation: D1의 퇴원처방이 09:00에 발행됐고 10:00에 수정(퇴원 보류)됐다. 퇴원약은 11:40에 병동에 왔다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 실행기 고정 데이터
+gold:
+  must_actions:
+  - type: record_delay_reason
+    case: D1
+    params:
+      reason: rx_revised
+  - type: recompute_ready_time
+    case: D1
+    params:
+      reason: medication_delay
+      count: 1
+    note: 처방 발행 09:00 + 2시간 = 11:00 기한. 오더 확정(08:30) 기준이었다면 10:30에 울렸어야 한다
+  must_not: []
+metrics:
+- O1
+measured_from_stage: 3
+autonomy_stage: 1
+status: draft
+provenance:
+  author: claude-draft
+  reviewed_by: 미검토 (MVP 뒤 사용자 검토)
+  rule_source: 'DAT-7·SAG-6(LP-27): 지연 타이머는 처방 발행 기준, 처방 수정은 지연 사유로 기록'

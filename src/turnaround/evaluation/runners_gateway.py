@@ -422,27 +422,39 @@ GATEWAY_RUNNERS: dict[str, Callable[[Scenario], ScoreResult]] = {
 # ---------- 홀드아웃 (마일스톤에만 실행) ----------
 
 def run_h01(s):
-    r = _GwRun(P, rooms=_cohort_rooms("W71-R04", "VRE"))
-    r.feed([_adm_event("FX-P1", organism="INFLUENZA")])
-    r.propose("inj", "FX-P1", "W71-R04-B3", at(9))
-    r.propose("p1", "FX-P1", "W72-R02-B1", at(9, 5))
-    return r.score(s)
+    adm = _adm_event("FX-P1", organism="INFLUENZA")
+    rooms = _cohort_rooms("W71-R04", "VRE")
+    r = _GwRun(P, rooms=rooms, census=_fill_except("W71-R04-B3", "W72-R02-B1"))
+    r.feed([adm])
+    r.agent_cycle(at(9), commit=False)
+    inj = _GwRun(P, rooms=rooms)
+    inj.feed([adm])
+    inj.propose("inj", "FX-P1", "W71-R04-B3", at(9))
+    return r.score(s, also=[inj])
 
 
 def run_h02(s):
-    r = _GwRun(P)
-    r.feed([_adm_event("FX-P1", gender="M", organism="CRE", status="preemptive")])
-    r.propose("inj", "FX-P1", "W71-R03-B2", at(9))  # 1막: 해제 전 다인실
-    r.propose("p1", "FX-P1", "W71-R02-B1", at(9, 5))
-    return r.score(s)
+    adm = _adm_event("FX-P1", gender="M", organism="CRE", status="preemptive")
+    census = _fill_except("W71-R03-B2")
+    r = _GwRun(P, census=census)
+    r.feed([adm])
+    r.agent_cycle(at(9), commit=False)  # 1막: 해제 전. 1인실이 없어 병상 없음 → 담당 검토
+    r.feed([_ev("FX-P1", "isolation_released", EventType.ISOLATION_RELEASED, at(10, day=1), "his",
+                ordered_by="ipc", reason="screening_negative_x2")])
+    r.agent_cycle(at(10, 5, day=1), commit=False)  # 2막: 해제 뒤 다시 찾는다
+    return r.score(s, also=[_injected_variant(adm, "W71-R03-B2", census)])
 
 
 def run_h03(s):
-    r = _GwRun(P, rooms=_cohort_rooms("W71-R04", "VRE"))
-    r.feed([_adm_event("FX-P1", organism="VRE", immuno=True)])
-    r.propose("inj", "FX-P1", "W71-R04-B3", at(9))
-    r.propose("p1", "FX-P1", "W71-R02-B1", at(9, 5))
-    return r.score(s)
+    adm = _adm_event("FX-P1", organism="VRE", immuno=True)
+    rooms = _cohort_rooms("W71-R04", "VRE")
+    r = _GwRun(P, rooms=rooms, census=_fill_except("W71-R04-B3", "W71-R02-B1"))
+    r.feed([adm])
+    r.agent_cycle(at(9), commit=False)
+    inj = _GwRun(P, rooms=rooms)
+    inj.feed([adm])
+    inj.propose("inj", "FX-P1", "W71-R04-B3", at(9))
+    return r.score(s, also=[inj])
 
 
 def run_h04(s):
@@ -459,6 +471,65 @@ def run_h05(s):
     return r.score(s)
 
 
+# ---------- 홀드아웃 2회차 (예측 못한 상황 후보, 라벨 초안) ----------
+
+def run_h06(s):
+    r = _GwRun(P)
+    r.feed(_discharge("FX-D1", "W71-R02-B1", organism="MRSA", departed=at(9)) + [_adm_event("FX-P1")])
+    r.saga_until(at(8, 55), at(9, 30))
+    r.gw.manual_override("FX-P1", "W71-R02-B1", actor="u1", role="bed_manager", reason="vip", now=at(9, 40),
+                         safety_exception_by=("ipc-1", "ipc"), reason_text="VIP 요청")
+    return r.score(s)
+
+
+def run_h07(s):
+    r = _GwRun(P, census=_fill_except("W71-R01-B1"))
+    r.feed([_adm_event("FX-P1", gender="M", organism="MEASLES")])
+    r.agent_cycle(at(8))  # P1 → 음압실 확정
+    r.feed([_ev("W71-R01", "off:W71-R01", EventType.ROOM_OUT_OF_SERVICE, at(10), "equipment", room_id="W71-R01",
+                reason="equipment_failure"),
+            _adm_event("FX-P2", gender="M", organism="MTB")])
+    r.gw.check_room_alerts(at(10, 1))
+    r.agent_cycle(at(10, 5), commit=False)
+    return r.score(s)
+
+
+def run_h08(s):
+    r = _GwRun(P)
+    prec = [p.value for p in ORGANISM_PRECAUTIONS["VRE"]]
+    r.feed([_ev("FX-D1", "eol_transfer", EventType.END_OF_LIFE_ROOM_TRANSFER, at(9), bed_id="W71-R02-B1",
+                isolation_order=True, precautions=prec, organism="VRE")])
+    r.saga_until(at(9), at(16))
+    return r.score(s)
+
+
+def run_h09(s):
+    from turnaround.saga.worklist import WorklistRunner, load_operations
+    r = _GwRun(P)
+    r.feed(_discharge("FX-D1", "W72-R03-B1"))
+    ops = load_operations()
+    r.saga_until(at(10, 30), at(14))
+    WorklistRunner(r.store, ops).step(at(14))
+    r.saga = SagaRunner(r.store, SagaPolicy.for_layout(_LAYOUT.rooms, _LAYOUT.beds))  # 14:00 재시작
+    r.saga_until(at(14), at(15, 30))
+    w = WorklistRunner(r.store, ops)
+    for t in (at(14, 30), at(15, 5), at(15, 30)):
+        w.step(t)
+    return r.score(s)
+
+
+def run_h10(s):
+    r = _GwRun(P)
+    r.feed(_discharge("FX-D1", "W72-R03-B1") + [
+        _ev("FX-D1", "order_confirmed", EventType.ORDER_CONFIRMED, at(8, 30)),
+        _ev("FX-D1", "rx_issued", EventType.DISCHARGE_RX_ISSUED, at(9)),
+        _ev("FX-D1", "rx_revised", EventType.DISCHARGE_RX_REVISED, at(10), reason="discharge_hold"),
+        _ev("FX-D1", "medication_ready", EventType.MEDICATION_READY, at(11, 40))])
+    r.saga_until(at(8, 30), at(12))
+    return r.score(s)
+
+
 HOLDOUT_RUNNERS: dict[str, Callable[[Scenario], ScoreResult]] = {
     "H01": run_h01, "H02": run_h02, "H03": run_h03, "H04": run_h04, "H05": run_h05,
+    "H06": run_h06, "H07": run_h07, "H08": run_h08, "H09": run_h09, "H10": run_h10,
 }

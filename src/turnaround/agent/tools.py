@@ -70,7 +70,10 @@ class PlanningTools:
         assigned = set(self.gw._assignments(events))
         matched = {m.admission_id for m in s.matches.values() if m.active}
         live = {p["case"] for p in self.live_proposals(events).values()}
-        review_open = {e.case_id for e in events if e.type is EventType.NO_BED_REPORTED}
+        # 병상 없음 보고 뒤 새 사실(원천 시스템, 사람, 사가 이벤트)이 생기면 다시 찾는다. 그 전에는 담당 검토에 맡긴다
+        last_no_bed = {e.case_id: e.seq for e in events if e.type is EventType.NO_BED_REPORTED}
+        last_fact = max((e.seq for e in events if e.source in ("his", "human", "saga", "equipment")), default=0)
+        review_open = {c for c, seq in last_no_bed.items() if seq > last_fact}
         out = []
         for e in events:
             if e.type is EventType.ADMISSION_REQUESTED and e.case_id not in out:

@@ -35,7 +35,7 @@ class DemoState:
 
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
-               policy=None, step_min: int = 15) -> DemoState:
+               policy=None, step_min: int = 15, mode: str = "agent") -> DemoState:
     h = generate(seed=seed)
     events = hospital_to_events(h, seed=seed)
     entries = 0
@@ -47,7 +47,7 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     store = EventStore(":memory:")
     gw = Gateway(store, h.rooms, h.beds, policy or load_policy())
     saga = SagaRunner(store, SagaPolicy.for_layout(h.rooms, h.beds))
-    agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM())
+    agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM(), mode=mode)
     work = WorklistRunner(store, load_operations())
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())
     t = base - timedelta(hours=8)  # 전날 16:00부터

@@ -24,7 +24,7 @@ def test_runner_registry_matches_stage_lists():
     assert sorted(runners.RUNNERS) == sorted(STAGE3 + STAGE4 + STAGE7)
 
 
-@pytest.mark.parametrize("sid", ["H01", "H02", "H03", "H04", "H05"])
+@pytest.mark.parametrize("sid", [f"H{i:02d}" for i in range(1, 11)])
 def test_holdout_runners_exist(sid):
     from turnaround.evaluation.runners_gateway import HOLDOUT_RUNNERS
     assert sid in HOLDOUT_RUNNERS

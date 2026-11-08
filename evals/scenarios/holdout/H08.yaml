@@ -1,0 +1,46 @@
+id: H08
+category: saga
+title: 접촉주의 환자 사망(임종실 전실)
+tags:
+- death
+- isolation_discharge
+design_ref: 'SAG-9(LP-28): 퇴실 전 경보 억제, 격리 퇴실 종말소독, 외부 전송에 사망 정보 없음'
+situation: VRE 접촉주의 환자 D1이 09:00에 W71-R02-B1에서 임종실로 옮겼다. 퇴원 결정 이벤트는 없다. 오후까지 청소 완료
+  신호가 없다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 실행기 고정 데이터
+gold:
+  must_actions:
+  - type: send_cleaning_request
+    case: D1
+    bed: W71-R02-B1
+    params:
+      cleaning_type: terminal
+  must_not:
+  - type: request_registration_check
+    case: D1
+  - type: record_delay_reason
+    case: D1
+  - type: share_waiting_info
+    case: D1
+  - type: create_human_task
+    case: D1
+    params:
+      kind: rx_missing
+  - type: send_cleaning_request
+    case: D1
+    params:
+      discharge_type: death
+    note: 외부 전송에 퇴실 유형 없음
+metrics:
+- S2
+- I2
+measured_from_stage: 3
+autonomy_stage: 1
+status: draft
+provenance:
+  author: claude-draft
+  reviewed_by: 미검토 (MVP 뒤 사용자 검토)
+  rule_source: 'SAG-9(LP-28): 퇴실 전 경보 억제, 격리 퇴실 종말소독, 외부 전송에 사망 정보 없음'

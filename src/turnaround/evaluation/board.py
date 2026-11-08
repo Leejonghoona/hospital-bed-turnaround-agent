@@ -122,7 +122,15 @@ def append_results_row(results_md: Path, r: dict) -> None:
              f"{s['S4']['leaks']}/{s['S4']['cuts']}",
              f"{sc['passed']}/{sc['failed']}/{sc['not_implemented']}",
              f"{b['bed_prep_min']['p50']}·{b['bed_prep_min']['p90']} (기존 방식)", ",".join(b["assumptions"]) or "-"]
-    results_md.write_text(text.rstrip("\n") + "\n| " + " | ".join(map(str, cells)) + " |\n", encoding="utf-8")
+    row = "| " + " | ".join(map(str, cells)) + " |"
+    # 점수판 표의 마지막 행 바로 뒤에 넣는다 (파일 끝에 다른 절이 와도 표가 깨지지 않게)
+    lines = text.rstrip("\n").split("\n")
+    h = lines.index(HEADER)
+    k = next(i for i in range(h + 1, len(lines)) if lines[i].startswith("|"))
+    while k + 1 < len(lines) and lines[k + 1].startswith("|"):
+        k += 1
+    lines.insert(k + 1, row)
+    results_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _parse_seeds(s: str) -> range:

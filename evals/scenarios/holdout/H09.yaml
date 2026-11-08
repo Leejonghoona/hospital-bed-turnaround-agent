@@ -1,0 +1,43 @@
+id: H09
+category: saga
+title: 교대를 넘긴 퇴원약 처방 없음 작업
+tags:
+- shift
+- escalation
+- rx_missing
+design_ref: 'SAG-6·SAG-8: 11시 처방 없음 알림, 마감 30분 초과 시 수간호사에게 한 번, 15시 교대 때 인계 한 번(재시작해도
+  중복 없음)'
+situation: D1(W72-R03-B1)은 오늘 퇴원 예정인데 15:30까지 퇴원처방이 없고, 병동은 작업을 처리하지 않았다. 14:00에 서비스가
+  재시작됐다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 실행기 고정 데이터
+gold:
+  must_actions:
+  - type: create_human_task
+    case: D1
+    params:
+      kind: rx_missing
+      count: 1
+  - type: escalate_task
+    case: D1
+    params:
+      to: nursing_supervisor
+      count: 1
+  - type: hand_over_task
+    case: D1
+    params:
+      to: charge_nurse:evening
+      count: 1
+metrics:
+- D2
+- H1
+measured_from_stage: 4
+autonomy_stage: 1
+status: draft
+provenance:
+  author: claude-draft
+  reviewed_by: 미검토 (MVP 뒤 사용자 검토)
+  rule_source: 'SAG-6·SAG-8: 11시 처방 없음 알림, 마감 30분 초과 시 수간호사에게 한 번, 15시 교대 때 인계 한 번(재시작해도
+    중복 없음)'

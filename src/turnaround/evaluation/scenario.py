@@ -32,6 +32,8 @@ class Tier(str, Enum):
 # 행동 어휘. 계획 에이전트, 게이트웨이, 사가가 내는 행동을 같은 이름으로 채점한다.
 ACTION_TYPES = frozenset({
     "propose_match",  # 사전 매칭 또는 재매칭 제안
+    "hand_over_task",  # 교대 인계 (SAG-8)
+    "escalate_task",  # 마감 초과 상위 담당 (SAG-8)
     "ask_ward_acceptance",  # 병동에 수용 가능 여부 문의
     "commit_match",  # 원무 HIS 확정
     "reject_at_proposal",  # 게이트웨이 제안 시점 재확인에서 거부
