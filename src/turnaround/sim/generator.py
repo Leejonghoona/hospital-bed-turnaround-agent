@@ -97,6 +97,12 @@ class _Gen:
 
     # ---------- 퇴원 ----------
 
+    def isolation_type_for(self, room: Room) -> IsolationType:
+        """공기감염 격리는 음압격리실에만 있을 수 있다(설계 개념 계층)."""
+        if room.room_type is RoomType.NEGATIVE_PRESSURE:
+            return self.rng.choice(list(IsolationType))
+        return IsolationType.CONTACT
+
     def discharge_beds(self) -> list[tuple[int, Bed, bool]]:
         """(day, bed, isolation) 목록. 같은 날 같은 병상은 한 번만."""
         cfg = self.cfg
@@ -128,7 +134,7 @@ class _Gen:
             gender = room.gender or self.rng.choice(list(Gender))
             patient = self.new_patient(
                 gender=gender, department=self.rng.choice(ward.departments),
-                isolation=self.rng.choice(list(IsolationType)) if iso else None,
+                isolation=self.isolation_type_for(room) if iso else None,
             )
             d = {s: self.minutes(s) for s in (
                 "order_after_round", "medication", "education", "billing", "exit_prep",

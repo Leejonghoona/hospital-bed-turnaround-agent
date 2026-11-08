@@ -14,6 +14,7 @@ from turnaround.sim import (
     DEFAULT_STAGE_DISTRIBUTIONS,
     CleaningType,
     GeneratorConfig,
+    IsolationType,
     RoomType,
     StageDistribution,
     generate,
@@ -191,6 +192,8 @@ def test_isolation_discharges_need_terminal_cleaning_in_isolation_rooms(hospital
         if d.patient.isolation_order:
             assert d.cleaning_type is CleaningType.TERMINAL
             assert room.room_type in {RoomType.NEGATIVE_PRESSURE, RoomType.SINGLE}
+            if d.patient.isolation_type is IsolationType.AIRBORNE:  # 공기감염은 음압격리실만
+                assert room.room_type is RoomType.NEGATIVE_PRESSURE
         else:
             assert d.cleaning_type is CleaningType.GENERAL
 
