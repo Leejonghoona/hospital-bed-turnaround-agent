@@ -17,7 +17,7 @@ from turnaround.sim import generate
 from .scenario import Scenario
 from .scoring import Produced, ScoreResult, actions_from_events, score
 
-STAGE = 3  # 현재 구현 단계
+STAGE = 4  # 현재 구현 단계
 DAY0 = datetime(2026, 3, 2)
 _STEP = timedelta(minutes=5)
 
@@ -202,3 +202,7 @@ def run_e03(s: Scenario) -> ScoreResult:
 RUNNERS: dict[str, Callable[[Scenario], ScoreResult]] = {
     "C01": run_c01, "C02": run_c02, "C03": run_c03, "C05": run_c05, "E01": run_e01, "E03": run_e03,
 }
+
+from .runners_gateway import GATEWAY_RUNNERS, HOLDOUT_RUNNERS  # noqa: E402  4단계 실행기
+
+RUNNERS.update(GATEWAY_RUNNERS)

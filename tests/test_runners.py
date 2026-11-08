@@ -9,16 +9,41 @@ from turnaround.evaluation.scenario import load_scenario
 
 DEV = Path(__file__).resolve().parents[1] / "evals" / "scenarios" / "dev"
 STAGE3 = ["C01", "C02", "C03", "C05", "E01", "E03"]
+STAGE4 = ["A01", "A02", "A03", "A04", "A05", "A06", "B01", "B02", "B03", "B04", "B05",
+          "D01", "D02", "D03", "D04", "D05", "D06", "E02", "E04", "F03"]
+NOT_YET = ["C04", "F01", "F02", "F04"]  # 7단계(계획 에이전트, 추출, 질의) 필요
 
 
-@pytest.mark.parametrize("sid", STAGE3)
+@pytest.mark.parametrize("sid", STAGE3 + STAGE4)
 def test_stage3_scenarios_pass(sid):
     r = runners.RUNNERS[sid](load_scenario(DEV / f"{sid}.yaml"))
     assert r.passed, r.failures
 
 
-def test_runner_registry_matches_stage3_list():
-    assert sorted(runners.RUNNERS) == sorted(STAGE3)
+def test_runner_registry_matches_stage_lists():
+    assert sorted(runners.RUNNERS) == sorted(STAGE3 + STAGE4)
+    assert not set(runners.RUNNERS) & set(NOT_YET)
+
+
+@pytest.mark.parametrize("sid", ["H01", "H02", "H03", "H04", "H05"])
+def test_holdout_runners_exist(sid):
+    from turnaround.evaluation.runners_gateway import HOLDOUT_RUNNERS
+    assert sid in HOLDOUT_RUNNERS
+
+
+@pytest.mark.parametrize("sid,target,replacement", [
+    ("B02", "_changed_since", lambda self, prop, events: []),
+    ("B05", "location_version", lambda self, bed: 1),
+    ("F03", "query", None),
+])
+def test_gateway_scenarios_fail_when_mechanism_disabled(monkeypatch, sid, target, replacement):
+    from turnaround.gateway import gateway as g
+    if target == "query":
+        def replacement(self, role, fields, case, now):
+            self._emit(case, "gw:q:answered", g.EventType.QUERY_ANSWERED, now, role=role, fields=fields)
+            return g.Decision("answered", "query")
+    monkeypatch.setattr(g.Gateway, target, replacement)
+    assert not runners.RUNNERS[sid](load_scenario(DEV / f"{sid}.yaml")).passed
 
 
 # 평가 민감도(G4): 사가 장치를 끄면 해당 시나리오가 실패해야 한다

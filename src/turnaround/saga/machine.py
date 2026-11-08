@@ -303,7 +303,7 @@ class SagaRunner:
         emitted: list[Event] = []
         for _ in range(self.max_rounds):
             events = self.store.read(as_of=now)
-            known = {e.event_id for e in events if e.source == "saga"}
+            known = {e.event_id for e in self.store.read()}  # 게이트웨이가 같은 멱등 키로 먼저 낸 명령도 포함
             new = decide(fold(events), now, known, self.policy)
             if not new:
                 break

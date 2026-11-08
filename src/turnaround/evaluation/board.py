@@ -19,7 +19,9 @@ from turnaround.sim import generate
 from .baselines import no_agent_baseline
 from .invariants import BedTurnover, check_assignment, check_turnover, zero_event_upper_bound
 from .runners import RUNNERS, STAGE  # 시나리오 ID → 실행기, 현재 구현 단계
+from .runners_gateway import HOLDOUT_RUNNERS
 from .scenario import load_scenarios
+from turnaround.gateway import load_policy
 
 ROOT = Path(__file__).resolve().parents[3]
 DEV_DIR = ROOT / "evals" / "scenarios" / "dev"
@@ -84,9 +86,10 @@ def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "
               llm: str = "none", policy: str = "none") -> dict:
     seeds = list(seeds)
     scenarios = load_scenarios(directory)
+    runners = HOLDOUT_RUNNERS if split == "holdout" else RUNNERS
     results, failures = {}, {}
     for s in scenarios:
-        runner = RUNNERS.get(s.id)
+        runner = runners.get(s.id)
         if runner is None:
             results[s.id] = "not_implemented"
             continue
@@ -129,12 +132,15 @@ def main() -> None:
     p = argparse.ArgumentParser(description="평가 점수판")
     p.add_argument("--seeds", default="0-199")
     p.add_argument("--write", action="store_true", help="evals/results에 JSON 저장, RESULTS.md에 한 줄 추가")
+    p.add_argument("--split", choices=["dev", "holdout"], default="dev",
+                   help="holdout은 마일스톤(4단계, 7단계 끝)에만 돌린다. 실행 횟수가 RESULTS.md에 남는다")
     a = p.parse_args()
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
                             cwd=ROOT).stdout.strip() or "unknown"
-    r = run_board(DEV_DIR, _parse_seeds(a.seeds), commit)
+    directory = DEV_DIR.parent / "holdout" if a.split == "holdout" else DEV_DIR
+    r = run_board(directory, _parse_seeds(a.seeds), commit, split=a.split, policy=load_policy().version)
     if a.write:
-        out = ROOT / "evals" / "results" / f"{r['date']}_{commit}.json"
+        out = ROOT / "evals" / "results" / f"{r['date']}_{commit}_{a.split}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
         append_results_row(ROOT / "docs" / "RESULTS.md", r)

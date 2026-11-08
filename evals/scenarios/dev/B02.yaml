@@ -13,6 +13,8 @@ gold:
   - type: reject_at_proposal
     case: P1
     bed: W72-R04-B1
+    params:
+      reason: info_changed
   must_not:
   - type: ask_ward_acceptance
     case: P1
@@ -28,5 +30,5 @@ autonomy_stage: 1
 status: approved
 provenance:
   author: claude-draft
-  rule_source: 게이트웨이 행 기술 방식. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
+  rule_source: 게이트웨이 행 기술 방식. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md). 거부 사유 명시(2026-11-08, 민감도 검사)
   reviewed_by: 사용자 (2026-11-08)
