@@ -50,6 +50,9 @@ class EventType(str, Enum):
     CLEANING_REQUEST_CANCELLED = "cleaning_request_cancelled"
     CASE_RECLASSIFIED_REVIEW = "case_reclassified_review"
     HUMAN_TASK_CREATED = "human_task_created"
+    HUMAN_TASK_DONE = "human_task_done"  # 사람이 작업을 마침 (payload task_id)
+    TASK_HANDED_OVER = "task_handed_over"  # 교대 인계 (SAG-8)
+    TASK_ESCALATED = "task_escalated"  # 마감 초과, 상위 담당에게 (SAG-8)
     REMATCH_REQUESTED = "rematch_requested"
     CASE_RESUMED = "case_resumed"
     WARD_NOTIFIED = "ward_notified"  # 수용 회신 철회 통지

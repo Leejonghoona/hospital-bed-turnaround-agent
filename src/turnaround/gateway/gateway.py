@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from turnaround.events.corrections import apply_correction, apply_release, correction_direction
 from turnaround.events.models import Event, EventType
+from turnaround.saga.worklist import OperatingCalendar, load_operations
 from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, guideline_delta
 from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
@@ -47,14 +48,6 @@ class Proposal(BaseModel):
     alternatives: list[str] = Field(default_factory=list)  # 검토 카드 대안
 
 
-def _next_workday_noon(now: datetime) -> datetime:
-    """사후 검토 기한: 다음 평일 정오. 공휴일은 반영하지 않는다 (MVP 가정)."""
-    d = now.date() + timedelta(days=1)
-    while d.weekday() >= 5:
-        d += timedelta(days=1)
-    return datetime(d.year, d.month, d.day, 12, tzinfo=now.tzinfo)
-
-
 @dataclass
 class Decision:
     status: str  # rejected | awaiting_manager | awaiting_review | awaiting_ward | committed | executed | ...
@@ -73,12 +66,13 @@ def _patient_from_payload(pid: str, p: Mapping) -> Patient:
 
 class Gateway:
     def __init__(self, store: EventStore, rooms: Iterable[Room], beds: Iterable[Bed], policy: Policy,
-                 census: Mapping[str, Patient] | None = None):
+                 census: Mapping[str, Patient] | None = None, calendar: OperatingCalendar | None = None):
         self.store, self.policy = store, policy
         self.rooms, self.beds = tuple(rooms), tuple(beds)
         self.room_of = {b.id: b.room_id for b in self.beds}
         self.room_by_id = {r.id: r for r in self.rooms}
         self.census = dict(census or {})  # 현재 재원 환자 (병상 ID → 환자)
+        self.calendar = calendar or load_operations().calendar  # 사후 검토 기한 (운영 달력, SAG-8)
 
     # ---------- 이벤트에서 계산하는 상태 ----------
 
@@ -591,7 +585,7 @@ class Gateway:
             if tier == "reason_entry" and not (exception or {}).get("by"):
                 self._emit(case, f"gw:{oid}:post_review", EventType.HUMAN_TASK_CREATED, now, kind="post_review",
                            assignee="ipc", bed_id=bed_id, violations=violations, reason_text=reason_text,
-                           due=_next_workday_noon(now).isoformat())
+                           due=self.calendar.next_workday_noon(now).isoformat())
             d = Decision("applied", "override", tier, [])
             self._audit(f"gw:{oid}:override", case, now, "override", oid, d, actor=actor, role=role,
                         reason_code=reason, bed_id=bed_id, safety_exception=exception, reason_text=reason_text)
