@@ -21,7 +21,7 @@ from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
 from turnaround.saga import fold
-from turnaround.sim.models import Bed, Patient, Room, RoomType
+from turnaround.sim.models import Bed, Patient, IsolationType, Room, RoomType
 
 from .policy import Policy
 
@@ -145,6 +145,42 @@ class Gateway:
                 if patient is not None:
                     occ[bed] = patient
         return occ
+
+    def _room_status(self, events: list[Event]) -> dict[str, str]:
+        """사용 중지된 병실 → 사유 (GW-12). 마지막 이벤트가 이긴다."""
+        status: dict[str, str] = {}
+        for e in events:
+            if e.type is EventType.ROOM_OUT_OF_SERVICE:
+                status[e.payload["room_id"]] = e.payload.get("reason", "closed")
+            elif e.type is EventType.ROOM_RETURNED_TO_SERVICE:
+                status.pop(e.payload["room_id"], None)
+        return status
+
+    def room_status(self) -> dict[str, str]:
+        return self._room_status(self._events())
+
+    def _out_of_service(self, bed_id: str, events: list[Event]) -> bool:
+        return self.room_of.get(bed_id) in self._room_status(events)
+
+    def check_room_alerts(self, now: datetime) -> list[str]:
+        """고장 난 음압실에 공기주의 환자가 있으면 감염관리실 경보 (GW-12). 고장 이벤트당 한 번."""
+        events = self._events()
+        raised = []
+        last_off = {e.payload["room_id"]: e for e in events if e.type is EventType.ROOM_OUT_OF_SERVICE}
+        status = self._room_status(events)
+        occ = self._occupants(events)
+        for room_id, reason in status.items():
+            room = self.room_by_id.get(room_id)
+            if reason != "equipment_failure" or room is None or room.room_type is not RoomType.NEGATIVE_PRESSURE:
+                continue
+            for bed_id, p in occ.items():
+                if self.room_of.get(bed_id) == room_id and IsolationType.AIRBORNE in p.precautions:
+                    case = next((c for c, b in self._assignments(events).items() if b == bed_id), room_id)
+                    key = f"gw:alert:{last_off[room_id].event_id}:{bed_id}"
+                    if self._emit(case, key, EventType.HUMAN_TASK_CREATED, now, kind="negative_pressure_failure",
+                                  assignee="ipc", bed_id=bed_id, room_id=room_id):
+                        raised.append(bed_id)
+        return raised
 
     def location_version(self, bed_id: str) -> int:
         """가상 FHIR Location 버전. 병상 정보 변경과 확정마다 1씩 오른다."""
@@ -325,6 +361,8 @@ class Gateway:
             return self._reject(prop, "proposal", ["unknown_bed"], now)
         if prop.bed_id in self._occupants(events, exclude_case=prop.case):
             return self._reject(prop, "proposal", ["bed_unavailable"], now)
+        if self._out_of_service(prop.bed_id, events):
+            return self._reject(prop, "proposal", ["room_out_of_service"], now)
         violations = self._shacl(prop.case, patient, prop.bed_id, events)
         if violations:
             d = self._reject(prop, "proposal", violations, now, "review" if reasons else None)
@@ -422,6 +460,10 @@ class Gateway:
             return d
         if not self._ward_accepted(prop.proposal_id, events):
             return self._reject_commit(prop, ["ward_acceptance_missing"], now, tag)
+        if self._out_of_service(prop.bed_id, events):
+            d = self._reject_commit(prop, ["room_out_of_service"], now, tag)
+            self._notify_if_accepted(prop, events, now, "room_out_of_service")
+            return d
         if self._isolation_discharge_pending(prop.bed_id, events):
             return self._reject_commit(prop, ["precondition_unmet"], now, tag)  # LP-04: 보류, 재분류 아님
         if version != self.location_version(prop.bed_id):
@@ -501,6 +543,11 @@ class Gateway:
             d = Decision("refused", "override", None, ["bed_occupied"])
         elif self._isolation_discharge_pending(bed_id, events):
             d = Decision("refused", "override", None, ["precondition_unmet"])  # 종말소독 완료 전
+        elif self._out_of_service(bed_id, events):
+            d = Decision("refused", "override", None, ["room_out_of_service"])  # 폐쇄·고장·감시 대기
+        elif (self._room_status(events).get(self.room_of.get(self._assignments(events).get(case, ""), ""))
+              == "surveillance_hold"):
+            d = Decision("refused", "override", None, ["surveillance_hold"])  # 지침 8.3.4 동실자 이동 제한
         else:
             violations = self._shacl(case, patient, bed_id, events)
             exception = None

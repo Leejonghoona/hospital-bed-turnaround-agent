@@ -495,3 +495,66 @@ def test_post_review_due_skips_weekend():
 def test_agent_proposal_never_uses_exceptions():
     store, gw = make([adm(gender="M", organism="MRSA")])
     assert gw.submit(prop(store=store, bed="W71-R03-B2"), at(9)).status == "rejected"
+
+
+# ---------- GW-12 병실 사용 중지 (LP-26) ----------
+
+def room_off(room, reason, when, key="off", source="his"):
+    return ev(room, f"{key}:{room}", EventType.ROOM_OUT_OF_SERVICE, when, source, room_id=room, reason=reason)
+
+
+def room_on(room, when, key="on"):
+    return ev(room, f"{key}:{room}", EventType.ROOM_RETURNED_TO_SERVICE, when, "his", room_id=room)
+
+
+def test_out_of_service_room_is_rejected_for_proposal_and_returns_after_release():
+    store, gw = make([adm(), room_off("W72-R04", "closed", at(8))])
+    d = gw.submit(prop(store=store), at(9))
+    assert d.status == "rejected" and d.reasons == ["room_out_of_service"]
+    assert gw.room_status()["W72-R04"] == "closed"
+    store.append(room_on("W72-R04", at(10)))
+    assert gw.submit(prop("p2", store=store), at(11)).status == "awaiting_manager"
+
+
+def test_room_closed_after_approval_blocks_commit():
+    store, gw = make([adm()])
+    gw.submit(prop(store=store), at(9))
+    gw.manager_approve("p1", at(9, 5))
+    gw.ward_reply("p1", True, at(9, 10))
+    store.append(room_off("W72-R04", "equipment_failure", at(9, 30)))
+    d = gw.commit("p1", gw.location_version("W72-R04-B2"), at(10))
+    assert d.status == "rejected" and "room_out_of_service" in d.reasons
+
+
+def test_manual_override_cannot_use_out_of_service_room_even_with_exception():
+    store, gw = make([adm(), room_off("W72-R04", "surveillance_hold", at(8), source="human")])
+    d = _mo(gw, "A1", "W72-R04-B2", at(9), safety_exception_by=("ipc-1", "ipc"), reason_text="급함")
+    assert d.status == "refused" and d.reasons == ["room_out_of_service"]
+
+
+def test_surveillance_hold_blocks_moving_patient_out_of_room():
+    store, gw = make([adm()])
+    _mo(gw, "A1", "W72-R04-B2", at(9))  # 다인실 배정
+    store.append(room_off("W72-R04", "surveillance_hold", at(10), source="human"))
+    d = _mo(gw, "A1", "W72-R03-B1", at(11))
+    assert d.status == "refused" and d.reasons == ["surveillance_hold"]  # 지침 8.3.4
+
+
+def test_negative_pressure_failure_with_airborne_patient_raises_alarm_once():
+    store, gw = make([adm(gender="M", organism="MEASLES")])
+    _mo(gw, "A1", "W71-R01-B1", at(9))  # 음압실 배정 (위반 없음)
+    store.append(room_off("W71-R01", "equipment_failure", at(10), source="equipment"))
+    gw.check_room_alerts(at(10, 1))
+    gw.check_room_alerts(at(10, 2))
+    alarms = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED
+              and e.payload.get("kind") == "negative_pressure_failure"]
+    assert len(alarms) == 1 and alarms[0].payload["assignee"] == "ipc"
+    assert alarms[0].payload["bed_id"] == "W71-R01-B1"
+
+
+def test_failure_in_regular_room_raises_no_alarm():
+    store, gw = make([adm()])
+    _mo(gw, "A1", "W72-R04-B2", at(9))
+    store.append(room_off("W72-R04", "equipment_failure", at(10)))
+    gw.check_room_alerts(at(10, 1))
+    assert not [e for e in store.read() if e.payload.get("kind") == "negative_pressure_failure"]
