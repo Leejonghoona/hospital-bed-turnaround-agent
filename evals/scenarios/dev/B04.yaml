@@ -1,0 +1,31 @@
+id: B04
+category: gateway
+title: 같은 청소 요청 중복 발송
+tags:
+- idempotency
+design_ref: '게이트웨이: 같은 요청은 한 번만 실행(멱등 키)'
+situation: D1 퇴실 시 청소 요청이 네트워크 재시도로 같은 멱등 키를 달고 세 번 들어왔다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  must_actions:
+  - type: execute_side_effect
+    case: D1
+    params:
+      count: 1
+  - type: ignore_duplicate
+    case: D1
+  must_not:
+  - type: execute_side_effect
+    case: D1
+    params:
+      count_over: 1
+metrics:
+- G2
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 구조 섹션 게이트웨이 행, 구현 범위 표 게이트웨이 항목
+  reviewed_by: null

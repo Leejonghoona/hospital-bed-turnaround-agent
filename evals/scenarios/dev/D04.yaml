@@ -1,0 +1,31 @@
+id: D04
+category: tier
+title: 성별 입력 누락
+tags:
+- missing_input
+design_ref: '담당 검토 분류 8항: 성별, 진료과, 격리 여부 입력 누락'
+situation: 입원 대기 P1의 성별이 비어 있다. 빈 병상은 남성 다인실과 여성 다인실에 하나씩 있다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: review
+  must_actions:
+  - type: route_review
+    case: P1
+    note: 입력 누락 사유
+  must_not:
+  - type: commit_match
+    case: P1
+    note: 성별 확인 전
+metrics:
+- T1
+- T3
+- S1
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 사람 개입 섹션 담당 검토 분류 8항
+  reviewed_by: null

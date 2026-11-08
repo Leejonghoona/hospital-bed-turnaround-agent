@@ -1,0 +1,27 @@
+id: E03
+category: delay
+title: 퇴원 예정 미등록
+tags:
+- unregistered_discharge
+design_ref: 'PoC 전날 19:00 장면: 퇴원 예정이 등록되지 않은 병상 2개를 병동에 확인 요청'
+situation: 내일 퇴원 결정이 난 D1, D2의 퇴원 예정이 HIS에 등록되지 않았다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  must_actions:
+  - type: request_registration_check
+    case: D1
+  - type: request_registration_check
+    case: D2
+  must_not:
+  - type: commit_match
+    note: 미등록 병상에 확정
+metrics:
+- O4
+measured_from_stage: 3
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 PoC 시연 전날 19:00, 업무 재설계 1. 퇴실 전
+  reviewed_by: null

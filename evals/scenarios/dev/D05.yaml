@@ -1,0 +1,30 @@
+id: D05
+category: tier
+title: 1·2순위 점수 차 미달
+tags:
+- close_scores
+design_ref: '담당 검토 분류 5항: 1·2순위 점수 차가 정책 파일 기준값 미만인 매칭'
+situation: 입원 대기 P1(남성, 소화기내과)에게 W71-R03-B1과 W72-R03-B2가 후보다. 두 점수 차가 정책 파일 기준값보다 작다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: review
+  acceptable_beds:
+    P1:
+    - W71-R03-B1
+    - W72-R03-B2
+  must_actions:
+  - type: route_review
+    case: P1
+    note: 대안 2개 포함
+metrics:
+- T1
+- H2
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 사람 개입 섹션 담당 검토 분류 5항, 검토 카드
+  reviewed_by: null

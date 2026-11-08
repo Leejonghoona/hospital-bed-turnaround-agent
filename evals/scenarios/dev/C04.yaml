@@ -1,0 +1,34 @@
+id: C04
+category: saga
+title: 입원 취소 후 재매칭
+tags:
+- admission_cancel
+design_ref: 'PoC 08:30 장면: 입원 취소 1건 접수, 사전 매칭 재계산'
+situation: P1(남성)이 W71-R03-B3에 사전 매칭돼 있었는데 입원을 취소했다. 같은 날 대기 중인 P2(남성, 소화기내과, 격리 없음)가 있다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P2: ward_confirm
+  acceptable_beds:
+    P2:
+    - W71-R03-B3
+  must_actions:
+  - type: release_prematch
+    case: P1
+  - type: propose_match
+    case: P2
+    bed: W71-R03-B3
+  must_not:
+  - type: commit_match
+    case: P1
+metrics:
+- D3
+- P2
+measured_from_stage: 3
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 PoC 시연 08:30
+  reviewed_by: null

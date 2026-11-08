@@ -1,0 +1,33 @@
+id: C02
+category: saga
+title: 환자 연락 전 퇴원 취소
+tags:
+- discharge_cancel
+- compensation
+design_ref: 'PoC 11:00 장면: 퇴원 1건 취소, 보상 단계가 청소 예정표 항목과 사전 매칭을 해제'
+situation: 퇴원 예정 D1(W72-R03-B1)에 청소 예정표 항목과 P1 사전 매칭이 있다. 환자 연락 전에 D1 퇴원이 취소됐다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  must_actions:
+  - type: release_schedule_item
+    case: D1
+    bed: W72-R03-B1
+  - type: release_prematch
+    case: P1
+  must_not:
+  - type: create_human_task
+    case: P1
+    note: 연락 전이라 재연락 불필요
+  final_state:
+    D1: cancelled
+    P1: waiting
+metrics:
+- D3
+measured_from_stage: 3
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 PoC 시연 11:00, 사람 개입 섹션 확인 등급별 경로 4항
+  reviewed_by: null

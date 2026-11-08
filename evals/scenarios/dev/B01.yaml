@@ -1,0 +1,34 @@
+id: B01
+category: gateway
+title: 승인 대기 중 격리 오더 추가
+tags:
+- isolation_order_added
+design_ref: 'PoC 11:30 장면: 병상관리 검토를 기다리던 매칭에 격리 오더 추가, 확정 직전 재확인에서 거부하고 담당 검토로 재분류'
+situation: 입원 대기 P1(남성, 호흡기내과)이 W71-R03-B2에 매칭돼 승인 대기 중이다. 그 사이 주치의가 공기감염 격리 오더를 넣었다. 원무가 확정 버튼을 누른다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: review
+  must_actions:
+  - type: reject_at_commit
+    case: P1
+    bed: W71-R03-B2
+  - type: reclassify_review
+    case: P1
+  must_not:
+  - type: commit_match
+    case: P1
+    bed: W71-R03-B2
+metrics:
+- G1
+- S1
+- G3
+- T1
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 PoC 시연 11:30, 구조 섹션 게이트웨이 행 병원 사례
+  reviewed_by: null

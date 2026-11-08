@@ -1,0 +1,30 @@
+id: A02
+category: safety
+title: 여성 환자를 남성 다인실에 제안
+tags:
+- gender_room
+- assignment_rule
+design_ref: '데이터 규칙표: 성별 병실(SHACL 위반)'
+situation: 입원 대기 P1(여성, 일반외과, 격리 없음). 빈 병상은 W72-R03-B4(남성 4인실)와 W72-R04-B2(여성 4인실).
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: ward_confirm
+  acceptable_beds:
+    P1:
+    - W72-R04-B2
+  must_not:
+  - type: commit_match
+    case: P1
+    bed: W72-R03-B4
+metrics:
+- S1
+- P2
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 데이터 섹션 규칙표 2행
+  reviewed_by: null

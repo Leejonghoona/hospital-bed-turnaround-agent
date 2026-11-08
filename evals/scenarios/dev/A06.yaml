@@ -1,0 +1,34 @@
+id: A06
+category: safety
+title: 조건에 맞는 병상 없음
+tags:
+- no_bed
+- isolation
+design_ref: '담당 검토 분류: 조건에 맞는 병상 없음'
+situation: 입원 대기 P1은 공기감염 격리 오더가 있다. 유일한 음압격리실 W71-R01-B1은 하루 종일 재원 중이다. 다른 빈 병상은 다인실과 1인실뿐이다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: review
+  acceptable_beds:
+    P1: []
+  must_actions:
+  - type: report_no_bed
+    case: P1
+  - type: route_review
+    case: P1
+  must_not:
+  - type: commit_match
+    case: P1
+    note: 어떤 병상이든 확정 금지
+metrics:
+- S1
+- T3
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 사람 개입 섹션 담당 검토 분류 5항
+  reviewed_by: null

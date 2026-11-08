@@ -1,0 +1,27 @@
+id: E01
+category: delay
+title: 보호자 도착 지연
+tags:
+- guardian_delay
+design_ref: 'PoC 10:05 장면: 보호자 도착 예정이 13시로 바뀜, 해당 병상 준비 예상 시각과 매칭 재계산'
+situation: D1(W72-R04-B3)의 보호자 도착 예정이 11:00에서 13:00으로 바뀌었다. 이 병상에 P1이 사전 매칭돼 있다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  must_actions:
+  - type: recompute_ready_time
+    case: D1
+    bed: W72-R04-B3
+  - type: propose_match
+    case: P1
+    note: 재계산 결과에 따라 유지 또는 재매칭
+metrics:
+- O1
+- P2
+measured_from_stage: 3
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 PoC 시연 10:05, 업무 재설계 1. 퇴실 전
+  reviewed_by: null

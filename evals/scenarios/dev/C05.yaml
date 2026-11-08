@@ -1,0 +1,31 @@
+id: C05
+category: saga
+title: 이벤트 중복과 순서 뒤바뀜
+tags:
+- event_noise
+design_ref: '이벤트 저장소: 사례 ID로 중복 방지, 추가만 하는 기록. 재생 평가의 원천'
+situation: W72-R04-B3의 청소 완료 신호가 두 번 들어왔다. 퇴실 이벤트는 청소 시작 이벤트보다 늦게 인지됐다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  must_actions:
+  - type: ignore_duplicate
+    bed: W72-R04-B3
+  - type: recompute_ready_time
+    bed: W72-R04-B3
+    params:
+      count: 1
+  must_not:
+  - type: mark_bed_vacant
+    bed: W72-R04-B3
+    note: 청소 완료 전
+metrics:
+- D1
+- S4
+measured_from_stage: 2
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 구조 섹션 이벤트 저장소 행
+  reviewed_by: null

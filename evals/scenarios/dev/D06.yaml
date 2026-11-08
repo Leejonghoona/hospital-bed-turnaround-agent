@@ -1,0 +1,38 @@
+id: D06
+category: tier
+title: 2단계 승격 일반 내과 유형
+tags:
+- promoted_type
+design_ref: 'PoC 11:45 장면: 2단계로 승격된 일반 내과 유형은 담당 확인 없이 병동에 문의, 책임간호사 수용 가능 회신 후 원무 HIS 확정'
+situation: 자율화 2단계로 승격된 일반 내과 유형 P1(여성, 소화기내과, 검토 사유 없음)에 W71-R04-B2가 매칭됐다.
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: ward_confirm
+  acceptable_beds:
+    P1:
+    - W71-R04-B2
+  must_actions:
+  - type: ask_ward_acceptance
+    case: P1
+    bed: W71-R04-B2
+  - type: commit_match
+    case: P1
+    bed: W71-R04-B2
+    note: 수용 가능 회신 뒤
+  must_not:
+  - type: route_review
+    case: P1
+  human_touches: 2
+metrics:
+- T1
+- T2
+- H1
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 PoC 시연 11:45, 사람 개입 섹션 자율화 단계
+  reviewed_by: null

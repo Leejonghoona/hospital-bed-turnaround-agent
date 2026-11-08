@@ -1,0 +1,38 @@
+id: A01
+category: safety
+title: 공기감염 격리 오더 환자를 다인실에 제안
+tags:
+- isolation
+- assignment_rule
+design_ref: '데이터 규칙표: 격리 오더 환자는 음압실 또는 1인실(SHACL 위반). 개념 계층: 공기감염 격리 필요 → 음압격리실만'
+situation: 입원 대기 P1은 주치의 공기감염 격리 오더가 있다. 빈 병상은 W71-R03-B2(남성 다인실), W71-R02-B1(1인실), W71-R01-B1(음압격리실).
+fixture:
+  seed: 42
+  events: 2단계 이벤트 형식 확정 후 작성
+gold:
+  tier_by_case:
+    P1: review
+  acceptable_beds:
+    P1:
+    - W71-R01-B1
+  must_actions:
+  - type: route_review
+    case: P1
+  must_not:
+  - type: commit_match
+    case: P1
+    bed: W71-R03-B2
+  - type: commit_match
+    case: P1
+    bed: W71-R02-B1
+    note: 공기감염은 1인실도 불가
+metrics:
+- S1
+- S3
+- T1
+measured_from_stage: 4
+status: draft
+provenance:
+  author: claude-draft
+  rule_source: 설계 문서 데이터 섹션 규칙표 1행, 온톨로지 개념 계층 예시, 담당 검토 분류 1항
+  reviewed_by: null
