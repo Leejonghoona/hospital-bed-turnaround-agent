@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "turnaround"
+version = "0.1.0"
+description = "병상 턴어라운드 관제 에이전트 데모 (합성 데이터 전용)"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.6",
+  "pyyaml>=6",
+  "rdflib>=7",
+  "pyshacl>=0.25",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
