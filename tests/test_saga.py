@@ -393,3 +393,21 @@ def test_billing_on_time_or_no_waiting_patient_shares_nothing():
     nobody = [decided(), registered(), e("D1", "medication_ready", EventType.MEDICATION_READY, at(0, 9, 30))]
     store, _ = run(nobody, until=at(0, 11), start=at(0, 9))
     assert saga_events(store, EventType.SHARE_WAITING_INFO) == []
+
+
+# ---------- EVT-5 회차: 퇴원 취소 뒤 재퇴원 결정 ----------
+
+def test_discharge_redecided_after_cancel_starts_a_new_round():
+    second = e("D1", "discharge_decided:r2", EventType.DISCHARGE_DECIDED, at(0, 17), bed_id="W72-R03-B1", day=1,
+               patient_id="SYN-P-D1", name="가나다", gender="M", age=60, department="일반외과",
+               isolation_order=False, round=2)
+    evs = [decided(), registered(), e("D1", "discharge_cancelled", EventType.DISCHARGE_CANCELLED, at(0, 8)), second,
+           e("D1", "discharge_registered:r2", EventType.DISCHARGE_REGISTERED, at(0, 17, 30), bed_id="W72-R03-B1", round=2),
+           departed(when=at(1, 11)).model_copy(update={"event_id": "D1:patient_departed:r2", "payload": {"bed_id": "W72-R03-B1", "round": 2}})]
+    store, _ = run(evs, until=at(1, 11, 10), start=at(-1, 17))
+    s = fold(store.read())
+    assert s.discharges["D1"].round == 2
+    assert s.discharges["D1"].stage is not DischargeStage.CANCELLED
+    req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert [r.event_id for r in req] == ["D1:r2:saga:cleaning_request"]
+    assert len(saga_events(store, EventType.SCHEDULE_ITEM_CREATED)) == 2  # 회차마다 예정표

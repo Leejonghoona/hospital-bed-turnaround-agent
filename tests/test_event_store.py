@@ -42,9 +42,10 @@ def test_duplicate_event_id_is_ignored(store):
     assert store.append(ev("e2")) == 2  # 중복이 순번을 소비하지 않는다
 
 
-def test_observed_before_occurred_is_rejected():
+def test_observed_before_occurred_beyond_tolerance_is_rejected():
+    # EVT-6 이후: 허용 범위(5분) 안의 시계 차이는 받아들이고, 넘으면 거부한다
     with pytest.raises(ValueError):
-        ev(occ=T, obs=T - timedelta(minutes=1))
+        ev(occ=T, obs=T - timedelta(minutes=10))
 
 
 def test_payload_roundtrip(store):
@@ -213,3 +214,16 @@ def test_noisy_stream_still_has_no_future_leak(hospital):
     assert all(e.observed_at <= cut for e in s.read(as_of=cut))
     assert s.last_seq() == len({e.event_id for e in noisy})
     s.close()
+
+
+# ---------- EVT-6 시계 차이 허용 ----------
+
+def test_small_clock_skew_is_accepted_and_marked():
+    e = ev(occ=T, obs=T - timedelta(minutes=3))
+    assert e.observed_at == T  # 발생 전에 알 수는 없으므로 발생 시각으로 맞춘다
+    assert e.payload["_clock_skew_s"] == 180
+
+
+def test_large_clock_skew_is_still_rejected():
+    with pytest.raises(ValueError):
+        ev(occ=T, obs=T - timedelta(minutes=6))

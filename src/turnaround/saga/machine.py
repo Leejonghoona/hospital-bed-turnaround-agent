@@ -56,6 +56,7 @@ class DischargeCase:
     id: str
     bed_id: str | None = None
     isolation: bool = False
+    round: int = 1  # 회차: 퇴원 취소 뒤 재퇴원 결정이면 2 (EVT-5)
     precautions: tuple[str, ...] = ()
     organism: str | None = None
     facts: dict[EventType, datetime] = field(default_factory=dict)  # 사실 → 처음 인지한 시각
@@ -135,7 +136,11 @@ def fold(events: Iterable[Event]) -> SagaState:
             s.admission_facts.setdefault(ev.case_id, {}).setdefault(ev.type, ev.observed_at)
             continue
         if ev.type is EventType.DISCHARGE_DECIDED:
-            d = s.discharges.setdefault(ev.case_id, DischargeCase(ev.case_id))
+            r = int(ev.payload.get("round", 1))
+            old = s.discharges.get(ev.case_id)
+            if old is not None and r > old.round:
+                s.discharges[ev.case_id] = DischargeCase(ev.case_id, round=r)  # 새 회차: 이전 사실을 비운다
+            d = s.discharges.setdefault(ev.case_id, DischargeCase(ev.case_id, round=r))
             d.bed_id = ev.payload.get("bed_id")
             d.isolation = bool(ev.payload.get("isolation_order"))
             d.precautions = tuple(ev.payload.get("precautions") or ())
@@ -143,6 +148,11 @@ def fold(events: Iterable[Event]) -> SagaState:
         d = s.discharges.get(ev.case_id)
         if d is None:
             continue
+        if d.round > 1:  # 이전 회차의 이벤트는 무시
+            if ev.source == "saga" and not ev.event_id.startswith(f"{d.id}:r{d.round}:"):
+                continue
+            if ev.source != "saga" and int(ev.payload.get("round", 1)) < d.round:
+                continue
         if ev.type is EventType.ISOLATION_ORDER_ADDED:
             d.isolation = True
         if ev.type is EventType.GUARDIAN_ETA_UPDATED:
@@ -156,9 +166,11 @@ def fold(events: Iterable[Event]) -> SagaState:
 class _Out:
     def __init__(self, now: datetime, known: set[str]):
         self.now, self.known, self.events = now, known, []
+        self.scopes: dict[str, str] = {}  # 사례 → 회차 접두사 (2회차부터)
 
     def cmd(self, case: str, key: str, etype: EventType, occurred: datetime, **payload) -> None:
-        eid = f"{case}:saga:{key}"
+        scope = self.scopes.get(case)
+        eid = f"{case}:{scope}:saga:{key}" if scope else f"{case}:saga:{key}"
         if eid in self.known:
             return
         self.known.add(eid)
@@ -169,6 +181,8 @@ class _Out:
 def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = SagaPolicy()) -> list[Event]:
     out = _Out(now, known)
     for d in sorted(s.discharges.values(), key=lambda x: x.id):
+        if d.round > 1:
+            out.scopes[d.id] = f"r{d.round}"
         _decide_discharge(d, s, now, out, policy)
     for m in sorted(s.matches.values(), key=lambda x: x.admission_id):
         if EventType.ADMISSION_CANCELLED in s.admission_facts.get(m.admission_id, {}) and m.active:

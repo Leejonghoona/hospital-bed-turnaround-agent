@@ -70,6 +70,8 @@ class EventType(str, Enum):
     PATIENT_INFO_UPDATED = "patient_info_updated"
 
 
+CLOCK_SKEW_TOLERANCE_S = 300  # 시계 차이 허용 범위 (정책값, 설계 가정)
+
 Source = Literal["his", "timer", "human", "agent", "gateway", "equipment", "saga"]
 
 
@@ -84,6 +86,24 @@ class Event(BaseModel):
     observed_at: datetime  # 시스템이 알게 된 시각
     source: Source
     payload: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _clock_skew(cls, data):
+        """원천 시스템 시계가 조금 빠르면(허용 범위 안) 받아들이고 표시한다 (EVT-6)."""
+        if not isinstance(data, dict):
+            return data
+        occ, obs = data.get("occurred_at"), data.get("observed_at")
+        if isinstance(occ, str):
+            occ = datetime.fromisoformat(occ)
+        if isinstance(obs, str):
+            obs = datetime.fromisoformat(obs)
+        if isinstance(occ, datetime) and isinstance(obs, datetime) and obs < occ:
+            skew = (occ - obs).total_seconds()
+            if skew > CLOCK_SKEW_TOLERANCE_S:
+                raise ValueError(f"observed_at이 occurred_at보다 {skew:.0f}초 앞선다(허용 {CLOCK_SKEW_TOLERANCE_S}초)")
+            data = {**data, "observed_at": occ, "payload": {**(data.get("payload") or {}), "_clock_skew_s": int(skew)}}
+        return data
 
     @model_validator(mode="after")
     def _check_times(self) -> "Event":
