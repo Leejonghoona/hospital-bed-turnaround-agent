@@ -139,7 +139,8 @@ class PlanningAgent:
         out = []
         for case in self.tools.pending_admissions(self.tools.events()):
             out.append(self.gw.submit(self.plan(case, now), now))
-        out += self._rematch(now)
+        if not self.gw.policy.brain.enabled:  # 머리가 켜져 있으면 청소 지연 재매칭도 머리(E4)가 고른다
+            out += self._rematch(now)
         if self.gw.policy.brain.enabled:  # 예외 판단 머리 (U8 확장). 꺼져 있으면 지금 동작 그대로
             from .brain import ExceptionBrain
             out += ExceptionBrain(self.gw, self.llm).step(now)

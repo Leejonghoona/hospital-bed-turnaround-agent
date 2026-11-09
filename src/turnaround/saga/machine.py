@@ -176,6 +176,7 @@ class SagaState:
     screening_pending: dict[str, int] = field(default_factory=dict)
     isolation_ordered: dict[str, datetime] = field(default_factory=dict)
     isolation_order_payload: dict[str, dict] = field(default_factory=dict)
+    no_bed_reports: list[Event] = field(default_factory=list)  # 병상 없음 보고 (E5)
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
@@ -232,6 +233,9 @@ def fold(events: Iterable[Event]) -> SagaState:
         if ev.type is EventType.ISOLATION_ORDER_ADDED:
             s.isolation_ordered.setdefault(ev.case_id, ev.observed_at)  # 퇴원 사례 처리는 아래에서 그대로
             s.isolation_order_payload.setdefault(ev.case_id, dict(ev.payload))
+        if ev.type is EventType.NO_BED_REPORTED:
+            s.no_bed_reports.append(ev)
+            continue
         if ev.type in (EventType.ADMISSION_REQUESTED, EventType.ADMISSION_CANCELLED):
             s.admission_facts.setdefault(ev.case_id, {}).setdefault(ev.type, ev.observed_at)
             if ev.type is EventType.ADMISSION_REQUESTED:
@@ -328,6 +332,7 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
     decide_isolation_info(s, now, out, policy)
     decide_late_isolation_admission(s, out, policy)
     decide_contact_trace(s, out, policy)
+    decide_no_bed(s, out, policy)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \
@@ -372,6 +377,56 @@ def _release_matches_on_hold(d: DischargeCase, s: SagaState, now: datetime, out:
             _notify_ward_if_accepted(m, out, now, "bed_on_hold")
             out.cmd(m.admission_id, f"rematch:hold:{bed}", EventType.REMATCH_REQUESTED, now, target="admission",
                     admission_id=m.admission_id)
+
+
+def _decide_cleaning_overdue(d, s, now, out, p, issued, limit, by) -> None:
+    bed = d.bed_id
+    waiting = sorted(m.admission_id for m in s.matches.values() if m.active and m.bed_id == bed)
+    for rnd, due in ((1, issued + limit), (2, issued + limit * 1.5)):
+        key = f"exception:cleaning_overdue:{rnd}"
+        if now >= due and not by(EventType.CLEANING_DONE, due) and not by(EventType.BED_READY, due):
+            out.cmd(d.id, key, EventType.EXCEPTION_RAISED, due, exception_id=f"E4:{d.id}:{rnd}",
+                    trigger="cleaning_overdue", bed_id=bed, stage="first" if rnd == 1 else "second",
+                    deadline=(due + p.exception_deadline).isoformat(),
+                    context={"isolation_discharge": d.isolation, "cleaning_type": "terminal" if d.isolation else "general",
+                             "cleaning_started": d.seen(EventType.CLEANING_STARTED) is not None,
+                             "waiting_admissions": waiting, "next_admission_waiting": bool(waiting)})
+            if rnd == 1 and waiting:  # 기다리는 쪽에 늦어짐을 알린다 (결정적, 현장 조사 권고)
+                out.cmd(d.id, "share:cleaning_overdue", EventType.SHARE_WAITING_INFO, due, bed_id=bed,
+                        to=["bed_manager", "ward"], reason="cleaning_overdue", waiting_admissions=waiting)
+        if any(k.endswith(key) for k in d.commands):
+            cleared = d.seen(EventType.CLEANING_DONE) or d.seen(EventType.BED_READY)
+            if cleared is not None:
+                out.cmd(d.id, f"exception_resolved:cleaning_overdue:{rnd}", EventType.EXCEPTION_RESOLVED, cleared,
+                        exception_id=f"E4:{d.id}:{rnd}", how="condition_cleared")
+
+
+def decide_no_bed(s: SagaState, out, p) -> None:
+    """E5 병상 없음 (XD-032): 입원 대기 사례마다 하나(첫 보고 시각). 다시 찾을 때마다 새로 올리지 않는다(알림 폭주 방지).
+    매칭·확정되면 닫는다."""
+    if not p.exceptions_enabled:
+        return
+    first: dict[str, Event] = {}
+    for e in s.no_bed_reports:
+        first.setdefault(e.case_id, e)
+    for case, e in sorted(first.items()):
+        facts = s.admission_facts.get(case, {})
+        if EventType.ADMISSION_CANCELLED in facts:
+            continue
+        payload = s.admission_payload.get(case, {})
+        exid = f"E5:{case}"
+        pending = sorted((d.bed_id, d.stage.value) for d in s.discharges.values()
+                         if d.bed_id and EventType.PATIENT_DEPARTED not in d.facts and d.discharge_date is not None
+                         and d.discharge_date <= e.observed_at.date())
+        out.cmd(case, "exception:no_bed", EventType.EXCEPTION_RAISED, e.observed_at,
+                exception_id=exid, trigger="no_bed", admission_id=case, stage="before_contact",
+                deadline=(e.observed_at + p.exception_deadline).isoformat(),
+                context={"from_icu": bool(payload.get("from_icu")), "contacted": False, "committed": False,
+                         "pending_discharges_today": [{"bed_id": b, "stage": st} for b, st in pending]})
+        m = s.matches.get(case)
+        if m is not None and m.active and min(m.facts.values()) >= e.observed_at:
+            out.cmd(case, "exception_resolved:no_bed", EventType.EXCEPTION_RESOLVED, min(m.facts.values()),
+                    exception_id=exid, how="condition_cleared")
 
 
 def _bed_awaited(s: SagaState, bed: str | None) -> bool:
@@ -502,6 +557,8 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         if now >= due and not by(EventType.CLEANING_DONE, due) and not by(EventType.BED_READY, due):
             out.cmd(d.id, "recompute:cleaning_overdue", EventType.READY_TIME_RECOMPUTED, issued + limit,
                     bed_id=bed, reason="cleaning_overdue")
+        if p.exceptions_enabled:  # E4 청소 지연: 무엇을 할지는 머리가 고른다 (XD-019)
+            _decide_cleaning_overdue(d, s, now, out, p, departed, limit, by)  # 사가 청소 요청 = 퇴실 시각
         if done is not None:
             out.cmd(d.id, "recompute:cleaning_done", EventType.READY_TIME_RECOMPUTED, done,
                     bed_id=bed, reason="cleaning_done")

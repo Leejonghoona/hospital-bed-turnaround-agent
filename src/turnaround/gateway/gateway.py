@@ -318,6 +318,8 @@ class Gateway:
         if choice.action == "escalate" and \
                 choice.params.get("role", "bed_manager") not in self.policy.hospital_profile.escalation_roles:
             return reject("bad_params")
+        if (why := self._action_precheck(choice, raised, events)) is not None:
+            return reject(why)  # 안전·상태 검사 (예: 종말소독 전 침상 정리, 연락한 매칭 자동 재매칭)
         autonomy = "auto" if fallback_ok else self.policy.autonomy.get(choice.action, "human")
         if autonomy == "human":
             self._emit(choice.case, f"{exid}:approval:{choice.action}", EventType.ACTION_APPROVAL_REQUESTED, now,
@@ -360,12 +362,43 @@ class Gateway:
                    exception_id=exception_id, how=action)
         return Decision("executed", "action", "human")
 
+    def _action_precheck(self, choice, raised: Event, events: list[Event]) -> str | None:
+        ctx = raised.payload.get("context") or {}
+        if choice.action == "request_bed_prep_first" and self._isolation_discharge_pending(raised.payload.get("bed_id"),
+                                                                                              events):
+            return "terminal_cleaning_pending"  # 격리 퇴실 병실은 종말소독 완료 전 침상 정리 금지 (H34)
+        if choice.action == "rematch_now" and raised.payload.get("trigger") == "cleaning_overdue":
+            contacted = {e.case_id for e in events if e.type is EventType.PATIENT_CONTACTED}
+            if set(ctx.get("waiting_admissions") or []) & contacted:
+                return "contacted"  # 연락한 매칭은 추천안 + 사람 승인으로 (propose_rematch)
+        return None
+
+    def _release_waiting(self, exid: str, raised: Event, now: datetime, reason: str) -> None:
+        """이 병상을 기다리던 사전 매칭을 풀고 다시 찾는다. 원래 병동에 철회 통지 먼저 (DECISIONS 재매칭 꼬임 방지)."""
+        bed = raised.payload.get("bed_id")
+        for adm_case in (raised.payload.get("context") or {}).get("waiting_admissions") or []:
+            self._emit(adm_case, f"{exid}:withdraw:{adm_case}", EventType.WARD_NOTIFIED, now, bed_id=bed,
+                       reason="rematch_withdrawn", detail=reason)
+            self._emit(adm_case, f"{exid}:release:{adm_case}", EventType.PREMATCH_RELEASED, now, bed_id=bed,
+                       reason=reason, discharge_id=raised.case_id)
+            self._emit(adm_case, f"{exid}:rematch:{adm_case}", EventType.REMATCH_REQUESTED, now, target="admission",
+                       admission_id=adm_case)
+
     def _execute_action(self, choice, raised: Event, now: datetime) -> None:
         exid, case = choice.exception_id, choice.case
+        rule = self.policy.exception_actions.get(choice.trigger)
+        for kind, role in (rule.companions.get(choice.action, []) if rule else []):
+            # 함께 할 행동: 근거(예외·사유)를 붙인 작업 (가만히 기다리지 않는다, 자동 행동은 사유를 알린다)
+            self._emit(case, f"{exid}:companion:{kind}", EventType.HUMAN_TASK_CREATED, now, kind=kind,
+                       assignee=role, reason=f"{choice.trigger}:{choice.action}", bed_id=raised.payload.get("bed_id"),
+                       rationale=choice.rationale, context=raised.payload.get("context"))
         if choice.action == "escalate":
             self._emit(case, f"{exid}:task:escalate", EventType.HUMAN_TASK_CREATED, now, reason="brain_escalate",
                        kind="brain_escalate", assignee=choice.params.get("role", "bed_manager"),
-                       trigger=choice.trigger, bed_id=raised.payload.get("bed_id"))
+                       trigger=choice.trigger, bed_id=raised.payload.get("bed_id"),
+                       card=raised.payload.get("context"))  # 근거 카드 (예: 오늘 퇴원 예정 병상과 단계)
+        elif choice.action in ("rematch_now", "propose_rematch") and choice.trigger == "cleaning_overdue":
+            self._release_waiting(exid, raised, now, "cleaning_overdue")
         elif choice.action in ("rematch_now", "propose_rematch"):
             # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
             self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
@@ -380,13 +413,24 @@ class Gateway:
             self._emit(case, f"{exid}:lounge_offered", EventType.LOUNGE_OFFERED, now, bed_id=raised.payload.get("bed_id"),
                        to="ward", guardian_wait_min=ctx.get("guardian_wait_min"),
                        next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
+        elif choice.action == "re_request_cleaning":
+            last = [e for e in self._events() if e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == case]
+            keep = {k: v for k, v in (last[-1].payload if last else {}).items()
+                    if k in ("bed_id", "cleaning_type", "aerosol_wait_min", "sporicidal")}
+            keep.setdefault("bed_id", raised.payload.get("bed_id"))
+            keep.setdefault("cleaning_type", (raised.payload.get("context") or {}).get("cleaning_type", "general"))
+            self._emit(case, f"{exid}:re_request", EventType.CLEANING_REQUEST_ISSUED, now, **keep, reminder=True,
+                       reason="cleaning_overdue")  # 같은 등급 그대로 (하향 없음)
+        elif choice.action == "request_bed_prep_first":
+            self._emit(case, f"{exid}:bed_prep", EventType.BED_PREP_REQUESTED, now, bed_id=raised.payload.get("bed_id"),
+                       reason="cleaning_overdue")
+        elif choice.action == "share_eta":
+            self._emit(case, f"{exid}:share_eta", EventType.SHARE_WAITING_INFO, now, to=["bed_manager", "ward"],
+                       reason=choice.trigger, context=raised.payload.get("context"))
+        elif choice.action == "request_postpone_contact":
+            self._emit(case, f"{exid}:task:postpone", EventType.HUMAN_TASK_CREATED, now, kind="postpone_contact",
+                       assignee="bed_manager", reason=choice.trigger)
         elif choice.action.startswith("wait"):
-            rule = self.policy.exception_actions.get(choice.trigger)
-            for kind, role in (rule.companions.get(choice.action, []) if rule else []):
-                # 기다리는 동안 함께 할 행동: 근거(예외·사유)를 붙인 작업 (가만히 기다리지 않는다)
-                self._emit(case, f"{exid}:companion:{kind}", EventType.HUMAN_TASK_CREATED, now, kind=kind,
-                           assignee=role, reason=f"{choice.trigger}:{choice.action}", bed_id=raised.payload.get("bed_id"),
-                           rationale=choice.rationale)
             until = min(datetime.fromisoformat(raised.payload["deadline"]),
                         now + timedelta(minutes=self.policy.brain.max_wait_min))
             n = sum(1 for e in self._events() if e.type is EventType.RECHECK_SCHEDULED

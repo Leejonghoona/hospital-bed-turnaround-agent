@@ -148,6 +148,14 @@ ta:act_propose_surveillance_hold a ta:ActionType ; ta:autonomyKey "propose_surve
 ta:act_nudge_order a ta:ActionType ; ta:autonomyKey "nudge_order" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
 ta:act_offer_lounge a ta:ActionType ; ta:autonomyKey "offer_lounge" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
 ta:act_wait_for_guardian a ta:ActionType ; ta:autonomyKey "wait_for_guardian" ; ta:gatewayMethod "submit_action" .
+ta:act_re_request_cleaning a ta:ActionType ; ta:autonomyKey "re_request_cleaning" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward ;
+    rdfs:comment "청소 요청을 같은 등급으로 다시 낸다(하향 없음)" .
+ta:act_request_bed_prep_first a ta:ActionType ; ta:autonomyKey "request_bed_prep_first" ; ta:gatewayMethod "submit_action" ;
+    rdfs:comment "침상 정리 먼저. 격리 퇴실은 종말소독 완료 전 거부" .
+ta:act_wait a ta:ActionType ; ta:autonomyKey "wait" ; ta:gatewayMethod "submit_action" .
+ta:act_share_eta a ta:ActionType ; ta:autonomyKey "share_eta" ; ta:gatewayMethod "submit_action" .
+ta:act_wait_for_next_ready a ta:ActionType ; ta:autonomyKey "wait_for_next_ready" ; ta:gatewayMethod "submit_action" .
+ta:act_request_postpone_contact a ta:ActionType ; ta:autonomyKey "request_postpone_contact" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
 
 # ---------------- 사건 순서 (같은 사례 안에서 앞 사건은 뒤 사건보다 늦지 않다) ----------------
 # 매핑 에이전트가 이름이 애매한 시각 열(예: "퇴원일시")을 순서로 가려낸다.
