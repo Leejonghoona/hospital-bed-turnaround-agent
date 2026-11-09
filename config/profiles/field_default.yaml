@@ -1,0 +1,25 @@
+# 현장 기본값 (DECISIONS 2026-11-09 현장 조사 반영 결정·설계 개정 인터뷰). 스위치는 단계마다 정책 기본값으로 옮긴다.
+version: policy-2026-11-09-field
+hospital_profile:
+  id: synthetic-field-2026-11
+  assignment:
+    timing: same_day_morning        # 공개 안내 14곳 모두 입원 당일 오전 배정
+  ward_confirmation:
+    mode: notify                    # 서울고법 2013누25193, 블로그·영상: 병동은 통보받음
+    merge_manager_confirm_into_commit: true   # 인터뷰 Q1
+  discharge_sequence:
+    preset: field                   # 심사·조제 병행 → 연락 → 수납 → 영수증 → 약 전달·교육 → 퇴실
+    rx_due_at: "09:00"
+    departure_due_at: "11:00"       # 서울대·서울성모·강북삼성 등 퇴실 11시 규정
+  guardian:
+    lounge_enabled: true            # 서울성모 "중앙휴게실 사용"
+  cleaning:
+    split: true                     # 병원 직원 침상 정리 + 미화 표면 청소 (해운대백 과업지시서, 동아대 영상)
+    readiness_scope: {multi: bed_unit, single: room, negative_pressure: room, isolation: room_terminal}
+  isolation:
+    risk_conditions: [mdro_history, recent_other_hospital_stay, icu_transfer]
+  room_change:
+    display_chain: true
+  admission_window: ["14:00", "17:00"]   # 서울성모 14~17, 해운대백 15~17 피크
+brain:
+  enabled: true

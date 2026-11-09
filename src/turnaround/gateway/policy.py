@@ -10,6 +10,9 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 DEFAULT_POLICY = Path(__file__).resolve().parents[3] / "config" / "policy.yaml"
+PROFILES_DIR = DEFAULT_POLICY.parent / "profiles"
+
+from .profile import LOCKED_HUMAN_ACTIONS, Autonomy, Brain, ExceptionRule, HospitalProfile, deep_merge  # noqa: E402
 
 
 class ManualOverridePolicy(BaseModel):
@@ -86,6 +89,18 @@ class Policy(BaseModel):
     extraction: ExtractionSchema = Field(default_factory=ExtractionSchema)
     external_llm: str = "deny"
     provenance: dict[str, Provenance] = Field(default_factory=dict)
+    # 병원 프로필과 예외 판단 (설계 개정, DECISIONS 2026-11-09)
+    hospital_profile: HospitalProfile = Field(default_factory=HospitalProfile)
+    exception_actions: dict[str, ExceptionRule] = Field(default_factory=dict)
+    autonomy: dict[str, Autonomy] = Field(default_factory=dict)
+    brain: Brain = Field(default_factory=Brain)
+
+    @model_validator(mode="after")
+    def _locked_human(self):
+        for action in LOCKED_HUMAN_ACTIONS:
+            if self.autonomy.get(action, "human") != "human":
+                raise ValueError(f"{action}는 책임 순간이라 사람만 한다 (자율 단계 {self.autonomy[action]} 불가)")
+        return self
 
     @model_validator(mode="after")
     def _locked(self):
@@ -96,5 +111,12 @@ class Policy(BaseModel):
         return self
 
 
-def load_policy(path: Path = DEFAULT_POLICY) -> Policy:
-    return Policy.model_validate(yaml.safe_load(Path(path).read_text(encoding="utf-8")))
+def load_policy(path: Path = DEFAULT_POLICY, profile: str | None = None) -> Policy:
+    """정책 파일을 읽는다. profile을 주면 config/profiles/<profile>.yaml을 덮어쓴다."""
+    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if profile is not None:
+        over = PROFILES_DIR / f"{profile}.yaml"
+        if not over.exists():
+            raise FileNotFoundError(f"병원 프로필 없음: {over}")
+        raw = deep_merge(raw, yaml.safe_load(over.read_text(encoding="utf-8")) or {})
+    return Policy.model_validate(raw)
