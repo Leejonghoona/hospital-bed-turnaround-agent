@@ -467,7 +467,7 @@ def qa_v2(llm: LLM, limit: int | None = None) -> dict:
 
 # ---------- M5 예외 판단·설명 (docs/검토/모델선정_사전등록.md) ----------
 
-_NUM = re.compile(r"\d{1,2}:\d{2}|\d+(?:\.\d+)?")
+_NUM = re.compile(r"(?<![A-Za-z_\d.])(?:\d{1,2}:\d{2}|\d+(?:\.\d+)?)")  # p50·P90·E1 같은 이름 속 숫자는 빼고 본다
 _CODE_TOKEN = re.compile(r"[A-Z]\d{2}(?:-R\d{2}(?:-B\d)?)?")
 _BED = re.compile(r"W\d{2}-R\d{2}-B\d")
 _SMALL = {float(i) for i in range(7)}  # 목표 우선순위 1~6, 순위 표현

@@ -59,6 +59,7 @@ def test_notification_needs_input_evidence_and_no_made_up_numbers():
     assert not M.notice_ok("다시 찾는 게 낫다", inp)  # 근거(입력 값) 없음
     assert not M.notice_ok("준비 45분이라 다시 찾는다", inp)  # 입력에 없는 숫자
     assert M.notice_ok("09:10 기준 후보 1개", inp)
+    assert M.notice_ok("후보 1개, 준비 예상 30분(p50)", inp)  # 지표 이름 속 숫자(p50)는 숫자로 보지 않는다
 
 
 def test_explain_fact_check_catches_foreign_beds_and_numbers():
