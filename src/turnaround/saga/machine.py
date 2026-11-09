@@ -483,6 +483,12 @@ def decide_call_up(s: SagaState, out, p, now: datetime) -> None:
         due = datetime.fromisoformat(req)
         if EventType.PATIENT_CONTACTED not in m.facts:
             continue  # 원무가 환자에게 연락하지 않은 입원은 부르지 않는다 (원무 검수 H-1)
+        iso_at = s.isolation_ordered.get(m.admission_id)
+        if iso_at is not None and iso_at >= m.facts[EventType.MATCH_COMMITTED]:
+            # 확정 뒤 격리 오더: 병상이 맞는지 다시 확인(재매칭·재확정)하기 전에는 부르지 않는다 (4단계 시연에서 발견)
+            out.cmd(m.admission_id, "call_up_held:isolation", EventType.HUMAN_TASK_CREATED, max(iso_at, now),
+                    kind="call_up_held", assignee="bed_manager", bed_id=m.bed_id, reason="isolation_after_commit")
+            continue
         d = current_discharge(s, m)
         if d is not None and d.isolation:
             bed_ok = d.seen(EventType.BED_MARKED_VACANT)  # 격리 퇴실은 종말소독 뒤 빈 병상 전환만

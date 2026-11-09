@@ -34,6 +34,7 @@ class DemoState:
     feed: object = None  # 반응형 재생 공급기 (있을 때만)
     reviewer: object = None  # 사람 응답 모형 (없으면 늘 승인, 로드맵 07 M3)
     log: list[str] = field(default_factory=list)
+    advance: object = None  # advance(to): 재생을 이어서 돌린다
 
 
 def resident_census(h, seed: int) -> dict:
@@ -83,27 +84,35 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM(), mode=mode)
     work = WorklistRunner(store, load_operations())
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())
-    t = base - timedelta(hours=8)  # 전날 16:00부터
     end = datetime.combine(base.date(), until)
-    i = 0
-    st = DemoState(h, store, gw, agent, end, entries)
+    st = DemoState(h, store, gw, agent, base - timedelta(hours=8), entries)
     st.reviewer = reviewer
     feed = None
     if reactive is not None:
         from turnaround.sim.reactive import ReactiveReplay
         feed = st.feed = ReactiveReplay(h, seed, reactive)
-    while t <= end:
-        if feed is not None:
-            feed.react(store, t)
-            feed.deliver(store, t)
-        while feed is None and i < len(events) and events[i].observed_at <= t:
-            store.append(events[i])
-            i += 1
-        saga.step(t)
-        agent.step(t)
-        _humans(st, t)
-        work.step(t)
-        t += step_min * _M
+    cur = {"t": base - timedelta(hours=8), "i": 0}  # 전날 16:00부터
+
+    def advance(to: datetime) -> None:
+        """재생을 to까지 이어서 돌린다 (화면 시연에서 단계마다 시각을 넘긴다, 08 계획 4단계)."""
+        t = cur["t"]
+        while t <= to:
+            if feed is not None:
+                feed.react(store, t)
+                feed.deliver(store, t)
+            while feed is None and cur["i"] < len(events) and events[cur["i"]].observed_at <= t:
+                store.append(events[cur["i"]])
+                cur["i"] += 1
+            saga.step(t)
+            agent.step(t)
+            _humans(st, t)
+            work.step(t)
+            t += step_min * _M
+        cur["t"] = t
+        st.now = to
+
+    st.advance = advance
+    advance(end)
     return st
 
 

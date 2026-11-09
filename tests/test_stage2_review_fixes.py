@@ -361,3 +361,16 @@ def test_m7_fallback_escalation_card_has_rejection_and_ipc_for_airborne():
     assert t and t[0].payload["card"].get("rejected_action") == "release_isolation"
     assert t[0].payload["card"].get("rejected_reason") == "not_allowed"
     assert "ipc" in (t[0].payload.get("also_notify") or [])
+
+
+def test_no_call_up_after_late_isolation_until_bed_is_rechecked():
+    """4단계 시연에서 발견: 확정 뒤 공기주의 격리 오더가 오고 추천안 승인을 기다리는 사이 '올려주세요'가 나갔다."""
+    store, gw = make([adm_at(at(13))], policy=FIELD)
+    gw.submit(prop(store=store), at(9))
+    store.append(contacted(at(9, 30), promised=at(13)))
+    store.append(ev("A1", "ward_prep", T.WARD_PREP_DONE, at(10), "human", bed_id=BED))
+    store.append(ev("A1", "iso", T.ISOLATION_ORDER_ADDED, at(12), "his", precautions=["airborne"], organism="MTB"))
+    s = saga(store)
+    s.step(at(13, 5))
+    assert not types(store, T.PATIENT_CALL_UP)
+    assert any(e.payload.get("kind") == "call_up_held" for e in types(store, T.HUMAN_TASK_CREATED))

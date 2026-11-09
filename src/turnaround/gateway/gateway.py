@@ -343,6 +343,13 @@ class Gateway:
         if (why := self._action_precheck(choice, raised, events)) is not None:
             return reject(why)  # 안전·상태 검사 (예: 종말소독 전 침상 정리, 퇴실 전 청소 재요청)
         autonomy = "auto" if fallback_ok else self.policy.autonomy.get(choice.action, "human")
+        if choice.trigger == "late_isolation":
+            # 늦은 격리는 어떤 행동이든 감염관리실이 함께 안다 (4단계 시연에서 발견: 공기주의인데 감염관리실 통지 없음)
+            self._emit(choice.case, f"{exid}:task:ipc_notice", EventType.HUMAN_TASK_CREATED, now, kind="isolation_notice",
+                       assignee="ipc", notice=True, exception_id=exid, trigger=choice.trigger,
+                       bed_id=raised.payload.get("bed_id"), card={**(raised.payload.get("context") or {}),
+                                                                 "deadline": raised.payload.get("deadline"),
+                                                                 "agent_action": choice.action})
         if autonomy == "human":
             self._emit(choice.case, f"{exid}:approval:{choice.action}", EventType.ACTION_APPROVAL_REQUESTED, now,
                        **base, autonomy=autonomy)
