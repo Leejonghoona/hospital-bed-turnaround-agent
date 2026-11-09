@@ -347,7 +347,7 @@ def vocabulary() -> dict[str, str]:
     return desc
 
 
-def _sanitize(out: dict) -> dict:
+def _sanitize(out: dict, valid: dict | None = None) -> dict:
     """LLM 출력에서 어휘 밖 키·값을 버린다."""
     from turnaround.ontology.core import event_kinds
     keys, kinds = set(vocabulary()), set(event_kinds())
@@ -358,7 +358,7 @@ def _sanitize(out: dict) -> dict:
         for c, codes in (cs or {}).items():
             for code, cands in (codes or {}).items():
                 ok = [x for x in (cands or []) if isinstance(x, str) and ":" in x
-                      and x.split(":", 1)[1] in _VALID.get(x.split(":", 1)[0], set())]
+                      and x.split(":", 1)[1] in (valid or _VALID).get(x.split(":", 1)[0], set())]
                 if ok:
                     vals.setdefault(t, {}).setdefault(c, {})[code] = ok
     evs = {code: [k[2:] if k.startswith("t:") else k for k in (v or []) if isinstance(k, str)
@@ -483,11 +483,13 @@ def _event_log_cols(rows: list[dict], info: dict) -> tuple[str, str, str] | None
 
 
 def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft",
-                    hints: dict | None = None, lexicon=None, data_class: str = "hospital", policy=None) -> MappingDraft:
+                    hints: dict | None = None, lexicon=None, data_class: str = "hospital", policy=None,
+                    code_master: dict | None = None) -> MappingDraft:
     """hints: 사람이 앞선 질문에 답한 구조·형식 정보. {"layout": (표 이름, (병동 열, 병실 열, 병상 열)),
     "time_format": ..., "list_sep": ..., "bool_values": ...}. lexicon: 회귀 관문을 통과한 공용 학습 사전(agent.lexicon)."""
     hints = dict(hints or {})
     check_external(llm, data_class, policy)
+    valid = allowed_values(code_master)  # 병원 코드표가 있으면 그 진료과 목록
     prof = profile(tables)
     if lexicon is not None and not hints.get("layout"):
         for t, info in prof.items():  # 학습한 병상 표 열 이름(병동·병실·병상)이 모두 있으면 그 표를 병상 표로 본다
@@ -525,9 +527,10 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
             parts.append({"tables": {}, "event_codes": event_codes})
         fails = []
         for part in parts:
-            llm_ctx = {**part, "vocabulary": vocabulary(), "value_vocabulary": {k: sorted(v) for k, v in _VALID.items()}}
+            llm_ctx = {**part, "vocabulary": vocabulary(), "value_vocabulary": {k: sorted(v) for k, v in valid.items()}}
             try:
-                got = _sanitize(llm.complete_json("propose_mapping", LLM_SYSTEM, json.dumps(llm_ctx, ensure_ascii=False)))
+                got = _sanitize(llm.complete_json("propose_mapping", LLM_SYSTEM, json.dumps(llm_ctx, ensure_ascii=False)),
+                                valid)
             except Exception as e:  # noqa: BLE001 - 실패한 부분은 후보 없이(모두 질문으로). 사전으로 몰래 대신하지 않는다
                 fails.append(f"{type(e).__name__}: {str(e)[:80]}")
                 continue
@@ -834,8 +837,20 @@ _VALID = {"gender": {"M", "F"}, "precautions": {"contact", "droplet", "airborne"
           "destination": {"icu"}, "department": set(_VALUE_LEX["department"])}
 
 
-def followup_questions(m: Mapping, tables: dict[str, list[dict]]) -> list[Question]:
-    """답을 반영한 매핑으로 값을 풀어 보고, 온톨로지가 허용하지 않는 값이 나오면 묻는다(결정적 검사)."""
+def allowed_values(code_master: dict | None = None) -> dict[str, set]:
+    """값 어휘별 허용값. 병원 코드표(정규 키 → {원천값: 정규값})에 진료과가 있으면 그 목록을 진료과 허용값으로 쓰고,
+    없을 때만 기본 7개 (2026-11-09 최고점 루프 1회차)."""
+    out = {k: set(v) for k, v in _VALID.items()}
+    depts = {v for k in ("patient.department", "departments") for v in ((code_master or {}).get(k) or {}).values() if v}
+    if depts:
+        out["department"] = depts
+    return out
+
+
+def followup_questions(m: Mapping, tables: dict[str, list[dict]], allowed: dict | None = None) -> list[Question]:
+    """답을 반영한 매핑으로 값을 풀어 보고, 온톨로지가 허용하지 않는 값이 나오면 묻는다(결정적 검사).
+    allowed: 값 어휘별 허용값(`allowed_values`, 병원 코드표 반영). 없으면 기본."""
+    valid = allowed or _VALID
     out, seen = [], set()
     wards = None
     for t, tm in m.tables.items():
@@ -857,11 +872,11 @@ def followup_questions(m: Mapping, tables: dict[str, list[dict]]) -> list[Questi
                 for part in parts:
                     val = m.codes.get(key, {}).get(part, part)
                     ok = val in wards if key == "admission_requested.preferred_ward_id" and wards else \
-                        val in _VALID.get(vkey, {val})
+                        val in valid.get(vkey, {val})
                     if not ok and (key, part) not in seen:
                         seen.add((key, part))
                         out.append(Question(f"code:{key}:{part}", f"{key}={part}", "온톨로지가 허용하지 않는 값이다(코드표 필요)"))
     return out
 
 
-__all__ = ["IGNORE", "MappingDraft", "check_external", "llm_profile", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]
+__all__ = ["IGNORE", "MappingDraft", "allowed_values", "check_external", "llm_profile", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]

@@ -17,7 +17,8 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, time
 from types import SimpleNamespace
 
-from .mapping_agent import IGNORE, MappingDraft, Question, _order_rel, answer, followup_questions, propose_mapping
+from .mapping_agent import (IGNORE, MappingDraft, Question, _order_rel, allowed_values, answer, followup_questions,
+                            propose_mapping)
 
 STAGES = ("structure", "format", "column", "code")
 
@@ -137,6 +138,7 @@ class OnboardingSession:
                  data_class: str = "hospital"):
         self.tables, self.llm, self.hospital, self.lexicon = tables, llm, hospital, lexicon
         self.data_class = data_class
+        self.code_master: dict[str, dict[str, str]] = {}  # 넣은 병원 코드표 (진료과 허용값의 근거)
         self.base_required: tuple = REQUIRED_SAFETY_KEYS
         self.hints: dict = {}
         self.answers: dict[str, object] = {}
@@ -154,7 +156,7 @@ class OnboardingSession:
 
     def _repropose(self) -> None:
         self.draft = propose_mapping(self.tables, llm=self.llm, hospital=self.hospital, hints=self.hints,
-                                     lexicon=self.lexicon, data_class=self.data_class)
+                                     lexicon=self.lexicon, data_class=self.data_class, code_master=self.code_master)
         self.draft.questions = _dedupe(self.draft.questions)
 
     @classmethod
@@ -163,6 +165,7 @@ class OnboardingSession:
         s = cls.__new__(cls)
         s.tables, s.llm, s.hospital, s.lexicon, s.data_class = tables, None, pkg.hospital, None, "hospital"
         s.base_required = REQUIRED_SAFETY_KEYS
+        s.code_master = {}
         s.base_pairs = {(t, k) for t, tm in pkg.mapping.tables.items() for k in tm.columns.values()
                         if k in REQUIRED_SAFETY_KEYS}
         s.hints, s.answers, s.asked, s.history = {}, {}, [], []
@@ -196,7 +199,8 @@ class OnboardingSession:
         if self._follow is None:
             m = answer(self.draft, self.answers)
             seen = set(self.answers)
-            self._follow = [q for q in _dedupe(followup_questions(m, self.tables)) if q.id not in seen]
+            self._follow = [q for q in _dedupe(followup_questions(m, self.tables, self.allowed_values()))
+                            if q.id not in seen]
             self._premap = m
             gs = self.groups()
             if gs:
@@ -262,7 +266,10 @@ class OnboardingSession:
 
     def import_code_master(self, codes: dict[str, dict[str, str]]) -> int:
         """병원 코드표(정규 키 → {원천값: 정규값})를 한 번에 넣어 남은 코드 질문에 답한다 (3단계 의료정보 검수 A-3).
-        안전 코드도 코드표가 곧 사람의 확인이다(코드표를 넣은 사람이 책임). 답한 질문 수를 돌려준다."""
+        안전 코드도 코드표가 곧 사람의 확인이다(코드표를 넣은 사람이 책임). 답한 질문 수를 돌려준다.
+        코드표의 진료과 목록은 그 뒤 값 풀이 검사의 진료과 허용값이 된다(없으면 기본 7개)."""
+        for k, v in codes.items():
+            self.code_master.setdefault(k, {}).update(v)
         n = 0
         while (g := self.current()) is not None and g.stage == "code":
             got = {}
@@ -275,6 +282,9 @@ class OnboardingSession:
             self.submit(got)
             n += len(got)
         return n
+
+    def allowed_values(self) -> dict[str, set]:
+        return allowed_values(self.code_master)
 
     def import_column_dictionary(self, cols: dict[tuple[str, str], str | None]) -> int:
         """테이블 정의서((표, 열) → 정규 키, 쓰지 않으면 None)를 한 번에 넣는다."""

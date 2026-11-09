@@ -154,3 +154,39 @@ def test_one_row_per_case_table_with_one_time_column_stays_cases():
     rows = [{"pt_no": f"P{i:02d}", "sex": "MF"[i % 2], "dept": ("GI", "OS", "PUL")[i % 3],
              "plan": f"2026-11-09 {8 + i}:00"} for i in range(9)]
     assert propose_mapping({"adm": rows}).mapping.tables["adm"].kind == "cases"
+
+
+# ---------------- 4. 진료과 허용값은 병원 코드표에서 ----------------
+
+def _dept_mapping():
+    from turnaround.ontology.mapping import Mapping, TableMap
+    return Mapping(hospital="H", time_format="%Y-%m-%d %H:%M", list_sep=",", bool_values=("Y", "N"),
+                   bed_parts=("", "", ""), bed_part_style="plain",
+                   codes={"patient.department": {"URO": "비뇨의학과", "PUL": "호흡기내과"}},
+                   tables={"c": TableMap(kind="cases", columns={"dept": "patient.department"})})
+
+
+def test_hospital_code_master_departments_are_allowed():
+    from turnaround.agent.mapping_agent import allowed_values, followup_questions
+    m = _dept_mapping()
+    tables = {"c": [{"dept": "URO"}, {"dept": "PUL"}]}
+    assert [q.id for q in followup_questions(m, tables)] == ["code:patient.department:URO"]  # 기본 7개에 없음
+    allowed = allowed_values({"patient.department": {"URO": "비뇨의학과", "PUL": "호흡기내과"}})
+    assert allowed["department"] == {"비뇨의학과", "호흡기내과"}
+    assert followup_questions(m, tables, allowed=allowed) == []
+    # 코드표가 있으면 그 목록만: 코드표에 없는 기본 진료과도 묻는다
+    only = allowed_values({"patient.department": {"URO": "비뇨의학과"}})
+    assert [q.id for q in followup_questions(m, tables, allowed=only)] == ["code:patient.department:PUL"]
+    assert allowed_values({})["department"] == allowed_values(None)["department"]
+    assert len(allowed_values(None)["department"]) == 7
+
+
+def test_onboarding_session_uses_imported_code_master_as_allowed_departments():
+    from test_stage3_onboarding import _canonical
+    from turnaround.agent.onboarding_flow import OnboardingSession
+    from turnaround.sim.exports import export
+    h, ev = _canonical(1)
+    s = OnboardingSession(export(h, ev, "emr_a"), hospital="H")
+    assert len(s.allowed_values()["department"]) == 7
+    s.import_code_master({"patient.department": {"URO": "비뇨의학과"}})
+    assert s.allowed_values()["department"] == {"비뇨의학과"}
