@@ -80,14 +80,10 @@ def retime(d: Discharge, lv: Levers, fx: ReactiveEffects) -> DischargeTimeline:
     extra_seq: dict = {}
     if t.bed_prep_done_at is not None:  # 현실 프리셋: 청소 두 갈래 (생성기와 같은 의존 관계)
         clean_done = clean_start + (t.cleaning_done_at - t.cleaning_started_at)  # 범위(침상 단위·병실)는 원래 길이
-        if d.cleaning_type.value == "terminal":
-            prep_start = clean_done + (t.bed_prep_started_at - t.cleaning_done_at)
-        else:
-            prep_start = departed + (t.bed_prep_started_at - t.departed_at)
+        prep_start = clean_done + (t.bed_prep_started_at - t.cleaning_done_at)  # 재설치는 청소 뒤 (P1, P11)
         prep_done = prep_start + (t.bed_prep_done_at - t.bed_prep_started_at)
         ready_at = max(clean_done, prep_done)
-        extra_seq.update(bed_prep_started_at=min(prep_start, t.bed_prep_started_at),
-                         bed_prep_done_at=min(prep_done, t.bed_prep_done_at))
+        extra_seq.update(bed_prep_started_at=prep_start, bed_prep_done_at=prep_done)  # min으로 묶지 않는다 (P11)
     if t.billing_review_done_at is not None:  # 현장형 퇴원 순서: 오더 재촉 만큼 앞당기고 퇴실을 넘지 않게
         cap = lambda x: min(x, departed)  # noqa: E731
         extra_seq.update(billing_review_done_at=cap(t.billing_review_done_at + shift),

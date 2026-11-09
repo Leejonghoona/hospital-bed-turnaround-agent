@@ -213,6 +213,24 @@ class _Gen:
             edu = order + m(d["education"])
             billing = med + m(d["billing"])
             departed = max(billing, edu, guardian_arrived) + m(d["exit_prep"])
+            seq = {}
+            if real:
+                # 현장형 퇴원 순서 (병동·원무 검수 반영, 2026-11-10): 심사는 조제와 나란히 진행되고 수납을 연다.
+                # 퇴원약 병동 도착은 수납이 아니라 퇴원약 전달의 조건이다. 처방이 심사 뒤 바뀌면 다시 심사한다.
+                # 교육은 퇴원약 전달 때 함께 한다(교육 사건 하나). 간격은 설계 가정(인천성모 연락 6 + 수납 9분 참고)
+                review = order + m(seq_rng.randint(20, 60))
+                reopened = None
+                if rx_revised_at is not None and rx_revised_at > review:
+                    reopened = rx_revised_at
+                    review = rx_revised_at + m(seq_rng.randint(15, 30))
+                notice = review + m(seq_rng.randint(3, 8))
+                billing = notice + m(seq_rng.randint(6, 20))
+                receipt = billing + m(seq_rng.randint(2, 5))
+                handed = max(med, receipt) + m(seq_rng.randint(10, 30))  # 퇴원약 전달·복약 교육 (설계 가정)
+                edu = handed
+                departed = max(handed, guardian_arrived) + m(d["exit_prep"])
+                seq = dict(billing_review_done_at=review, billing_review_reopened_at=reopened, notice_given_at=notice,
+                           receipt_checked_at=receipt, medication_handed_at=handed)
             requested = departed + m(d["baseline_cleaning_request_delay"])
             aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(patient.precautions))
             room = self.room_by_id[bed.room_id]
@@ -221,21 +239,12 @@ class _Gen:
             clean_start = max(requested + m(d["cleaning_response"] + extra), departed + m(wait))  # 환기 대기 (LP-20)
             clean_done = clean_start + m(d["cleaning"])
             ready = clean_done + m(d["bed_make"])
-            seq = {}
-            if real:  # 현장형 퇴원 순서와 청소 두 갈래. 별도 난수열(seq_rng)만 쓴다: 다른 값은 그대로
+            if real:  # 청소 두 갈래. 별도 난수열(seq_rng)
                 mm = lambda k: max(1, round(SPLIT_CLEANING[k].sample(seq_rng)))  # noqa: E731
-                review = min(order + m(seq_rng.randint(20, 60)), billing - m(6))
-                review = max(review, order)
-                notice = min(review + m(5), billing)
-                tail = max(3, int((departed - billing).total_seconds() // 60))
-                receipt = billing + m(max(1, tail // 3))
-                handed = max(receipt + m(max(1, tail // 3)), med)
-                seq = dict(billing_review_done_at=review, notice_given_at=notice, receipt_checked_at=receipt,
-                           medication_handed_at=min(handed, departed))
                 if cleaning_type is CleaningType.GENERAL and room.room_type is RoomType.MULTI:
                     clean_done = clean_start + m(mm("cleaning_bed_unit"))  # 다인실은 침상 단위
-                prep_from = clean_done if cleaning_type is CleaningType.TERMINAL else departed  # 격리: 소독 뒤 (H34)
-                prep_start = prep_from + m(mm("bed_prep_response"))
+                # 침상 재설치(새 리넨)는 표면·침상 청소 뒤 (권고안 부록 4-3-2, 격리는 종말소독 뒤 H34). 감염관리 검수 P1
+                prep_start = clean_done + m(mm("bed_prep_response"))
                 prep_done = prep_start + m(mm("bed_prep"))
                 ready = max(clean_done, prep_done)
                 seq.update(bed_prep_started_at=prep_start, bed_prep_done_at=prep_done)

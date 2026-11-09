@@ -10,6 +10,7 @@ review_reasons:              # 하나라도 해당하면 담당 검토
   - pediatric
   - icu_stepdown
   - single_room_preference   # 1인실 희망 (차액 동의)
+  - grade_upgrade            # 다인실 희망인데 상급병실 배정 (차액 동의, DECISIONS F)
   - same_name_same_ward      # 같은 병동 동명이인 (LP-02)
   - no_bed
   - integrated_care_consent_missing

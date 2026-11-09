@@ -114,7 +114,7 @@ class PromotionRule(_Frozen):
     # 승격 대상이 아닌 유형: 안전(격리·동명이인·입력 누락), 환자 동의(차액·통합서비스), 병상 없음, 소아
     never: list[str] = Field(default_factory=lambda: [
         "isolation", "preemptive_isolation", "isolation_discharge_bed", "same_name_same_ward", "missing_input",
-        "single_room_preference", "integrated_care_consent_missing", "no_bed", "pediatric"])
+        "single_room_preference", "grade_upgrade", "integrated_care_consent_missing", "no_bed", "pediatric"])
 
 
 class Brain(_Frozen):

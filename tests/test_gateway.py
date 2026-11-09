@@ -108,7 +108,7 @@ def test_missing_gender_creates_data_fix_task():
     store, gw = make([adm(gender=None)])
     gw.submit(prop(store=store, bed="W72-R01-B1"), at(9))
     tasks = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED]
-    assert [t.payload["kind"] for t in tasks] == ["data_fix"]
+    assert "data_fix" in [t.payload["kind"] for t in tasks]  # 1인실 배정이라 차액 동의(grade_upgrade)도 함께 뜬다
 
 
 def test_single_room_preference_creates_fee_consent_but_isolation_does_not():

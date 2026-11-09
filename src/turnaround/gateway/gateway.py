@@ -502,6 +502,10 @@ class Gateway:
             r.append("icu_stepdown")
         if payload.get("single_room_reason") == "preference" or (payload.get("wants_single_room") and not patient.isolation_order):
             r.append("single_room_preference")
+        if prop.bed_id is not None and prop.bed_id in self.room_of and not patient.isolation_order \
+                and not payload.get("wants_single_room") and payload.get("single_room_reason") != "preference" \
+                and self.room_by_id[self.room_of[prop.bed_id]].room_type is not RoomType.MULTI:
+            r.append("grade_upgrade")  # 다인실(기본 입원료) 희망인데 상급병실 배정: 차액 동의 필요 (DECISIONS F, 원무 검수 H-5)
         if prop.bed_id is None:
             r.append("no_bed")
         if len(prop.scores) >= 2:
@@ -600,7 +604,7 @@ class Gateway:
             if "missing_input" in reasons:
                 self._task(prop.case, prop.proposal_id, "data_fix", now)
             room = self.room_by_id[self.room_of[prop.bed_id]]
-            if "single_room_preference" in reasons and room.room_type is not RoomType.MULTI:
+            if ("single_room_preference" in reasons or "grade_upgrade" in reasons) and room.room_type is not RoomType.MULTI:
                 self._task(prop.case, prop.proposal_id, "fee_consent", now, prop.bed_id)  # LP-22
             return Decision("awaiting_review", "proposal", "review", reasons)
         if self._agent_commits():
@@ -873,6 +877,18 @@ class Gateway:
                        proposal_id=oid, manual=True, version=self.location_version(bed_id))
             self._emit(case, f"gw:{oid}:applied", EventType.MANUAL_OVERRIDE_APPLIED, now, bed_id=bed_id,
                        actor=actor, reason_code=reason)
+            if self._notify_mode():  # 통보형 뒷처리 (원무 검수 H-3): 옛 병동 철회, 새 병동 통보, 연락했으면 재연락
+                if old and old != bed_id and any(e.type is EventType.WARD_ASSIGNMENT_NOTIFIED and e.case_id == case
+                                                 and e.payload.get("bed_id") == old for e in events):
+                    self._emit(case, f"gw:{oid}:withdraw", EventType.WARD_NOTIFIED, now, bed_id=old,
+                               reason="manual_override")
+                wc = self.policy.hospital_profile.ward_confirmation
+                self._emit(case, f"gw:{oid}:ward_assignment_notified", EventType.WARD_ASSIGNMENT_NOTIFIED, now,
+                           bed_id=bed_id, proposal_id=oid, committed_by="human", notify_to=["ward"],
+                           objection_until=(now + timedelta(minutes=wc.objection_window_min)).isoformat())
+                if any(e.type is EventType.PATIENT_CONTACTED and e.case_id == case for e in events):
+                    self._emit(case, f"gw:{oid}:task:recontact", EventType.HUMAN_TASK_CREATED, now, kind="recontact",
+                               assignee="bed_manager", bed_id=bed_id, reason="manual_override_after_contact")
             if tier == "reason_entry" and not (exception or {}).get("by"):
                 self._emit(case, f"gw:{oid}:post_review", EventType.HUMAN_TASK_CREATED, now, kind="post_review",
                            assignee="ipc", bed_id=bed_id, violations=violations, reason_text=reason_text,

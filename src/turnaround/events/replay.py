@@ -91,8 +91,11 @@ class _Builder:
         if t.rx_dispensed_at is not None:
             self.add(c, "rx_dispensed", EventType.DISCHARGE_RX_DISPENSED, t.rx_dispensed_at)
         self.add(c, "medication_ready", EventType.MEDICATION_READY, t.medication_ready_at)
-        self.add(c, "education_done", EventType.EDUCATION_DONE, t.education_done_at, "human")
+        if t.medication_handed_at is None:  # 현장형 순서에서는 교육을 퇴원약 전달 때 함께 한다(사건 하나)
+            self.add(c, "education_done", EventType.EDUCATION_DONE, t.education_done_at, "human")
         if t.billing_review_done_at is not None:  # 현장형 순서 (현실 프리셋)
+            if t.billing_review_reopened_at is not None:  # 처방 수정 뒤 재심사
+                self.add(c, "billing_review_reopened", EventType.BILLING_REVIEW_REOPENED, t.billing_review_reopened_at)
             self.add(c, "billing_review_done", EventType.BILLING_REVIEW_DONE, t.billing_review_done_at)
             self.add(c, "discharge_notice_given", EventType.DISCHARGE_NOTICE_GIVEN, t.notice_given_at, "human")
         self.add(c, "billing_done", EventType.BILLING_DONE, t.billing_done_at)

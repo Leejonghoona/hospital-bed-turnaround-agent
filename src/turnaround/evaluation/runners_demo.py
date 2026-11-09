@@ -60,6 +60,8 @@ def run_x03(s: Scenario) -> ScoreResult:
     bed = "W72-R04-B1"
     r.feed(_discharge("FX-D1", bed, departed=at(11)) + [
         _ev("FX-D1", "cleaning_done", EventType.CLEANING_DONE, at(11, 50), "human", bed_id=bed, cleaning_type="general"),
+        # 현장 프로필은 청소 두 갈래: 청소 뒤 침상 재설치까지 끝나야 입실 가능 (감염관리 검수 P1·P3, 2026-11-10)
+        _ev("FX-D1", "bed_prep_done", EventType.BED_PREP_DONE, at(11, 58), "human", bed_id=bed),
         _ev("FX-D1", "bed_ready", EventType.BED_READY, at(12), "human", bed_id=bed),
         _adm_event("FX-P1", gender="F", dept="일반외과"),
         _ev("FX-P1", "prematch_created:" + bed, EventType.PREMATCH_CREATED, at(9), "agent", bed_id=bed,

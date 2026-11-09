@@ -122,8 +122,8 @@ def _promise_and_call_up(s, now, out, p):
         if not req:
             continue
         promise = datetime.fromisoformat(req)
-        d = next((x for x in s.discharges.values() if x.bed_id == m.bed_id
-                  and EventType.DISCHARGE_CANCELLED not in x.facts), None)
+        from .machine import current_discharge
+        d = current_discharge(s, m)
         ready_at = (d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY)) if d is not None else promise
         contacted = m.facts.get(EventType.PATIENT_CONTACTED)
         # E9 약속 위험: 연락했고(입실 시각을 알렸고) 약속 60분 전에도 병상이 준비되지 않음

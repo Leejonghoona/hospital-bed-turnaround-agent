@@ -135,7 +135,8 @@ _COL_LEX: dict[str, tuple[str, ...]] = {
     "t:body_transferred": ("morgue", "안치"),
     "t:eol_transfer": ("eol", "임종"),
     "t:unplanned_transfer_out": ("trf", "급변전동", "transfer"),
-    "t:billing_review_done": ("rev_end", "bill_review", "review_end", "billing_review", "심사완료"),
+    "t:billing_review_done": ("rev_end", "bill_review_end", "review_end", "review_completed", "심사완료"),
+    "t:billing_review_reopened": ("reopen", "재심사"),
     "t:discharge_notice_given": ("pay_noti", "payment_notice", "pay_notice", "수납안내"),
     "t:receipt_checked": ("rcpt", "receipt", "영수증"),
     "t:medication_handed_over": ("med_give", "handover", "handed", "퇴원약전달", "약전달"),
@@ -154,7 +155,7 @@ _COL_LEX: dict[str, tuple[str, ...]] = {
     "near_nurse_station": ("ns_near", "간호사실", "near_ns"),
 }
 # 이 말이 들어 있으면 그 키가 아니다 (변경·새 값은 원래 값이 아님)
-_COL_NOT = {"guardian_eta_set.eta": ("변경", "new", "chg", "upd"), "t:guardian_eta_set": ("변경", "chg", "upd"),
+_COL_NOT = {"t:billing_review_done": ("reopen", "재심사"),"guardian_eta_set.eta": ("변경", "new", "chg", "upd"), "t:guardian_eta_set": ("변경", "chg", "upd"),
             "cleaning_requested.cleaning_type": ("done", "완료"), "patient.department": ("ward", "병동")}
 # 이름만으로 사건을 가를 수 없는 말: 후보를 여럿 낸다 (순서로 가린다)
 _AMBIGUOUS_TIME = {("dsch", "퇴원", "discharge"): ("t:billing_done", "t:patient_departed")}

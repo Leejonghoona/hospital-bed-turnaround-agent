@@ -116,6 +116,8 @@ class DischargeCase:
     hold: bool = False  # 급변 전동 때 병상을 잡아 둠 (풀릴 때까지 다른 환자 배정 불가)
     cleaning_dones: list[datetime] = field(default_factory=list)  # 청소 완료 신호 시각들 (종말소독 상향 뒤 판정용)
     guardian_eta: datetime | None = None  # 마지막으로 알려진 보호자 도착 예정
+    cleaning_done_kinds: list[tuple[datetime, str | None]] = field(default_factory=list)  # (시각, 청소 종류)
+    bed_prep_dones: list[datetime] = field(default_factory=list)  # 병원 직원 침상 정리(재설치) 완료 신호들
 
     def seen(self, t: EventType) -> datetime | None:
         return self.facts.get(t)
@@ -190,7 +192,8 @@ class SagaState:
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
                 EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW, EventType.WARD_ACCEPTED,
-                EventType.PATIENT_ARRIVED, EventType.WARD_PREP_DONE, EventType.PATIENT_CALL_UP}
+                EventType.PATIENT_ARRIVED, EventType.WARD_PREP_DONE, EventType.PATIENT_CALL_UP,
+                EventType.WARD_ASSIGNMENT_NOTIFIED}
 
 
 _PIN_TRIGGERS = {EventType.ISOLATION_ORDER_ADDED, EventType.PATIENT_INFO_CORRECTED, EventType.ISOLATION_RELEASED}
@@ -313,6 +316,9 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.commands.add(ev.event_id)
         if ev.type is EventType.CLEANING_DONE and ev.source != "saga":
             d.cleaning_dones.append(ev.observed_at)
+            d.cleaning_done_kinds.append((ev.observed_at, ev.payload.get("cleaning_type")))
+        if ev.type is EventType.BED_PREP_DONE:
+            d.bed_prep_dones.append(ev.observed_at)
         d.facts.setdefault(ev.type, ev.observed_at)
     return s
 
@@ -445,6 +451,17 @@ def decide_no_bed(s: SagaState, out, p) -> None:
                     exception_id=exid, how="condition_cleared")
 
 
+def current_discharge(s: SagaState, m: "MatchCase") -> "DischargeCase | None":
+    """이 매칭이 기다리는 퇴원 사례: 매칭에 적힌 사례, 없으면 그 병상에서 가장 최근에 결정된 취소 안 된 사례.
+    같은 병상은 기간 중 여러 번 퇴원하므로 첫 사례를 보면 안 된다 (병동·원무 검수 H-4)."""
+    if m.discharge_id and m.discharge_id in s.discharges:
+        return s.discharges[m.discharge_id]
+    cands = [x for x in s.discharges.values() if x.bed_id == m.bed_id and EventType.DISCHARGE_CANCELLED not in x.facts]
+    if not cands:
+        return None
+    return max(cands, key=lambda x: x.seen(EventType.DISCHARGE_DECIDED) or datetime.min)
+
+
 def decide_call_up(s: SagaState, out, p, now: datetime) -> None:
     """입실 구간 (08 계획 1단계): 확정된 매칭이 병상 준비·병동 준비·수속(입원 예정 시각)을 모두 갖추면 원무에
     "올려주세요"를 알린다. 이송 인력 배정은 범위 밖이다(CLAUDE.md 4번): 알림과 입실 신호 추적까지만."""
@@ -458,8 +475,13 @@ def decide_call_up(s: SagaState, out, p, now: datetime) -> None:
         if prep is None or not req:
             continue
         due = datetime.fromisoformat(req)
-        d = next((x for x in s.discharges.values() if x.bed_id == m.bed_id), None)
-        bed_ok = d is None or d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY)
+        if EventType.PATIENT_CONTACTED not in m.facts:
+            continue  # 원무가 환자에게 연락하지 않은 입원은 부르지 않는다 (원무 검수 H-1)
+        d = current_discharge(s, m)
+        if d is not None and d.isolation:
+            bed_ok = d.seen(EventType.BED_MARKED_VACANT)  # 격리 퇴실은 종말소독 뒤 빈 병상 전환만
+        else:
+            bed_ok = d is None or d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY)
         if not bed_ok or now < due:
             continue
         at = max(due, prep, bed_ok if isinstance(bed_ok, datetime) else due)
@@ -602,8 +624,9 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
                     bed_id=bed, reason="cleaning_done")
         # 빈 병상 전환: 격리 퇴실은 종말소독 요청 뒤의 완료 신호가 있어야 한다
         late = d.isolation and not iso_at_departure
-        if d.isolation:
-            done = next((t for t in sorted(d.cleaning_dones) if t >= terminal_from), None)
+        if d.isolation:  # 격리 퇴실: 종말소독 요청 뒤, 일반 청소로 표시되지 않은 완료만 센다 (감염관리 검수 P4)
+            done = next((t for t, k in sorted(d.cleaning_done_kinds, key=lambda x: x[0])
+                         if t >= terminal_from and k != "general"), None)
         vacant_key = "bed_vacant"
         if late:
             prev_vacant = d.seen(EventType.BED_MARKED_VACANT)
@@ -618,14 +641,22 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
                     out.cmd(m.admission_id, f"task:late_iso_next:{bed}", EventType.HUMAN_TASK_CREATED, iso_at,
                             bed_id=bed, reason="late_isolation_next_committed", assignee="bed_manager")
         if p.cleaning_split:
-            # 청소 두 갈래 (08 계획 1단계): 병원 직원 침상 정리 요청. 격리 퇴실은 종말소독 완료 뒤 (H34)
-            prep_at = (done if d.isolation else departed)
-            if prep_at is not None:
-                out.cmd(d.id, "bed_prep_request", EventType.BED_PREP_REQUESTED, prep_at, bed_id=bed,
-                        after_terminal=d.isolation)
-            prep_done = d.seen(EventType.BED_PREP_DONE)
-            if ready is None and prep_done is not None and (done or d.seen(EventType.CLEANING_DONE)) is not None:
-                ready = max(prep_done, done or d.seen(EventType.CLEANING_DONE))  # 두 갈래 모두 끝 = 입실 가능
+            # 청소 두 갈래 (08 계획 1단계, 감염관리 검수 P1~P3 반영): 새 리넨·침상 재설치는 표면·침상 청소 뒤
+            # (권고안 부록 4-3-2: 린넨 제거 → 표면 → 매트리스 → … → 마지막에 침대 재설치). 그래서 침상 정리 요청은
+            # 청소 완료(격리는 종말소독 완료) 뒤에 내고, 그 뒤의 정리 완료만 입실 가능 근거로 센다.
+            clean_ok = done if d.isolation else next((t for t, _ in sorted(d.cleaning_done_kinds, key=lambda x: x[0])
+                                                     if t >= departed), None)
+            if clean_ok is not None:
+                key = "bed_prep_request:after_terminal" if late else "bed_prep_request"
+                out.cmd(d.id, key, EventType.BED_PREP_REQUESTED, clean_ok, bed_id=bed, after_terminal=d.isolation)
+            prep_ok = next((t for t in sorted(d.bed_prep_dones) if clean_ok is not None and t >= clean_ok), None)
+            if clean_ok is not None and prep_ok is not None:
+                out.cmd(d.id, vacant_key, EventType.BED_MARKED_VACANT, max(clean_ok, prep_ok), bed_id=bed)
+            elif ready is not None:
+                # 사람의 입실 가능 신호만으로는 두 갈래 요구를 넘지 않는다 (P3): 확인 작업
+                out.cmd(d.id, "task:missing_bed_prep", EventType.HUMAN_TASK_CREATED, ready, bed_id=bed,
+                        reason="missing_bed_prep" if clean_ok is not None else "missing_cleaning_done")
+            return
         if ready is not None:
             if done is not None or not d.isolation:
                 out.cmd(d.id, vacant_key, EventType.BED_MARKED_VACANT, max(ready, done or ready), bed_id=bed)
@@ -667,8 +698,8 @@ def _compensate(d: DischargeCase, s: SagaState, now: datetime, out: _Out, depart
 
 
 def _notify_ward_if_accepted(m: MatchCase, out: _Out, now: datetime, reason: str) -> None:
-    """병동 수용 회신까지 받은 매칭을 해제하면 철회 통지를 보낸다(사용자 결정)."""
-    if EventType.WARD_ACCEPTED in m.facts:
+    """병동 수용 회신까지 받았거나(회신형) 병동에 배정을 통보한(통보형) 매칭을 해제하면 철회 통지를 보낸다."""
+    if EventType.WARD_ACCEPTED in m.facts or EventType.WARD_ASSIGNMENT_NOTIFIED in m.facts:
         out.cmd(m.admission_id, f"ward_notified:{m.bed_id}", EventType.WARD_NOTIFIED, now,
                 bed_id=m.bed_id, reason=reason)
 

@@ -119,6 +119,8 @@ ta:ev_bed_ready a ta:EventKind ; ta:key "bed_ready" ; ta:eventType "bed_ready" ;
     ta:of ta:DischargeCase ; ta:carries "bed_id" ; rdfs:comment "침상 정리까지 끝나 입실 가능" .
 ta:ev_billing_review_done a ta:EventKind ; ta:key "billing_review_done" ; ta:eventType "billing_review_done" ; ta:source "his" ;
     ta:of ta:DischargeCase ; rdfs:comment "진료비 심사 완료(조제와 나란히 진행). 수납 안내의 기준점" .
+ta:ev_billing_review_reopened a ta:EventKind ; ta:key "billing_review_reopened" ; ta:eventType "billing_review_reopened" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "처방 수정으로 진료비 심사를 다시 연 시각(재심사 시작)" .
 ta:ev_discharge_notice_given a ta:EventKind ; ta:key "discharge_notice_given" ; ta:eventType "discharge_notice_given" ; ta:source "human" ;
     ta:of ta:DischargeCase ; rdfs:comment "간호사가 환자에게 수납 안내" .
 ta:ev_receipt_checked a ta:EventKind ; ta:key "receipt_checked" ; ta:eventType "receipt_checked" ; ta:source "human" ;
@@ -177,7 +179,8 @@ ta:ev_discharge_decided ta:notAfter ta:ev_order_confirmed .
 ta:ev_order_confirmed ta:notAfter ta:ev_rx_issued, ta:ev_medication_ready, ta:ev_education_done .
 ta:ev_rx_issued ta:notAfter ta:ev_rx_dispensed .
 ta:ev_rx_dispensed ta:notAfter ta:ev_medication_ready .
-ta:ev_medication_ready ta:notAfter ta:ev_billing_done .
+# 퇴원약 도착은 수납이 아니라 퇴원약 전달의 조건이다 (심사·조제 병행, 병동 검수 2026-11-10)
+ta:ev_medication_ready ta:notAfter ta:ev_medication_handed_over .
 ta:ev_billing_done ta:notAfter ta:ev_patient_departed .
 ta:ev_education_done ta:notAfter ta:ev_patient_departed .
 ta:ev_guardian_arrived ta:notAfter ta:ev_patient_departed .
@@ -187,6 +190,7 @@ ta:ev_cleaning_done ta:notAfter ta:ev_bed_ready .
 ta:ev_death_confirmed ta:notAfter ta:ev_body_transferred .
 ta:ev_admission_requested ta:notAfter ta:ev_admission_cancelled .
 ta:ev_order_confirmed ta:notAfter ta:ev_billing_review_done .
+ta:ev_billing_review_reopened ta:notAfter ta:ev_billing_review_done .
 ta:ev_billing_review_done ta:notAfter ta:ev_discharge_notice_given .
 ta:ev_discharge_notice_given ta:notAfter ta:ev_billing_done .
 ta:ev_billing_done ta:notAfter ta:ev_receipt_checked .

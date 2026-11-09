@@ -78,13 +78,18 @@ def _s2(gw, events: list[Event]) -> dict:
         if d.organism == "CDIFF" and not req.payload.get("sporicidal"):
             found.append(Violation("sporicidal_missing", "S2", f"{d.bed_id}: 아포 소독 표시 없음"))
         done = next((e for e in events if e.type is EventType.CLEANING_DONE and e.case_id == d.id
-                     and e.observed_at >= req.occurred_at), None)  # 종말소독 요청 뒤의 완료만 센다
+                     and e.observed_at >= req.occurred_at
+                     and e.payload.get("cleaning_type") != "general"), None)  # 종말소독 요청 뒤, 일반 청소 표시가 아닌 완료만 (P4)
         done_at = done.observed_at if done else None
         # 종말소독 요청 뒤의 빈 병상 전환만 본다 (격리 정보를 모를 때 낸 전환은 되돌림 이벤트로 철회됨)
         vacant = next((e for e in events if e.type is EventType.BED_MARKED_VACANT and e.case_id == d.id
                        and e.occurred_at >= req.occurred_at), None)
         if vacant is not None and (done_at is None or vacant.occurred_at < done_at):
             found.append(Violation("vacant_before_disinfection", "S2", f"{d.bed_id}: 종말소독 완료 전 빈 병상 전환"))
+        preps = [e.observed_at for e in events if e.type is EventType.BED_PREP_DONE and e.case_id == d.id]
+        if vacant is not None and preps and done_at is not None and \
+                not any(done_at <= t <= vacant.occurred_at for t in preps):
+            found.append(Violation("bed_prep_before_terminal", "S2", f"{d.bed_id}: 종말소독 뒤 침상 정리 없이 빈 병상 전환(H34)"))
         commit = next((e for e in events if e.type is EventType.MATCH_COMMITTED and e.source == "gateway"
                        and e.payload.get("bed_id") == d.bed_id and e.observed_at >= departed), None)
         if commit is not None and (done_at is None or commit.observed_at < done_at) \
@@ -93,8 +98,25 @@ def _s2(gw, events: list[Event]) -> dict:
     return _row(found, n)
 
 
+def _s3(gw, events: list[Event]) -> dict:
+    """S3 입실 가능 조건 (청소 두 갈래, 감염관리 검수 P5): 침상 정리 사건이 있는 퇴실에서 빈 병상 전환은
+    청소 완료 뒤의 침상 정리(재설치) 완료 뒤여야 한다. 분모 = 침상 정리 요청이 나간 퇴실."""
+    found: list[Violation] = []
+    cases = {e.case_id for e in events if e.type is EventType.BED_PREP_REQUESTED}
+    for c in sorted(cases):
+        vacant = [e.occurred_at for e in events if e.type is EventType.BED_MARKED_VACANT and e.case_id == c]
+        if not vacant:
+            continue
+        v = vacant[-1]
+        cleans = [e.observed_at for e in events if e.type is EventType.CLEANING_DONE and e.case_id == c and e.observed_at <= v]
+        preps = [e.observed_at for e in events if e.type is EventType.BED_PREP_DONE and e.case_id == c and e.observed_at <= v]
+        if not cleans or not any(t >= min(cleans) for t in preps):
+            found.append(Violation("vacant_without_bed_prep_after_cleaning", "S3", f"{c}: 청소 뒤 침상 정리 없이 빈 병상 전환"))
+    return _row(found, len(cases))
+
+
 def executed_safety(gw, events: list[Event]) -> dict:
-    return {"source": "system_executed", "S1": _s1(gw, events), "S2": _s2(gw, events)}
+    return {"source": "system_executed", "S1": _s1(gw, events), "S2": _s2(gw, events), "S3": _s3(gw, events)}
 
 
 def executed_safety_sweep(seeds: Iterable[int], day: int = 1, until: time = time(23, 45)) -> dict:
