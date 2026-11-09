@@ -22,9 +22,16 @@ from turnaround.ontology.core import _core_ttl
 from turnaround.ontology.graph import TA
 from turnaround.ontology.mapping import Mapping, TableMap
 
-_TIME_FORMATS = ((re.compile(r"^\d{12}$"), "%Y%m%d%H%M"), (re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$"), "%Y-%m-%d %H:%M"),
-                 (re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"), "%Y-%m-%dT%H:%M:%S"))
-_BOOL_PAIRS = (("Y", "N"), ("예", "아니오"), ("1", "0"), ("T", "F"))
+_TIME_FORMATS = ((re.compile(r"^\d{12}$"), "%Y%m%d%H%M"), (re.compile(r"^\d{14}$"), "%Y%m%d%H%M%S"),
+                 (re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$"), "%Y-%m-%d %H:%M"),
+                 (re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"), "%Y-%m-%d %H:%M:%S"),
+                 (re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"), "%Y-%m-%dT%H:%M:%S"),
+                 (re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$"), "%Y-%m-%dT%H:%M"),
+                 (re.compile(r"^\d{4}/\d{2}/\d{2} \d{2}:\d{2}$"), "%Y/%m/%d %H:%M"),
+                 (re.compile(r"^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}$"), "%Y.%m.%d %H:%M"),
+                 (re.compile(r"^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$"), "DMY_OR_MDY"))
+_BOOL_PAIRS = (("Y", "N"), ("예", "아니오"), ("1", "0"), ("T", "F"), ("true", "false"), ("TRUE", "FALSE"),
+               ("True", "False"), ("yes", "no"), ("YES", "NO"), ("유", "무"))
 _SEPS = ("|", "+", ";", ",")
 _MAX_CODES = 15
 
@@ -184,6 +191,13 @@ def _norm(s: str) -> str:
     return s.lower()
 
 
+def _has(tok: str, name: str) -> bool:
+    """짧은 영문 말(4자 이하)은 낱말 경계에서만 맞춘다(morgue 안의 org, without 안의 out 같은 오인 방지)."""
+    if len(tok) > 4 or not tok.isascii():
+        return tok in name
+    return re.search(rf"(?<![a-z]){re.escape(tok)}(?![a-z])", name) is not None
+
+
 def fake_propose(ctx: dict) -> dict:
     """가짜 LLM: 열 이름·코드값을 어휘 사전으로 읽어 후보를 낸다. 결정적."""
     out: dict = {"columns": {}, "values": {}, "event_codes": {}}
@@ -191,11 +205,11 @@ def fake_propose(ctx: dict) -> dict:
         out["columns"][t] = {}
         for c, ci in info["columns"].items():
             name = _norm(c)
-            hits = [(max(len(tok) for tok in toks if tok in name), key) for key, toks in _COL_LEX.items()
-                    if any(tok in name for tok in toks) and not any(n in name for n in _COL_NOT.get(key, ()))]
+            hits = [(max(len(tok) for tok in toks if _has(tok, name)), key) for key, toks in _COL_LEX.items()
+                    if any(_has(tok, name) for tok in toks) and not any(n in name for n in _COL_NOT.get(key, ()))]
             cands = [k for _, k in sorted(hits, key=lambda x: -x[0])]
             for toks, keys in _AMBIGUOUS_TIME.items():
-                if any(tok in name for tok in toks) and not any(k.startswith("t:") and k not in keys for k in cands[:1]):
+                if any(_has(tok, name) for tok in toks) and not any(k.startswith("t:") and k not in keys for k in cands[:1]):
                     cands = list(keys) + [k for k in cands if k not in keys]
             out["columns"][t][c] = cands[:4]
             for code in ci.get("codes", []):
@@ -208,8 +222,8 @@ def fake_propose(ctx: dict) -> dict:
                     out["values"].setdefault(t, {}).setdefault(c, {})[code] = vals
     for code in ctx.get("event_codes", []):
         name = _norm(code)
-        hits = [(max(len(tok) for tok in toks if tok in name), k) for k, toks in _EVENT_LEX.items()
-                if any(tok in name for tok in toks)]
+        hits = [(max(len(tok) for tok in toks if _has(tok, name)), k) for k, toks in _EVENT_LEX.items()
+                if any(_has(tok, name) for tok in toks)]
         cands = [k for _, k in sorted(hits, key=lambda x: -x[0])]
         if any(tok == name or name.startswith(tok) for tok in ("dsch", "discharge", "퇴원")) and not cands:
             cands = ["billing_done", "patient_departed"]
@@ -220,9 +234,19 @@ def fake_propose(ctx: dict) -> dict:
 # ---------------- 결정적 해석 ----------------
 
 def _time_format(values: list[str]) -> str | None:
+    """값에서 시각 형식을 찾는다. 일/월 순서가 섞인 꼴(02/03/2026)은 13 이상인 앞자리가 있으면 일/월, 뒷자리면 월/일.
+    끝내 모르면 None(추측하지 않고 묻는다)."""
     for p, fmt in _TIME_FORMATS:
         if values and all(p.match(v) for v in values):
-            return fmt
+            if fmt != "DMY_OR_MDY":
+                return fmt
+            first = max(int(v[:2]) for v in values)
+            second = max(int(v[3:5]) for v in values)
+            if first > 12 and second <= 12:
+                return "%d/%m/%Y %H:%M"
+            if second > 12 and first <= 12:
+                return "%m/%d/%Y %H:%M"
+            return None
     return None
 
 
@@ -249,6 +273,15 @@ def _violations(times: dict[str, dict[str, datetime]], key: str, col_times: dict
     return bad
 
 
+_PART_TOKS = (("ward", "병동", "unit"), ("room", "병실"), ("bed", "병상"))
+_PART_SUFFIX = ("", "_cd", "_no", "_number", "_id", "번호", "코드")
+
+
+def _part_col(cols: list[str], toks) -> str | None:
+    """병동·병실·병상 ID 열: 이름이 그 말 하나이거나 그 말 + 번호류 꼬리."""
+    return next((c for c in cols if any(_norm(c) == tok + suf for tok in toks for suf in _PART_SUFFIX)), None)
+
+
 def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft") -> MappingDraft:
     prof = profile(tables)
     qs: list[Question] = []
@@ -263,8 +296,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                             and ci["shape"] == "text")
             case_col = next(c for c in cols if c not in times and c != code_col)
             kinds[t], log_cols[t] = "events", (case_col, code_col, times[0])
-        elif any(k in _norm(" ".join(cols)) for k in ("room_gb", "병실구분", "room_class", "room_type")):
-            kinds[t] = "layout"
+        elif not times and all(_part_col(list(cols), toks) for toks in _PART_TOKS):
+            kinds[t] = "layout"  # 시각 열이 없고 병동·병실·병상 열이 있으면 병상 표 (구조로 판정)
         else:
             kinds[t] = "cases"
     event_codes = sorted({r[log_cols[t][1]] for t in log_cols for r in tables[t]})
@@ -281,33 +314,44 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
     # 형식: 시각, 참거짓, 목록 구분자, 병상 ID
     all_times = [str(r[c]) for t in tables for r in tables[t] for c in r
                  if prof[t]["columns"][c]["shape"] == "time" and r[c]]
-    time_fmt = _time_format(sorted(set(all_times))[:500]) or "%Y-%m-%dT%H:%M:%S"
-    bool_values = ("Y", "N")
+    time_fmt = _time_format(sorted(set(all_times))[:500])
+    fmt_known = time_fmt is not None
+    if time_fmt is None:
+        qs.append(Question("fmt:time", "시각 형식", "값으로 시각 형식(또는 일/월 순서)을 정할 수 없다",
+                           None, sorted(set(all_times))[:3]))
+        time_fmt = "%Y-%m-%dT%H:%M:%S"  # 답을 받기 전 임시 (변환 전에 답이 필요하다)
+    # 참거짓: 값이 알려진 짝과 정확히 같거나 그 한쪽만인 열에서 찾는다. 글자 짝(Y/N, true/false 등)은 이름 힌트가 필요 없고,
+    # 숫자 짝(1/0)은 이름에 여부·flag 힌트가 있을 때만 (병상 수 같은 숫자 열과 헷갈리지 않게). 짝이 여럿이면 묻는다
+    found = Counter()
     for t in prof:
         for c, ci in prof[t]["columns"].items():
-            codes = tuple(ci.get("codes", []))
+            codes = set(ci.get("codes", []))
             for pair in _BOOL_PAIRS:
-                if set(codes) == set(pair) and ("yn" in _norm(c) or "flag" in _norm(c) or "여부" in c
-                                                or any(k in _norm(c) for k in ("면역", "창상", "아포", "희망", "전동", "인접"))):
-                    bool_values = pair
-    list_sep = ","
+                hint = "yn" in _norm(c) or "flag" in _norm(c) or "여부" in c
+                if codes and codes <= set(pair) and (not pair[0].isdigit() or hint) and (len(codes) == 2 or hint):
+                    found[pair] += 1
+    bool_values = found.most_common(1)[0][0] if found else ("Y", "N")
+    if len(found) > 1:
+        qs.append(Question("fmt:bool", "참거짓 표기", f"여러 표기가 섞여 있다: {sorted(found)}", bool_values))
+    elif not found:
+        qs.append(Question("fmt:bool", "참거짓 표기", "참거짓 열을 찾지 못했다", None))
+    list_sep, sep_seen = ",", False
     for t in prof:
         for c, ci in prof[t]["columns"].items():
-            if "patient.precautions" in (cand["columns"].get(t, {}).get(c) or []):
+            if {"patient.precautions", "departments"} & set(cand["columns"].get(t, {}).get(c) or []):
                 vals = [str(r.get(c, "")) for r in tables[t]]
                 for sep in _SEPS:
                     if any(sep in v for v in vals):
-                        list_sep = sep
+                        list_sep, sep_seen = sep, True
                         break
+    if not sep_seen:  # 여러 값이 든 칸이 없어 구분자를 볼 수 없다: 추측하지 않고 묻는다(답 전까지 쉼표)
+        qs.append(Question("fmt:sep", "목록 구분자", "여러 값이 든 칸이 없어 구분자를 확인할 수 없다", ","))
     # 병상 ID 조합: 병상 표에서 병동·병실·병상 열
     bed_parts, style = ("", "", ""), "plain"
     lay = next((t for t, k in kinds.items() if k == "layout"), None)
     if lay:
         cols = list(prof[lay]["columns"])
-        def pick(toks):
-            return next((c for c in cols if any(_norm(c) == tok or _norm(c).startswith(tok + "_")
-                                                 and _norm(c).endswith(("cd", "no")) for tok in toks)), None)
-        w, r, b = pick(("ward", "병동")), pick(("room", "병실")), pick(("bed", "병상"))
+        w, r, b = (_part_col(cols, toks) for toks in _PART_TOKS)
         bed_parts = (w or "", r or "", b or "")
         sample = str(tables[lay][0].get(w, "")) if w else ""
         style = "digits" if sample.isdigit() else "plain"
@@ -350,6 +394,11 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                 continue
             cmap[c] = cs[0]
             chosen[(t, c)] = cs[0]
+        if pending and not fmt_known:  # 시각 형식을 모르면 순서 검사를 못 한다: 묻는다
+            for c, opts in pending:
+                chosen[(t, c)] = None
+                qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", "시각 형식을 몰라 사건 순서로 가릴 수 없다", None, opts))
+            pending = []
         # 애매한 시각 열: 사건 순서로 가림
         if pending:
             case_col = next((c for c, k in cmap.items() if k == "case"), None)
@@ -421,6 +470,11 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                 emap[code] = cs[0]
             else:
                 qs.append(Question(f"evt:{code}", f"사건 코드 {code}", "어느 사건인지 모른다"))
+        if not fmt_known:
+            for code in pend:
+                qs.append(Question(f"evt:{code}", f"사건 코드 {code}", "시각 형식을 몰라 사건 순서로 가릴 수 없다", None,
+                                   ["billing_done", "patient_departed"]))
+            pend = []
         times: dict[str, dict[str, datetime]] = defaultdict(dict)
         for row in tables[t]:
             k = emap.get(row[kc])
@@ -465,6 +519,12 @@ def answer(draft: MappingDraft, answers: dict[str, object]) -> Mapping:
                 codes.setdefault(k, {})[v] = a
                 if k == "patient.department":
                     codes.setdefault("departments", {})[v] = a
+        elif q.id == "fmt:sep" and a:
+            m = m.model_copy(update={"list_sep": a})
+        elif q.id == "fmt:bool" and a:
+            m = m.model_copy(update={"bool_values": tuple(a)})
+        elif q.id == "fmt:time" and a:
+            m = m.model_copy(update={"time_format": a})
         elif q.id.startswith("evt:"):
             code = q.id[4:]
             for t, tm in tables.items():
@@ -473,4 +533,41 @@ def answer(draft: MappingDraft, answers: dict[str, object]) -> Mapping:
     return m.model_copy(update={"tables": tables, "codes": codes})
 
 
-__all__ = ["MappingDraft", "Question", "answer", "fake_propose", "profile", "propose_mapping"]
+_VALID = {"gender": {"M", "F"}, "precautions": {"contact", "droplet", "airborne"},
+          "room_type": {"negative_pressure", "single", "multi"}, "cleaning_type": {"general", "terminal"},
+          "precaution_status": {"confirmed", "suspected", "preemptive"}, "isolation_ordered_by": {"physician", "ipc"},
+          "reason": {"discharge_hold", "dose_change", "add_medication"}, "discharge_type": {"ama"},
+          "destination": {"icu"}, "department": set(_VALUE_LEX["department"])}
+
+
+def followup_questions(m: Mapping, tables: dict[str, list[dict]]) -> list[Question]:
+    """답을 반영한 매핑으로 값을 풀어 보고, 온톨로지가 허용하지 않는 값이 나오면 묻는다(결정적 검사)."""
+    out, seen = [], set()
+    wards = None
+    for t, tm in m.tables.items():
+        if tm.kind == "layout":
+            wards = {f"W{r.get(m.bed_parts[0])}" if m.bed_part_style == "digits" else r.get(m.bed_parts[0])
+                     for r in tables.get(t, [])}
+    for t, tm in m.tables.items():
+        if tm.kind == "events":
+            continue
+        for col, key in tm.columns.items():
+            vkey = _CODE_KEYS.get(key)
+            if vkey is None and key != "admission_requested.preferred_ward_id":
+                continue
+            for r in tables.get(t, []):
+                raw = r.get(col, "")
+                if raw == "":
+                    continue
+                parts = raw.split(m.list_sep) if key in ("patient.precautions", "departments") else [raw]
+                for part in parts:
+                    val = m.codes.get(key, {}).get(part, part)
+                    ok = val in wards if key == "admission_requested.preferred_ward_id" and wards else \
+                        val in _VALID.get(vkey, {val})
+                    if not ok and (key, part) not in seen:
+                        seen.add((key, part))
+                        out.append(Question(f"code:{key}:{part}", f"{key}={part}", "온톨로지가 허용하지 않는 값이다(코드표 필요)"))
+    return out
+
+
+__all__ = ["MappingDraft", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]

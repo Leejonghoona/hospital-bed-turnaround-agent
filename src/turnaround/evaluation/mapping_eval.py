@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from turnaround.agent.mapping_agent import answer, propose_mapping
+from turnaround.agent.mapping_agent import MappingDraft, answer, followup_questions, propose_mapping
 from turnaround.ontology.mapping import apply_mapping
 
 
@@ -20,6 +20,12 @@ def gold_answers(draft, gold) -> dict:
         elif q.id.startswith("code:"):
             _, k, v = q.id.split(":", 2)
             out[q.id] = gold.codes.get(k, {}).get(v, v)
+        elif q.id == "fmt:time":
+            out[q.id] = gold.time_format
+        elif q.id == "fmt:sep":
+            out[q.id] = gold.list_sep
+        elif q.id == "fmt:bool":
+            out[q.id] = gold.bool_values
         elif q.id.startswith("evt:"):
             code = q.id[4:]
             out[q.id] = next((tm.event_codes.get(code) for tm in gold.tables.values() if tm.kind == "events"), None)
@@ -57,6 +63,13 @@ def score(tables: dict, gold, canonical_events, h) -> dict:
             else:
                 col["wrong"] += 1
                 wrong_cols.append((t, c, got, k))
+    fmt = {}
+    for k, gv, dv in (("time_format", gold.time_format, d.mapping.time_format), ("bool_values", gold.bool_values,
+                      d.mapping.bool_values), ("list_sep", gold.list_sep, d.mapping.list_sep),
+                      ("bed_parts", gold.bed_parts, d.mapping.bed_parts), ("bed_part_style", gold.bed_part_style,
+                                                                          d.mapping.bed_part_style)):
+        qid = {"time_format": "fmt:time", "bool_values": "fmt:bool", "list_sep": "fmt:sep"}.get(k)
+        fmt[k] = "correct" if gv == dv and qid not in asked else ("asked" if qid in asked else "wrong")
     code = {"correct": 0, "wrong": 0, "asked": 0}
     wrong_codes = []
     for k, cm in gold.codes.items():
@@ -67,6 +80,12 @@ def score(tables: dict, gold, canonical_events, h) -> dict:
                 continue  # 데이터에 나오지 않는 코드
             got = d.mapping.codes.get(k, {}).get(src, src)
             qid = f"code:{k}:{src}"
+            col_asked = any(q.id.startswith("col:") and gold.tables[q.id.split(":", 2)[1]].columns.get(
+                q.id.split(":", 2)[2]) == k for q in d.questions if q.id.split(":", 2)[1] in gold.tables)
+            if col_asked and got != canon:
+                code["asked"] += 1
+                code["asked_with_column"] = code.get("asked_with_column", 0) + 1
+                continue
             if qid in asked and (got != canon or any(q.id == qid and q.proposal in (None, canon)
                                                      for q in d.questions)):
                 code["asked"] += 1
@@ -79,12 +98,21 @@ def score(tables: dict, gold, canonical_events, h) -> dict:
                 code["wrong"] += 1
                 wrong_codes.append((k, src, got, canon))
     final = answer(d, gold_answers(d, gold))
-    out = apply_mapping(final, tables)
+    # 2차: 답을 반영한 매핑으로 값을 풀어 보고 허용되지 않는 값을 다시 묻는다
+    follow = followup_questions(final, tables)
+    if follow:
+        d2 = MappingDraft(mapping=final, questions=follow, evidence={}, columns={})
+        final = answer(d2, gold_answers(d2, gold))
     key = lambda e: (e.event_id, e.type, e.occurred_at, e.source,  # noqa: E731
                      tuple(sorted((a, str(b)) for a, b in e.payload.items())))
-    exact = sorted(map(key, out.events)) == sorted(map(key, canonical_events)) and out.beds == h.beds \
-        and out.rooms == h.rooms
-    return {"columns": col, "codes": code, "questions": len(d.questions), "exact_after_answers": exact,
+    error = None
+    try:
+        out = apply_mapping(final, tables)
+        exact = sorted(map(key, out.events)) == sorted(map(key, canonical_events)) and out.beds == h.beds \
+            and out.rooms == h.rooms
+    except Exception as e:  # noqa: BLE001 - 변환 실패도 결과로 기록
+        exact, error = False, f"{type(e).__name__}: {e}"[:200]
+    return {"columns": col, "codes": code, "format": fmt, "questions": len(d.questions), "followup_questions": len(follow), "exact_after_answers": exact, "error": error,
             "wrong_columns": wrong_cols, "wrong_codes": wrong_codes,
             "order_checks": d.evidence.get("order_checks", {})}
 

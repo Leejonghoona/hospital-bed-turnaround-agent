@@ -70,3 +70,15 @@ def test_safety_codes_always_go_to_a_human():
     ids = {q.id for q in d.questions}
     assert any(i.startswith("code:patient.precautions:") for i in ids)
     assert any(i.startswith("code:room_type:") for i in ids)
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_first_holdout_format_after_generic_fixes(seed):
+    """emr_d는 어휘 고정 뒤 만든 첫 홀드아웃이다. 첫 실행 실패(시각 형식·true/false·짧은 말 오인)를 일반 규칙으로 고쳤으므로
+    지금은 더 이상 홀드아웃이 아니다(RESULTS 기록). 틀린 값 0, 답 뒤 완전 복원을 회귀로 지킨다."""
+    from turnaround.evaluation.mapping_eval import score
+    h, ev = _canonical(seed)
+    r = score(export(h, ev, "emr_d"), gold_mapping("emr_d"), ev, h)
+    assert r["columns"]["wrong"] == 0 and r["codes"]["wrong"] == 0
+    assert "wrong" not in r["format"].values()
+    assert r["exact_after_answers"]

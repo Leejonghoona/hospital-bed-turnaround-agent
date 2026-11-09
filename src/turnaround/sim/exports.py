@@ -191,11 +191,60 @@ def _spec(name: str) -> FormatSpec:
                       table_names={"cases": "case_master", "events": "event_log", "layout": "bed_master"}, **common)
 
 
+# 홀드아웃 형식 (2026-11-09, 매핑 어휘 사전을 고정한 뒤 만들었다): 다른 공급사 풍. 영문 전체 단어 열 이름,
+# 일/월/년 시각, true/false, 진료과·병실 종류 코드가 사전에 없는 말. 함정: discharge_time = 수납 완료, left_unit_time = 퇴실
+_D_COLS = {
+    "case": "encounter_id", "patient.patient_id": "mrn", "patient.name": "patient_name", "patient.gender": "sex",
+    "patient.age": "age_years", "patient.department": "service_line", "patient.precautions": "isolation_precautions",
+    "patient.organism": "pathogen", "patient.precaution_status": "isolation_basis",
+    "patient.isolation_ordered_by": "isolation_ordered_by", "patient.immunocompromised": "immunosuppressed",
+    "patient.open_wound": "open_wound", "day": "los_day", "discharge_decided.discharge_type": "discharge_disposition",
+    "guardian_eta_set.eta": "family_expected_arrival", "guardian_eta_updated.eta": "family_expected_arrival_revised",
+    "rx_revised.reason": "rx_change_reason", "cleaning_requested.cleaning_type": "housekeeping_level",
+    "cleaning_requested.aerosol_wait_min": "air_clearance_minutes", "cleaning_requested.sporicidal": "sporicidal_agent",
+    "cleaning_done.cleaning_type": "housekeeping_level_done", "unplanned_transfer_out.destination": "transfer_destination",
+    "admission_requested.requested_at": "scheduled_admission_time", "admission_requested.preferred_ward_id": "preferred_unit",
+    "admission_requested.from_icu": "icu_stepdown", "admission_requested.wants_single_room": "private_room_request",
+    "t:discharge_decided": "discharge_decision_time", "t:discharge_registered": "discharge_notice_time",
+    "t:guardian_eta_set": "family_eta_entered_time", "t:order_confirmed": "discharge_order_time",
+    "t:rx_issued": "discharge_rx_time", "t:rx_revised": "rx_change_time", "t:rx_dispensed": "pharmacy_dispensed_time",
+    "t:medication_ready": "meds_on_unit_time", "t:education_done": "teaching_completed_time",
+    "t:billing_done": "discharge_time", "t:guardian_eta_updated": "family_eta_revised_time",
+    "t:guardian_arrived": "family_arrived_time", "t:patient_departed": "left_unit_time",
+    "t:cleaning_requested": "clean_requested_time", "t:cleaning_started": "clean_started_time",
+    "t:cleaning_done": "clean_completed_time", "t:bed_ready": "bed_available_time", "t:death_confirmed": "expired_time",
+    "t:body_transferred": "morgue_time", "t:eol_transfer": "comfort_room_time",
+    "t:unplanned_transfer_out": "rapid_transfer_time", "t:admission_requested": "booking_time",
+    "t:admission_cancelled": "booking_cancelled_time"}
+_D_LAYOUT = {"ward_id": "unit", "room_id": "room_number", "bed_id": "bed_number", "room_type": "room_category",
+             "capacity": "licensed_beds", "gender": "room_sex", "air_changes_per_hour": "ach",
+             "cohort_key": "cohort_group", "near_nurse_station": "near_nurse_station", "ward_name": "unit_name",
+             "specialty": "unit_specialty", "departments": "unit_services"}
+
+
+def _spec_d() -> FormatSpec:
+    dept = {"호흡기내과": "Pulmonology", "소화기내과": "Gastroenterology", "감염내과": "Infectious Disease",
+            "일반외과": "General Surgery", "정형외과": "Orthopedics", "소아청소년과": "Pediatrics", "신경과": "Neurology"}
+    prec = {"contact": "Contact", "droplet": "Droplet", "airborne": "Airborne"}
+    clean = {"general": "standard", "terminal": "terminal"}
+    codes = {"patient.gender": {"M": "male", "F": "female"}, "gender": {"M": "male", "F": "female"},
+             "patient.department": dept, "patient.precautions": prec,
+             "room_type": {"negative_pressure": "AIIR", "single": "PRIVATE", "multi": "MULTI-BED"},
+             "cleaning_requested.cleaning_type": clean, "cleaning_done.cleaning_type": clean,
+             "discharge_decided.discharge_type": {"ama": "AMA"}, "unplanned_transfer_out.destination": {"icu": "ICU"},
+             "admission_requested.preferred_ward_id": {"W71": "71", "W72": "72"}}
+    return FormatSpec("emr_d", "wide", "%d/%m/%Y %H:%M", dict(_D_COLS), codes=codes, list_sep=";",
+                      bool_values=("true", "false"), bed_parts=("unit", "room_number", "bed_number"),
+                      bed_part_style="digits", layout_columns=dict(_D_LAYOUT),
+                      table_names={"discharges": "discharges", "admissions": "bookings", "layout": "beds"})
+
+
 FORMATS = ("emr_a", "emr_b", "emr_c")
+HOLDOUT_FORMATS = ("emr_d",)
 
 
 def spec(name: str) -> FormatSpec:
-    return _spec(name)
+    return _spec_d() if name == "emr_d" else _spec(name)
 
 
 # ---------------- 쓰기 ----------------
@@ -291,4 +340,4 @@ def gold_mapping(name: str):
                    bed_parts=sp.bed_parts, bed_part_style=sp.bed_part_style, codes=inv, tables=tables)
 
 
-__all__ = ["FORMATS", "FormatSpec", "export", "gold_mapping", "records", "spec"]
+__all__ = ["FORMATS", "HOLDOUT_FORMATS", "FormatSpec", "export", "gold_mapping", "records", "spec"]
