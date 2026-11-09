@@ -55,5 +55,10 @@ if __name__ == "__main__":
     ap.add_argument("--occupancy", default="full")
     ap.add_argument("--reactive", default="on")
     ap.add_argument("--profile", default="field_default")
+    ap.add_argument("--out", default=None, help="결과를 이 파일에도 쓴다 (예: evals/results/final/cycle_50_on.json)")
     a = ap.parse_args()
-    print(json.dumps(run(list(range(*a.seeds)), a.day, a.occupancy, a.reactive == "on", a.profile), ensure_ascii=False))
+    text = json.dumps(run(list(range(*a.seeds)), a.day, a.occupancy, a.reactive == "on", a.profile), ensure_ascii=False)
+    if a.out:
+        from pathlib import Path
+        Path(a.out).write_text(text, encoding="utf-8")
+    print(text)

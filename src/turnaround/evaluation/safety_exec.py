@@ -95,6 +95,15 @@ def _s2(gw, events: list[Event]) -> dict:
         if commit is not None and (done_at is None or commit.observed_at < done_at) \
                 and commit.case_id not in _excepted_cases(events):
             found.append(Violation("commit_before_disinfection", "S2", f"{d.bed_id}: 종말소독 완료 전 매칭 확정"))
+        # 같은 병실 옆 침상도 본다 (병실 단위 종말소독, 최고점 루프 1회차 안전 검토)
+        room = gw.room_of.get(d.bed_id)
+        side = next((e for e in events if e.type is EventType.MATCH_COMMITTED and e.source == "gateway"
+                     and e.payload.get("bed_id") != d.bed_id and room and gw.room_of.get(e.payload.get("bed_id") or "") == room
+                     and e.observed_at >= departed and (done_at is None or e.observed_at < done_at)
+                     and e.case_id not in _excepted_cases(events)), None)
+        if side is not None:
+            found.append(Violation("commit_in_room_before_disinfection", "S2",
+                                   f"{side.payload.get('bed_id')}: 같은 병실 격리 퇴실({d.bed_id}) 종말소독 완료 전 확정"))
     return _row(found, n)
 
 

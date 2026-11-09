@@ -29,7 +29,13 @@ def stamp(policy=None) -> dict:
     pol = None
     if policy is not None:
         pol = hashlib.sha256(policy.model_dump_json().encode()).hexdigest()[:12]
+    # 결과 파일(evals/)과 문서 변경은 측정 코드 변경이 아니다: 소스·설정·스크립트만 보고, 그 차이의 지문을 남긴다
+    src = ("src", "config", "scripts", "pyproject.toml")
+    diff = _git("diff", "HEAD", "--", *src)
+    untracked = _git("ls-files", "--others", "--exclude-standard", "--", *src)
     return {"commit": _git("rev-parse", "--short", "HEAD"), "dirty": bool(_git("status", "--porcelain")),
+            "source_dirty": bool(diff or untracked),
+            "source_diff_sha": hashlib.sha256((diff + untracked).encode()).hexdigest()[:12] if (diff or untracked) else None,
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "python": platform.python_version(),
             "packages": pkgs, "policy_fingerprint": pol}
 

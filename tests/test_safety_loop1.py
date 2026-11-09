@@ -117,3 +117,15 @@ def test_wait_for_ipc_at_weekend_night_is_blocked_whatever_the_agent_claims(forg
                           basis_seq=max(e.seq or 0 for e in store.read()), mode="llm", basis_input=forged)
     d = gw.submit_action(choice, now)
     assert d.status == "rejected" and d.reasons == ["ipc_off_duty"]
+
+
+def test_s2_counts_neighbor_bed_commit_before_terminal_cleaning():
+    """안전 측정도 병실 단위로 본다 (측정이 게이트웨이와 같은 사각지대를 공유하던 문제)."""
+    from turnaround.evaluation.safety_exec import executed_safety
+    evs = _cre_neighbor() + [
+        ev("D1", "terminal_req", EventType.CLEANING_REQUEST_ISSUED, at(8, 1), "saga", bed_id="W72-R04-B1",
+           cleaning_type="terminal"),
+        ev("A1", "neighbor_commit", EventType.MATCH_COMMITTED, at(9), "gateway", bed_id="W72-R04-B2")]
+    store, gw = make(evs, policy=load_policy())
+    s = executed_safety(gw, store.read())
+    assert s["S2"]["violations"] >= 1 and "commit_in_room_before_disinfection" in s["S2"]["codes"]

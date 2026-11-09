@@ -65,7 +65,9 @@ if __name__ == "__main__":
     ap.add_argument("--part", choices=["m1", "m3"], required=True)
     ap.add_argument("--seeds", nargs=2, type=int, default=[0, 20])
     ap.add_argument("--days", type=int, default=60)
+    ap.add_argument("--out", default=str(OUT), help="결과 폴더 (기본은 기록된 결과 폴더. 비교만 하려면 다른 폴더를 준다)")
     a = ap.parse_args()
+    OUT = Path(a.out)
     OUT.mkdir(parents=True, exist_ok=True)
     seeds = list(range(*a.seeds))
     if a.part == "m1":
