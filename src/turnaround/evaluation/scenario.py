@@ -58,6 +58,19 @@ ACTION_TYPES = frozenset({
     "answer_no_record",  # 근거 레코드가 없음을 조회 근거와 함께 보고 (단정 금지)
     "record_delay_reason",  # 퇴원 지연 사유 코드 기록 (params.reason)
     "notify_ward",  # 병동에 수용 회신 철회 통지 (사용자 결정으로 채택)
+    # 설계 개정 (2026-11-09, 추가만)
+    "request_bed_prep",  # 병원 직원 침상 정리 요청
+    "revoke_vacancy",  # 낸 입실 가능 되돌림
+    "notify_ward_assignment",  # 통보형 병동 배정 통보
+    "request_contact_trace",  # 같은 병실 접촉자 관리 요청 (감염관리실)
+    "alert_isolation_risk",  # 고위험·과거력 알림 (격리 결정은 사람)
+    "alert_isolation_mismatch",  # 양성 결과와 격리 표시 불일치 알림
+    "raise_exception",  # 예외 감지
+    "execute_action",  # 예외 행동 실행 (게이트웨이 검사 통과)
+    "reject_action",  # 예외 행동 거부 (게이트웨이)
+    "request_action_approval",  # 사람 승인 등급 행동의 승인 요청
+    "make_promise",  # 답한 시각을 약속으로 기록
+    "flag_promise_at_risk",  # 약속을 못 지킬 위험
     "apply_manual_override",  # 관리자 직접 수정 적용 (사례 고정)
 })
 

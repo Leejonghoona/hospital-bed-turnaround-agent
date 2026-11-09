@@ -39,6 +39,19 @@ EVENT_TO_ACTION: dict[EventType, str] = {
     EventType.MANUAL_OVERRIDE_APPLIED: "apply_manual_override",
     EventType.TASK_HANDED_OVER: "hand_over_task",
     EventType.TASK_ESCALATED: "escalate_task",
+    # 설계 개정 (추가만)
+    EventType.BED_PREP_REQUESTED: "request_bed_prep",
+    EventType.BED_VACANCY_REVOKED: "revoke_vacancy",
+    EventType.WARD_ASSIGNMENT_NOTIFIED: "notify_ward_assignment",
+    EventType.CONTACT_TRACE_REQUESTED: "request_contact_trace",
+    EventType.ISOLATION_RISK_ALERTED: "alert_isolation_risk",
+    EventType.ISOLATION_REGISTRATION_MISMATCH: "alert_isolation_mismatch",
+    EventType.EXCEPTION_RAISED: "raise_exception",
+    EventType.ACTION_EXECUTED: "execute_action",
+    EventType.ACTION_REJECTED: "reject_action",
+    EventType.ACTION_APPROVAL_REQUESTED: "request_action_approval",
+    EventType.PROMISE_MADE: "make_promise",
+    EventType.PROMISE_AT_RISK: "flag_promise_at_risk",
 }
 # 병원 밖이나 다른 부서로 나가는 부수효과 (중복 검사 대상)
 SIDE_EFFECTS = {EventType.CLEANING_REQUEST_ISSUED, EventType.REGISTRATION_CHECK_REQUESTED, EventType.WARD_NOTIFIED,

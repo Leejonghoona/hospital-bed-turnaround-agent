@@ -89,6 +89,52 @@ class EventType(str, Enum):
     # 병실 사용 중지 (GW-12). case_id = 병실 ID. 사유: closed | equipment_failure | surveillance_hold
     ROOM_OUT_OF_SERVICE = "room_out_of_service"
     ROOM_RETURNED_TO_SERVICE = "room_returned_to_service"
+    # ---- 설계 개정 (2026-11-09, docs/설계개정/아키텍처_개정안.md 2절). 추가만 하고 옛 타입·의미는 바꾸지 않는다 ----
+    # 퇴원 줄
+    BILLING_REVIEW_REQUESTED = "billing_review_requested"
+    BILLING_REVIEW_DONE = "billing_review_done"  # 진료비 심사 완료: 연락·수납의 기준점
+    BILLING_REVIEW_REOPENED = "billing_review_reopened"  # "심사 풀고 다시 심사"
+    DISCHARGE_NOTICE_GIVEN = "discharge_notice_given"  # 간호사가 환자에게 수납 안내 (입원 측 PATIENT_CONTACTED와 다름)
+    RECEIPT_CHECKED = "receipt_checked"
+    MEDICATION_HANDED_OVER = "medication_handed_over"  # 퇴원약 전달 (MEDICATION_READY = 병동 도착)
+    GUARDIAN_DELAY_REPORTED = "guardian_delay_reported"  # kind: same_day | date_change
+    LOUNGE_OFFERED = "lounge_offered"
+    LOUNGE_ACCEPTED = "lounge_accepted"
+    # 병상 준비 (두 갈래)
+    BED_PREP_REQUESTED = "bed_prep_requested"  # 병원 직원 침상 정리 요청 (사람 지정 안 함, CLAUDE.md 4번)
+    BED_PREP_DONE = "bed_prep_done"
+    CLEANING_INSPECTED = "cleaning_inspected"  # 종말소독 청결도 확인 (옵션)
+    BED_VACANCY_REVOKED = "bed_vacancy_revoked"  # 낸 입실 가능을 되돌림 (늦은 격리 정보)
+    # 입원 줄
+    WARD_ASSIGNMENT_NOTIFIED = "ward_assignment_notified"  # 통보형: 확정 뒤 병동 통보
+    WARD_OBJECTION_RAISED = "ward_objection_raised"
+    WARD_PREP_DONE = "ward_prep_done"  # 병동 준비 완료 (투약 티켓, 네임카드, 침상)
+    PATIENT_CALL_UP = "patient_call_up"  # "올려주세요" (배정 확정과 다른 사건, 이송 추적 아님)
+    PATIENT_ARRIVED = "patient_arrived"  # 입실
+    # 격리 정보
+    SCREENING_ORDERED = "screening_ordered"
+    SCREENING_RESULT_REPORTED = "screening_result_reported"  # 양성만으로 격리 규칙 적용 안 함 (오더로만)
+    ISOLATION_RISK_ALERTED = "isolation_risk_alerted"  # 고위험·과거력 알림. 격리 여부는 사람이 정함
+    ISOLATION_REGISTRATION_MISMATCH = "isolation_registration_mismatch"  # 양성 결과는 있는데 격리 오더 없음
+    CONTACT_TRACE_REQUESTED = "contact_trace_requested"  # 같은 병실 접촉자 관리 요청 (이름 없음)
+    # 병실 변경 (표시만, 이동은 사람)
+    ROOM_CHANGE_REQUESTED = "room_change_requested"
+    ROOM_CHANGE_WITHDRAWN = "room_change_withdrawn"
+    ROOM_CHANGE_COMPLETED = "room_change_completed"
+    # 예외 판단 머리 (U8 확장)
+    EXCEPTION_RAISED = "exception_raised"
+    EXCEPTION_RESOLVED = "exception_resolved"
+    ACTION_PROPOSED = "action_proposed"
+    ACTION_EXECUTED = "action_executed"
+    ACTION_REJECTED = "action_rejected"
+    ACTION_APPROVAL_REQUESTED = "action_approval_requested"
+    ACTION_APPROVED = "action_approved"
+    ACTION_REPORTED = "action_reported"
+    RECHECK_SCHEDULED = "recheck_scheduled"
+    # 약속 (D3)
+    PROMISE_MADE = "promise_made"
+    PROMISE_KEPT = "promise_kept"
+    PROMISE_AT_RISK = "promise_at_risk"
 
 
 CLOCK_SKEW_TOLERANCE_S = 300  # 시계 차이 허용 범위 (정책값, 설계 가정)
