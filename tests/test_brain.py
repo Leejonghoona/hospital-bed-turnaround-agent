@@ -139,3 +139,40 @@ def test_escalation_roles_exclude_outsourced_housekeeping_by_default():
                                                                 case="A1", basis_seq=10**6))
     d = gw.submit_action(choice.model_copy(update={"params": {"role": "environment_lead"}}), at(10, 10))
     assert d.status == "rejected" and d.reasons == ["bad_params"]
+
+
+# ---- 연락·확정·입실 뒤 자동 재매칭 잠금 (Haiku 측정 금지 20건 중 14건, 2026-11-09) ----
+
+def test_auto_rematch_is_locked_after_contact_commit_arrival():
+    from turnaround.gateway.profile import STAGE_LOCKED_ACTIONS
+    for st in ("after_contact", "after_commit", "after_arrival"):
+        assert "rematch_now" in STAGE_LOCKED_ACTIONS[st]
+
+
+def test_brain_never_shows_rematch_now_after_contact():
+    import json
+    store, gw = _setup(contacted=True)
+    brain = ExceptionBrain(gw, FakeLLM(), FIELD)
+    ex = brain.open_exceptions(store.read())[0]
+    ctx = brain._input(ex, store.read(), at(10, 10))
+    ids = [a["id"] for a in ctx["allowed_actions"]]
+    assert "rematch_now" not in ids and "propose_rematch" in ids
+
+
+def test_gateway_rejects_auto_rematch_after_contact_even_if_chosen():
+    store, gw = _setup(contacted=True)
+    ExceptionBrain(gw, _Script({"action": "rematch_now", "params": {}, "rationale": "x"}), FIELD).step(at(10, 10))
+    rej = _types(store, EventType.ACTION_REJECTED)
+    assert rej and rej[0].payload["reasons"] == ["stage_locked"]
+    assert not _types(store, EventType.REMATCH_REQUESTED)
+    # 거부 뒤 대체 경로(올림)는 그대로 돈다
+    assert [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)] == ["escalate"]
+
+
+def test_stage_lock_cannot_be_unlocked_by_hospital_policy():
+    import pytest
+    from turnaround.gateway.policy import Policy
+    raw = FIELD.model_dump()
+    raw["exception_actions"]["late_isolation"]["stage_allowed"] = {"after_contact": ["rematch_now", "escalate"]}
+    with pytest.raises(ValueError, match="잠금"):
+        Policy.model_validate(raw)

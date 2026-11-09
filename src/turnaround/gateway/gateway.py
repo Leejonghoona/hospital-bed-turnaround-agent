@@ -312,6 +312,11 @@ class Gateway:
         fallback_ok = choice.mode == "fallback" and choice.action == "escalate"
         if not fallback_ok and (rule is None or choice.action not in rule.allowed):
             return reject("not_allowed")
+        from .profile import STAGE_LOCKED_ACTIONS
+        if choice.action in STAGE_LOCKED_ACTIONS.get(raised.payload.get("stage") or "", frozenset()):
+            return reject("stage_locked")  # 연락·확정·입실 뒤 자동 재매칭 금지 (머리가 골라도 막는다)
+        if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage")):
+            return reject("not_allowed")
         if any((e.seq or 0) > choice.basis_seq and e.case_id == choice.case and e.type in self._ACTION_MATERIAL
                for e in events):
             return reject("stale_basis")  # 재확인 1: 고른 뒤 판단 정보가 바뀜 → 예외를 열어 두고 다시 고른다

@@ -106,6 +106,16 @@ class Policy(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _stage_locks(self):
+        from .profile import STAGE_LOCKED_ACTIONS
+        for trig, rule in self.exception_actions.items():
+            for st, acts in rule.stage_allowed.items():
+                bad = set(acts) & STAGE_LOCKED_ACTIONS.get(st, frozenset())
+                if bad:
+                    raise ValueError(f"{trig}.{st}: {sorted(bad)}는 단계 잠금이라 병원 설정으로 풀 수 없다")
+        return self
+
+    @model_validator(mode="after")
     def _no_bare_wait(self):
         for trig, rule in self.exception_actions.items():
             for a in rule.allowed:
