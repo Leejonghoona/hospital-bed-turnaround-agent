@@ -600,3 +600,23 @@ def test_tb_discharge_from_negative_pressure_room_waits_at_least_60_min():
     assert p.aerosol_wait("W71-R01-B1") == 35
     assert p.aerosol_wait("W71-R01-B1", organism="MTB") == 60
     assert p.aerosol_wait("W72-R01-B1", organism="MTB") == 104  # 일반실은 표 값이 더 길다
+
+
+def test_isolation_order_after_departure_upgrades_cleaning_and_blocks_vacancy_until_terminal_done():
+    """퇴실 뒤 격리 오더가 오면 청소를 종말소독으로 올리고, 그 뒤의 소독 완료 전에는 빈 병상으로 바꾸지 않는다 (S2)."""
+    bed = "W72-R01-B1"
+    iso = e("D1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(0, 11, 40), "his", bed_id=bed,
+            isolation_type="contact", organism="VRE", precautions=["contact"])
+    evs = [decided(bed=bed), registered(bed=bed), departed(bed=bed, when=at(0, 11)), iso,
+           e("D1", "cleaning_done", EventType.CLEANING_DONE, at(0, 11, 30), "human", bed_id=bed, cleaning_type="general"),
+           e("D1", "bed_ready", EventType.BED_READY, at(0, 12, 40), "human", bed_id=bed)]
+    store, _ = run(evs, until=at(0, 13), start=at(0, 10, 55))
+    reqs = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert [r.payload["cleaning_type"] for r in reqs] == ["general", "terminal"]
+    assert reqs[1].occurred_at == at(0, 11, 40)
+    assert not saga_events(store, EventType.BED_MARKED_VACANT)  # 일반 청소 완료만으로는 안 된다
+    store.append(e("D1", "terminal_done", EventType.CLEANING_DONE, at(0, 13, 30), "human", bed_id=bed,
+                   cleaning_type="terminal"))
+    SagaRunner(store).step(at(0, 13, 35))
+    vac = saga_events(store, EventType.BED_MARKED_VACANT)
+    assert [v.occurred_at for v in vac] == [at(0, 13, 30)]

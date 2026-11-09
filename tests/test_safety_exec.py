@@ -61,3 +61,20 @@ def test_tb_cleaning_request_shorter_than_60_min_is_a_violation():
     store.append(ev("D1", "cleaning_request", EventType.CLEANING_REQUEST_ISSUED, at(10), "saga",
                     bed_id="W71-R01-B1", cleaning_type="terminal", aerosol_wait_min=35))
     assert "vacancy_floor_short" in executed_safety(gw, store.read())["S2"]["codes"]
+
+
+def test_late_isolation_upgrade_counts_as_terminal_and_requires_later_done():
+    evs = [ev("D1", "discharge_decided", EventType.DISCHARGE_DECIDED, at(17, day=-1), bed_id="W72-R01-B1",
+              isolation_order=False),
+           ev("D1", "patient_departed", EventType.PATIENT_DEPARTED, at(10), bed_id="W72-R01-B1"),
+           ev("D1", "cleaning_request", EventType.CLEANING_REQUEST_ISSUED, at(10), "saga", bed_id="W72-R01-B1",
+              cleaning_type="general"),
+           ev("D1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(10, 40), "his", bed_id="W72-R01-B1",
+              precautions=["contact"], organism="VRE"),
+           ev("D1", "cleaning_request:terminal_upgrade", EventType.CLEANING_REQUEST_ISSUED, at(10, 40), "saga",
+              bed_id="W72-R01-B1", cleaning_type="terminal"),
+           ev("D1", "cleaning_done", EventType.CLEANING_DONE, at(10, 30), "human", bed_id="W72-R01-B1"),
+           ev("D1", "bed_vacant", EventType.BED_MARKED_VACANT, at(10, 50), "saga", bed_id="W72-R01-B1")]
+    store, gw = make(evs)
+    r = executed_safety(gw, store.read())
+    assert r["S2"]["denominator"] == 1 and r["S2"]["codes"] == ["vacant_before_disinfection"]

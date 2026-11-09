@@ -83,6 +83,7 @@ class DischargeCase:
     discharge_date: date | None = None  # 퇴원 예정일
     discharge_type: str = "normal"  # normal | death(임종실 전실·사망) | ama(자의 퇴원) | transfer_out(급변 전동)
     hold: bool = False  # 급변 전동 때 병상을 잡아 둠 (풀릴 때까지 다른 환자 배정 불가)
+    cleaning_dones: list[datetime] = field(default_factory=list)  # 청소 완료 신호 시각들 (종말소독 상향 뒤 판정용)
 
     def seen(self, t: EventType) -> datetime | None:
         return self.facts.get(t)
@@ -246,6 +247,8 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.rx_revisions.append((ev.event_id.split(":", 1)[1], ev.observed_at, ev.payload.get("reason")))
         if ev.source == "saga":
             d.commands.add(ev.event_id)
+        if ev.type is EventType.CLEANING_DONE and ev.source != "saga":
+            d.cleaning_dones.append(ev.observed_at)
         d.facts.setdefault(ev.type, ev.observed_at)
     return s
 
@@ -394,8 +397,17 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
             extra["aerosol_wait_min"] = p.aerosol_wait(bed, d.organism)  # 환기 대기 뒤 청소 (LP-23)
         if d.isolation and d.organism == "CDIFF":
             extra["sporicidal"] = True  # 아포 대응 소독
+        # 퇴실 시점에 알던 격리 여부로 첫 요청을 내고, 퇴실 뒤 격리 오더가 오면 종말소독으로 올린다
+        # (늦게 도착한 안전 정보. 실행 시각에 상관없이 같은 결과가 나오도록 사실의 인지 시각으로 판정)
+        iso_at = d.seen(EventType.ISOLATION_ORDER_ADDED)
+        iso_at_departure = d.isolation and (iso_at is None or iso_at <= departed)
         out.cmd(d.id, "cleaning_request", EventType.CLEANING_REQUEST_ISSUED, departed, bed_id=bed,
-                cleaning_type="terminal" if d.isolation else "general", **extra)
+                cleaning_type="terminal" if iso_at_departure else "general", **({} if not iso_at_departure else extra))
+        terminal_from = departed
+        if d.isolation and not iso_at_departure:
+            terminal_from = iso_at
+            out.cmd(d.id, "cleaning_request:terminal_upgrade", EventType.CLEANING_REQUEST_ISSUED, iso_at, bed_id=bed,
+                    cleaning_type="terminal", reason="isolation_after_departure", **extra)
         issued = d.seen(EventType.CLEANING_REQUEST_ISSUED) or departed
         limit = p.cleaning_overdue_terminal if d.isolation else p.cleaning_overdue_general
         done = d.seen(EventType.CLEANING_DONE)
@@ -407,7 +419,9 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         if done is not None:
             out.cmd(d.id, "recompute:cleaning_done", EventType.READY_TIME_RECOMPUTED, done,
                     bed_id=bed, reason="cleaning_done")
-        # 빈 병상 전환: 격리 퇴실은 종말소독 완료 신호가 있어야 한다
+        # 빈 병상 전환: 격리 퇴실은 종말소독 요청 뒤의 완료 신호가 있어야 한다
+        if d.isolation:
+            done = next((t for t in sorted(d.cleaning_dones) if t >= terminal_from), None)
         if ready is not None:
             if done is not None or not d.isolation:
                 out.cmd(d.id, "bed_vacant", EventType.BED_MARKED_VACANT, max(ready, done or ready), bed_id=bed)

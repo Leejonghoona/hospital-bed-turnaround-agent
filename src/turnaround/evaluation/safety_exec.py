@@ -64,8 +64,10 @@ def _s2(gw, events: list[Event]) -> dict:
         if not d.isolation or departed is None or not d.bed_id:
             continue
         n += 1
-        req = next((e for e in events if e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == d.id
-                    and e.source == "saga"), None)
+        # 마지막 청소 요청을 본다: 퇴실 뒤 격리 오더가 오면 종말소독으로 올린 요청이 뒤에 붙는다
+        reqs = [e for e in events if e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == d.id
+                and e.source == "saga"]
+        req = reqs[-1] if reqs else None
         if req is None or req.payload.get("cleaning_type") != "terminal":
             found.append(Violation("terminal_cleaning_missing", "S2", f"{d.bed_id}: 격리 퇴실 청소 요청이 종말소독 아님"))
             continue
@@ -75,7 +77,8 @@ def _s2(gw, events: list[Event]) -> dict:
             found.append(Violation("vacancy_floor_short", "S2", f"{d.bed_id}: {d.organism} 퇴실 비움 시간이 지침 하한보다 짧음"))
         if d.organism == "CDIFF" and not req.payload.get("sporicidal"):
             found.append(Violation("sporicidal_missing", "S2", f"{d.bed_id}: 아포 소독 표시 없음"))
-        done = _first(events, EventType.CLEANING_DONE, d.id)
+        done = next((e for e in events if e.type is EventType.CLEANING_DONE and e.case_id == d.id
+                     and e.observed_at >= req.occurred_at), None)  # 종말소독 요청 뒤의 완료만 센다
         done_at = done.observed_at if done else None
         vacant = next((e for e in events if e.type is EventType.BED_MARKED_VACANT and e.case_id == d.id), None)
         if vacant is not None and (done_at is None or vacant.occurred_at < done_at):

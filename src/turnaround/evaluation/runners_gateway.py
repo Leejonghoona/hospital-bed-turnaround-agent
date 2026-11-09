@@ -566,8 +566,21 @@ def run_h13(s):
     return r.score(s)
 
 
+def run_h14(s):
+    """퇴실 뒤 격리 오더(늦게 도착한 안전 정보): 종말소독으로 올리고, 일반 청소 완료만으로 빈 병상 전환하지 않는다."""
+    r = _GwRun(P)
+    bed = "W72-R01-B1"
+    r.feed(_discharge("FX-D1", bed, departed=at(11)) + [
+        _ev("FX-D1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(11, 40), bed_id=bed, isolation_type="contact",
+            organism="VRE", precautions=["contact"]),
+        _ev("FX-D1", "cleaning_done", EventType.CLEANING_DONE, at(11, 30), "human", bed_id=bed, cleaning_type="general"),
+        _ev("FX-D1", "bed_ready", EventType.BED_READY, at(12, 40), "human", bed_id=bed)])
+    r.saga_until(at(10, 55), at(13, 30))
+    return r.score(s)
+
+
 HOLDOUT_RUNNERS: dict[str, Callable[[Scenario], ScoreResult]] = {
     "H01": run_h01, "H02": run_h02, "H03": run_h03, "H04": run_h04, "H05": run_h05,
     "H06": run_h06, "H07": run_h07, "H08": run_h08, "H09": run_h09, "H10": run_h10,
-    "H11": run_h11, "H12": run_h12, "H13": run_h13,
+    "H11": run_h11, "H12": run_h12, "H13": run_h13, "H14": run_h14,
 }
