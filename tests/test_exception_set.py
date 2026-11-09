@@ -1,4 +1,4 @@
-"""M5 예외 판단 정답 세트 v2.1: 크기, 사용자 검토 의견 4가지, 토론 검증 합의, 세트 내부 일관성."""
+"""M5 예외 판단 정답 세트 v2.2: 크기, 사용자 검토 의견 4가지, 토론 검증 합의, 세트 내부 일관성."""
 
 import json
 
@@ -45,6 +45,8 @@ def test_notify_rule(items):
         g = i["gold_action"]
         if S.AUTONOMY.get(g["action"]) in ("auto", "post_report") and g["action"] not in S.SELF_NOTIFYING:
             assert g["notify"]["roles"] and g["notify"]["include"] == ["reason", "evidence"], i["id"]
+        elif g["notify"] is not None:  # v2.2: E1 급한 입실의 병동 참조 알림(작업 아님)만 예외
+            assert g["notify"]["kind"] == "reference" and g["action"] == "escalate", i["id"]
         else:
             assert g["notify"] is None, i["id"]
 
@@ -134,6 +136,27 @@ def test_debate_gold_changes_on_drafts(items):
         assert by[k]["gold_action"]["action"] == "propose_rematch", k
     assert by["XD-040"]["gold_action"]["action"] == "request_bed_prep_first"
     assert "escalate:ward" not in by["XD-014"]["acceptable_actions"] and by["XD-014"]["field_question"]
+
+
+def test_v2_2_user_decisions(items):
+    by = {i["id"]: i for i in items}
+    for k in ("XD-004", "XD-036"):
+        n = by[k]["gold_action"]["notify"]
+        assert set(n["roles"]) == {"ward", "bed_manager"} and n["withdraw_first"] and n["bundle"], k
+        assert not by[k]["field_question"], k
+    assert by["XD-014"]["gold_action"]["notify"]["roles"] == ["ward"]
+    assert by["XD-014"]["gold_action"]["notify"]["kind"] == "reference"
+    for k in ("XD-029", "XD-030"):
+        assert not by[k]["field_question"], k
+
+
+def test_v2_2_scores_the_same_as_v2_1(items):
+    """사용자 결정 반영은 통지·현장 질문 필드만 바꾼다. 채점에 쓰는 필드는 v2.1과 같아야 한다."""
+    old = [json.loads(x) for x in (S.OUT.parent / "exception_decisions_v2_1.jsonl").read_text(encoding="utf-8").splitlines() if x]
+    keys = ("id", "input", "acceptable_actions", "forbidden_actions", "human_only")
+    assert [{k: o[k] for k in keys} for o in old] == [{k: i[k] for k in keys} for i in items]
+    assert [(o["gold_action"]["action"], o["gold_action"]["params"]) for o in old] == \
+        [(i["gold_action"]["action"], i["gold_action"]["params"]) for i in items]
 
 
 def test_every_trigger_is_covered(items):
