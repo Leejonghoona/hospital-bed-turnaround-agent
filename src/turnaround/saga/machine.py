@@ -19,7 +19,7 @@ from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, vacancy_floor
 
-from .isolation import decide_isolation_info
+from .isolation import decide_isolation_info, decide_late_isolation_admission
 
 
 class SagaPolicy(BaseModel):
@@ -39,11 +39,14 @@ class SagaPolicy(BaseModel):
     isolation_risk_conditions: tuple[str, ...] = ()
     isolation_alert_to: tuple[str, ...] = ("bed_manager", "ipc")
     isolation_mismatch_after: timedelta = timedelta(minutes=60)  # 설계 가정
+    # 병상 → (병실 종류, 코호트 균). 늦은 격리 오더에서 매칭된 병상이 여전히 맞는지 본다 (for_layout이 채움)
+    bed_room: dict[str, tuple[str, str | None]] = {}
 
     @classmethod
     def for_layout(cls, rooms, beds, **kw) -> "SagaPolicy":
         ach = {r.id: r.air_changes_per_hour for r in rooms}
-        return cls(bed_ach={b.id: ach[b.room_id] for b in beds}, **kw)
+        room = {r.id: (r.room_type.value, r.cohort_key) for r in rooms}
+        return cls(bed_ach={b.id: ach[b.room_id] for b in beds}, bed_room={b.id: room[b.room_id] for b in beds}, **kw)
 
     @classmethod
     def from_policy(cls, policy, rooms=None, beds=None, **kw) -> "SagaPolicy":
@@ -164,6 +167,7 @@ class SagaState:
     screening_results: dict[str, list[tuple[str, datetime, str, str]]] = field(default_factory=dict)
     screening_pending: dict[str, int] = field(default_factory=dict)
     isolation_ordered: dict[str, datetime] = field(default_factory=dict)
+    isolation_order_payload: dict[str, dict] = field(default_factory=dict)
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
@@ -218,6 +222,7 @@ def fold(events: Iterable[Event]) -> SagaState:
             continue
         if ev.type is EventType.ISOLATION_ORDER_ADDED:
             s.isolation_ordered.setdefault(ev.case_id, ev.observed_at)  # 퇴원 사례 처리는 아래에서 그대로
+            s.isolation_order_payload.setdefault(ev.case_id, dict(ev.payload))
         if ev.type in (EventType.ADMISSION_REQUESTED, EventType.ADMISSION_CANCELLED):
             s.admission_facts.setdefault(ev.case_id, {}).setdefault(ev.type, ev.observed_at)
             if ev.type is EventType.ADMISSION_REQUESTED:
@@ -310,6 +315,7 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
             out.cmd(t.case_id, f"task:pinned_review:{t.event_id}", EventType.HUMAN_TASK_CREATED, t.observed_at,
                     reason="pinned_placement_review", assignee=s.pins[t.case_id], trigger=t.type.value)
     decide_isolation_info(s, now, out, policy)
+    decide_late_isolation_admission(s, out, policy)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \

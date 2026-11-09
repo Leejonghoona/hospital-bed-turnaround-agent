@@ -49,3 +49,43 @@ def decide_isolation_info(s, now: datetime, out, policy) -> None:
                     organism=organism, result_event=event_id)
             out.cmd(case, f"task:isolation_mismatch:{event_id}", EventType.HUMAN_TASK_CREATED, due,
                     reason="isolation_mismatch", kind="isolation_mismatch", assignee="ipc", organism=organism)
+
+
+def _bed_fits(bed_room: dict, bed: str, payload: dict) -> bool:
+    """격리 오더가 붙은 뒤에도 매칭된 병상이 기준에 맞는가. 병실 정보가 없으면 판단하지 않는다(맞는다고 본다)."""
+    if bed not in bed_room:
+        return True
+    room_type, cohort = bed_room[bed]
+    prec = set(payload.get("precautions") or [])
+    if "airborne" in prec:
+        return room_type == "negative_pressure"
+    if prec:
+        return room_type in ("single", "negative_pressure") or (cohort is not None and cohort == payload.get("organism"))
+    return True
+
+
+def decide_late_isolation_admission(s, out, policy) -> None:
+    """입원 측 늦은 격리 오더 보상 (설계 개정 3.7 (나)). 되돌릴 수 있는 것은 자동, 연락·확정 뒤는 사람."""
+    from .machine import _notify_ward_if_accepted  # 순환 import 피함
+    for m in sorted(s.matches.values(), key=lambda x: x.admission_id):
+        ordered = s.isolation_ordered.get(m.admission_id)
+        created = min(m.facts.values()) if m.facts else None
+        if ordered is None or created is None or ordered < created or not m.active:
+            continue
+        if _bed_fits(policy.bed_room, m.bed_id, s.isolation_order_payload.get(m.admission_id, {})):
+            continue
+        case, bed = m.admission_id, m.bed_id
+        if EventType.MATCH_COMMITTED in m.facts:
+            out.cmd(case, f"task:isolation_after_commit:{bed}", EventType.HUMAN_TASK_CREATED, ordered, bed_id=bed,
+                    reason="isolation_order_after_commit", assignee="bed_manager")
+        elif EventType.PATIENT_CONTACTED in m.facts:
+            out.cmd(case, f"review:isolation:{bed}", EventType.CASE_RECLASSIFIED_REVIEW, ordered, bed_id=bed,
+                    reason="isolation_order_after_contact")
+            out.cmd(case, f"task:recontact:isolation:{bed}", EventType.HUMAN_TASK_CREATED, ordered, bed_id=bed,
+                    reason="recontact")
+        else:
+            out.cmd(case, f"prematch_released:isolation:{bed}", EventType.PREMATCH_RELEASED, ordered, bed_id=bed,
+                    reason="isolation_order_added")
+            _notify_ward_if_accepted(m, out, ordered, "isolation_order_added")
+            out.cmd(case, f"rematch:isolation:{bed}", EventType.REMATCH_REQUESTED, ordered, target="admission",
+                    admission_id=case)

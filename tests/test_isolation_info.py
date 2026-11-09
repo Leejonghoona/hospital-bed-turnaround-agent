@@ -70,3 +70,50 @@ def test_no_mismatch_when_order_arrives_in_time_or_result_negative():
 
 def test_field_profile_moves_rx_alert_to_9():
     assert FIELD.rx_expected_by.hour == 9 and SagaPolicy().rx_expected_by.hour == 11
+
+
+# ---------- S3: 늦은 격리 오더, 입원 측 (설계 개정 3.7 (나)) ----------
+
+from test_saga import contacted, prematch  # noqa: E402
+
+
+def _layout_policy():
+    from turnaround.sim import generate
+    h = generate(seed=0)
+    return SagaPolicy.for_layout(h.rooms, h.beds)
+
+
+def _iso(case="P1", when=None, prec=("contact",), org="VRE"):
+    return e(case, "iso_late", EventType.ISOLATION_ORDER_ADDED, when or at(0, 10), "his", precautions=list(prec),
+             organism=org)
+
+
+def test_late_order_before_contact_releases_multi_room_match_and_requests_rematch():
+    store = run([adm(), prematch(bed="W72-R04-B1"), _iso()], at(0, 10, 10), _layout_policy())
+    rel = saga_events(store, EventType.PREMATCH_RELEASED)
+    assert [(r.payload["bed_id"], r.payload["reason"]) for r in rel] == [("W72-R04-B1", "isolation_order_added")]
+    assert saga_events(store, EventType.REMATCH_REQUESTED)
+
+
+def test_late_order_after_contact_goes_to_review_and_recontact():
+    store = run([adm(), prematch(bed="W72-R04-B1"), contacted(), _iso()], at(0, 10, 10), _layout_policy())
+    assert not saga_events(store, EventType.PREMATCH_RELEASED)
+    rev = saga_events(store, EventType.CASE_RECLASSIFIED_REVIEW)
+    assert rev and rev[0].payload["reason"] == "isolation_order_after_contact"
+    assert [t for t in saga_events(store, EventType.HUMAN_TASK_CREATED) if t.payload.get("reason") == "recontact"]
+
+
+def test_late_order_after_commit_before_arrival_creates_human_task_only():
+    commit = e("P1", "gw:p1:committed", EventType.MATCH_COMMITTED, at(0, 9, 30), "gateway", bed_id="W72-R04-B1")
+    store = run([adm(), prematch(bed="W72-R04-B1"), contacted(), commit, _iso()], at(0, 10, 10), _layout_policy())
+    tasks = [t for t in saga_events(store, EventType.HUMAN_TASK_CREATED)
+             if t.payload.get("reason") == "isolation_order_after_commit"]
+    assert len(tasks) == 1 and not saga_events(store, EventType.PREMATCH_RELEASED)
+
+
+def test_late_order_is_ignored_when_matched_bed_still_fits():
+    store = run([adm(), prematch(bed="W72-R01-B1"), _iso()], at(0, 10, 10), _layout_policy())  # 1인실
+    assert not saga_events(store, EventType.PREMATCH_RELEASED)
+    airborne = run([adm(), prematch(bed="W72-R01-B1"), _iso(prec=("airborne",), org="MTB")], at(0, 10, 10),
+                   _layout_policy())
+    assert saga_events(airborne, EventType.PREMATCH_RELEASED)  # 공기주의는 음압실이어야 한다
