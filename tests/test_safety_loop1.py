@@ -84,3 +84,36 @@ def test_profile_cannot_shrink_never_list(tmp_path):
     p.write_text(yaml.safe_dump({"autonomy_promotion": {"never": []}}), encoding="utf-8")
     with pytest.raises(ValueError):
         load_policy(profile=str(p))
+
+
+# ---- 상황별 금지 입력은 게이트웨이가 이벤트에서 직접 다시 계산한다 (안전 검토 4) ----
+
+def _late_iso_weekend_night():
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    d0 = 5  # 2026-03-07 토요일
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=d0 - 1), "agent",
+              bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(2, day=d0), "his", precautions=["airborne"],
+              organism="MTB")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(2, 5, day=d0))
+    return store, gw, pol, at(2, 10, day=d0)
+
+
+@pytest.mark.parametrize("forged", [{}, {"exception": {"trigger": "late_isolation", "stage": "before_contact", "attempts": 0},
+                                        "case_state": {"ipc_on_duty": True}}])
+def test_wait_for_ipc_at_weekend_night_is_blocked_whatever_the_agent_claims(forged):
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ActionChoice, ExceptionBrain
+    store, gw, pol, now = _late_iso_weekend_night()
+    brain = ExceptionBrain(gw, FakeLLM(), pol)
+    ex = brain.open_exceptions(store.read())[0]
+    assert ex.payload["trigger"] == "late_isolation"
+    choice = ActionChoice(exception_id=ex.payload["exception_id"], trigger="late_isolation", case=ex.case_id,
+                          action="wait_for_ipc", params={}, rationale="x",
+                          basis_seq=max(e.seq or 0 for e in store.read()), mode="llm", basis_input=forged)
+    d = gw.submit_action(choice, now)
+    assert d.status == "rejected" and d.reasons == ["ipc_off_duty"]

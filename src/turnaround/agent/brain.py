@@ -58,6 +58,8 @@ class ExceptionBrain:
         self.wards = tuple(wards)
         self.policy = policy or gw.policy
         self.records: list[str] = []  # LLM에 넣은 입력 (감사·시험용)
+        # 게이트웨이가 상황별 금지를 판정할 때 머리가 낸 입력을 믿지 않고 이 함수로 이벤트에서 다시 계산한다 (최고점 루프 1회차)
+        gw._input_builder = self
 
     def open_exceptions(self, events: list[Event]) -> list[Event]:
         done = {e.payload.get("exception_id") for e in events if e.type is EventType.EXCEPTION_RESOLVED}
@@ -101,6 +103,13 @@ class ExceptionBrain:
                             and e.case_id == adm), {})
             if payload.get("organism"):
                 st.setdefault("organism", payload.get("organism"))
+            precs = set(payload.get("precautions") or []) | {
+                p for e in events if e.type is EventType.ISOLATION_ORDER_ADDED and e.case_id == adm
+                for p in (e.payload.get("precautions") or [])}
+            if "airborne" in precs:
+                st.setdefault("need", "negative_pressure")
+        # 감염관리실 근무 여부는 운영 달력으로 계산한다(근무 외에는 감염내과 당직 대행, operations.yaml)
+        st["ipc_on_duty"] = bool(self.gw.calendar.in_office(now))
         return st
 
     def _tool_outputs(self, ex: Event, events: list[Event], now: datetime) -> dict:
@@ -113,6 +122,8 @@ class ExceptionBrain:
         free_np = sum(1 for b in self.gw.beds if room_type(b.id) is RoomType.NEGATIVE_PRESSURE
                       and b.id not in self.gw._occupants(events) and not self.gw._out_of_service(b.id, events))
         out: dict = {}
+        if trig == "guardian_delay_same_day":  # 라운지는 이 예외에서만 쓰는 값 (정답 세트 어휘와 같게)
+            out["lounge_available"] = bool(self.policy.hospital_profile.guardian.lounge_enabled)
         adm = ex.payload.get("admission_id") or (ex.case_id if trig == "no_bed" else None)
         waiting = list(ctx.get("waiting_admissions") or [])
         target = adm or (waiting[0] if waiting else None)
