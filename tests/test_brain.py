@@ -205,3 +205,11 @@ def test_brain_input_keys_are_within_gold_set_vocabulary():
     ctx = brain._input(brain.open_exceptions(store.read())[0], store.read(), at(10, 10))
     assert set(ctx["tool_outputs"]) <= keys["tool_outputs"]
     assert set(ctx["case_state"]) - {"scarce_room"} <= keys["case_state"] | {"organism", "precaution"}
+
+
+def test_ready_p90_is_not_earlier_than_p50():
+    from turnaround.agent.tools import PlanningTools
+    store, gw = _setup()
+    t = PlanningTools(gw, H.wards)
+    for b in ("W72-R04-B1", "W72-R02-B1"):
+        assert t.ready_at(b, store.read(), at(10), q="p90")[0] >= t.ready_at(b, store.read(), at(10))[0]

@@ -18,6 +18,7 @@ from turnaround.sim.distributions import DEFAULT_STAGE_DISTRIBUTIONS
 from turnaround.sim.models import IsolationType, Patient, RoomType
 
 _MED = {k: v.median_min for k, v in DEFAULT_STAGE_DISTRIBUTIONS.items()}
+_P90 = {k: v.p90_min for k, v in DEFAULT_STAGE_DISTRIBUTIONS.items()}
 DEFAULT_DEPARTURE = time(11, 0)  # 보호자 도착 예정이 없을 때 퇴실 예상 시각 (설계 가정)
 
 
@@ -111,8 +112,11 @@ class PlanningTools:
 
     # ---------- 준비 시각 ----------
 
-    def ready_at(self, bed_id: str, events: list[Event], now: datetime, state=None) -> tuple[datetime, str | None]:
-        """병상 준비 예상 시각과 그 병상을 비우는 퇴원 사례. 분포 중앙값으로 계산 (설계 가정)."""
+    def ready_at(self, bed_id: str, events: list[Event], now: datetime, state=None,
+                 q: str = "p50") -> tuple[datetime, str | None]:
+        """병상 준비 예상 시각과 그 병상을 비우는 퇴원 사례. 단계 분포의 중앙값(q=p50) 또는 P90을 더한다 (설계 가정).
+        P90은 단계마다 P90을 더한 보수적 값이다(단계 사이 상관을 가정하지 않음)."""
+        _MED = globals()["_P90"] if q == "p90" else globals()["_MED"]
         s = state or fold(events)
         cases = [d for d in s.discharges.values() if d.bed_id == bed_id and EventType.DISCHARGE_CANCELLED not in d.facts]
         if not cases:

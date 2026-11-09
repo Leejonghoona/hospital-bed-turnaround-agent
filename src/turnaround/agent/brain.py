@@ -112,11 +112,13 @@ class ExceptionBrain:
                                for d in ctx.get("pending_discharges_today") or [])
                 out["earliest_ready_bed"] = ready[0][1] if ready else None
                 out["earliest_ready_p50_min"] = mins(ready[0][0]) if ready else None
+                out["earliest_ready_p90_min"] = mins(tools.ready_at(ready[0][1], events, now, q="p90")[0]) if ready else None
                 out["negative_pressure_free"] = free_np
         if "guardian_wait_min" in ctx:
             out["guardian_eta_in_min"] = ctx["guardian_wait_min"]
         if trig in ("cleaning_overdue", "guardian_delay_same_day", "sequence_stalled") and ex.payload.get("bed_id"):
             out["ready_p50_min"] = mins(tools.ready_at(ex.payload["bed_id"], events, now)[0])
+            out["ready_p90_min"] = mins(tools.ready_at(ex.payload["bed_id"], events, now, q="p90")[0])
         return out
 
     def choose(self, ex: Event, events: list[Event], now: datetime) -> ActionChoice:
