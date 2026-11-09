@@ -119,7 +119,7 @@ HOLDOUT_DIR = DEV_DIR.parent / "holdout"
 def test_holdout_scenarios_load_and_are_separate():
     hold = load_scenarios(HOLDOUT_DIR)
     assert [s.id for s in hold] == [f"H{i:02d}" for i in range(1, 14)]
-    # 1회차 5개는 사용자 승인, 2회차(H06~H10)·3회차(H11~H13)는 MVP 뒤 검토할 초안
+    # 1회차 5개는 사용자 승인, 2회차(H06~H10)·3·4회차(H11~H13)는 MVP 뒤 검토할 초안
     assert {s.id for s in hold if s.status == "approved"} == {"H01", "H02", "H03", "H04", "H05"}
     assert all(s.fixture.get("split") == "holdout" for s in hold)
     assert not {s.id for s in hold} & {p.stem for p in DEV_DIR.glob("*.yaml")}

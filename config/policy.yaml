@@ -41,6 +41,7 @@ ventilation:                 # 비말·공기주의 퇴실 환기 대기 (LP-23)
   removal_pct: 99.9
   hospital_wait_min: null    # 병원 규칙으로 덮어쓸 때만 분 단위로 넣는다. 지침 값과 다르면 "지침 대비" 표시 (POL-2)
 external_llm: deny
+admission_priority: [icu_stepdown]   # 목표 함수 3항 임상 우선순위(처리 순서만). 응급실 경유는 설문 뒤 추가
 scoring:                     # 에이전트 목표 함수 4~5항 가중치 (SPEC 3절, 설계 가정)
   department_ward_match: 30.0       # 진료과 병동 일치
   negative_pressure_preserve: -40.0 # 공기주의가 아닌 환자의 음압실 사용 감점 (LP-18)
@@ -57,6 +58,7 @@ extraction:                  # 메모 추출 스키마 (U3 상대 날짜, U5 메
     admission: [single_room_wish]   # 1인실 희망은 입원 대기 환자의 정보 (검수 결과)
   max_day_offset: 7
 provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. law > guideline > hospital_rule > field_practice > design_assumption
+  admission_priority: {tier: design_assumption, cite: "SPEC 3절 3항. 중환자실 하향 우선은 설계 문서 검토 표의 우선순위 상위. 병원 규칙으로 바꾼다"}
   autonomy_stage: {tier: design_assumption, cite: "설계 문서 자율화 단계. 1단계 HITL로 시작"}
   promoted_departments: {tier: design_assumption, cite: "자율화 2단계 승격은 운영 지표로 정한다"}
   pediatric_age: {tier: design_assumption, cite: "소아 기준 연령은 병원마다 다르다. 근거 미확인, 병원 규칙으로 바꾼다"}

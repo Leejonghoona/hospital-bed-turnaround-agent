@@ -83,7 +83,21 @@ class PlanningTools:
                 if self.gw._pinned(c, events):
                     continue
                 out.append(c)
-        return out
+        return self._by_priority(out, events)
+
+    _PRIORITY_FLAGS = {"icu_stepdown": "from_icu"}  # 우선순위 코드 → 입원 요청 필드
+
+    def _by_priority(self, cases: list[str], events: list[Event]) -> list[str]:
+        """정책 파일의 우선순위 규칙대로 안정 정렬 (SPEC 3절 3항). 규칙에 없으면 도착 순서."""
+        rules = self.gw.policy.admission_priority
+        if not rules:
+            return cases
+        payload = {e.case_id: e.payload for e in events if e.type is EventType.ADMISSION_REQUESTED}
+
+        def rank(c: str) -> int:
+            p = payload.get(c, {})
+            return next((i for i, code in enumerate(rules) if p.get(self._PRIORITY_FLAGS.get(code, code))), len(rules))
+        return sorted(cases, key=rank)
 
     # ---------- 준비 시각 ----------
 

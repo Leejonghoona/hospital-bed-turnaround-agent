@@ -304,3 +304,26 @@ def test_claudesub_adapter_is_selected_and_refuses_api_key_billing(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")  # 키가 잡혀 있으면 API 과금이라 막는다
     with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
         llm.complete_json("extract", "s", "{}")
+
+
+# ---------- AGT-4 3항 임상 우선순위 ----------
+
+def test_icu_stepdown_is_handled_before_earlier_regular_admission():
+    """정책 파일의 우선순위 규칙: 중환자실 하향 환자를 먼저 찾는다. 순서만 바꾸고 후보·안전 검사는 그대로."""
+    early = adm("A1", gender="F", dept="일반외과", when=at(14, day=-1))
+    icu = adm("A2", gender="F", dept="일반외과", icu=True, when=at(16, day=-1))
+    store, gw = make([early, icu], census=fill_except("W72-R04-B1"))
+    ag = agent(gw)
+    assert ag.tools.pending_admissions(store.read()) == ["A2", "A1"]
+    ag.step(at(9))
+    first = next(e for e in store.read() if e.type is EventType.PROPOSAL_RECEIVED)
+    assert first.payload["case"] == "A2" and first.payload["bed_id"] == "W72-R04-B1"
+
+
+def test_without_priority_rule_order_is_arrival_order():
+    from turnaround.gateway import load_policy
+    pol = load_policy().model_copy(update={"admission_priority": []})
+    early = adm("A1", gender="F", dept="일반외과", when=at(14, day=-1))
+    icu = adm("A2", gender="F", dept="일반외과", icu=True, when=at(16, day=-1))
+    store, gw = make([early, icu], policy=pol)
+    assert agent(gw).tools.pending_admissions(store.read()) == ["A1", "A2"]

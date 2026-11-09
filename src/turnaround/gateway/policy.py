@@ -78,6 +78,8 @@ class Policy(BaseModel):
     manual_override: ManualOverridePolicy
     ventilation: Ventilation = Field(default_factory=Ventilation)
     scoring: Scoring = Field(default_factory=Scoring)
+    # 목표 함수 3항 임상 우선순위: 입원 대기 처리 순서 (앞이 먼저). 순서만 바꾸고 후보·안전 검사는 바꾸지 않는다
+    admission_priority: list[str] = Field(default_factory=list)
     extraction: ExtractionSchema = Field(default_factory=ExtractionSchema)
     external_llm: str = "deny"
     provenance: dict[str, Provenance] = Field(default_factory=dict)
