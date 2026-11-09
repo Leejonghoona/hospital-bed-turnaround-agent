@@ -8,7 +8,7 @@ from __future__ import annotations
 from html import escape
 
 TOKENS = {
-    "blue": "#3182F6", "blue_bg": "#E8F3FF", "ink": "#191F28", "sub": "#4E5968", "mute": "#8B95A1",
+    "blue": "#3182F6", "blue_bg": "#E8F3FF", "ink": "#191F28", "sub": "#4E5968", "mute": "#6B7684",
     "line": "#E5E8EB", "bg": "#F7F8FA", "card": "#FFFFFF", "green": "#03B26C", "green_bg": "#E6F8EF",
     "amber": "#F59F00", "amber_bg": "#FFF4DB", "red": "#F04452", "red_bg": "#FFEBEE", "violet": "#7048E8",
     "violet_bg": "#F1ECFF", "gray_bg": "#F2F4F6",
@@ -67,7 +67,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-bed .who { font-size:12px; color:%(sub)s; margin-top:3px; }
 .wl-bed.s-occupied { background:%(gray_bg)s; } .wl-bed.s-occupied .st { color:%(sub)s; }
 .wl-bed.s-discharging { background:%(amber_bg)s; border-color:#FFE2A8; } .wl-bed.s-discharging .st { color:#B26B00; }
-.wl-bed.s-dirty, .wl-bed.s-cleaning { background:%(violet_bg)s; border-color:#DDD2FF; } .wl-bed.s-dirty .st, .wl-bed.s-cleaning .st { color:%(violet)s; }
+.wl-bed.s-dirty { background:#FFF0E6; border-color:#FFD3B5; } .wl-bed.s-dirty .st { color:#C2410C; }
+.wl-bed.s-cleaning { background:%(violet_bg)s; border-color:#DDD2FF; } .wl-bed.s-cleaning .st { color:%(violet)s; }
 .wl-bed.s-ready, .wl-bed.s-empty { background:%(green_bg)s; border-color:#BDEBD4; } .wl-bed.s-ready .st, .wl-bed.s-empty .st { color:%(green)s; }
 .wl-bed.s-arrived { background:%(blue_bg)s; border-color:#C9E2FF; } .wl-bed.s-arrived .st { color:%(blue)s; }
 .wl-legend { display:flex; gap:14px; flex-wrap:wrap; color:%(sub)s; font-size:12px; margin: 6px 0 10px; }
@@ -80,10 +81,11 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-steps { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin: 4px 0 14px; }
 .wl-step { border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; background:%(gray_bg)s; color:%(mute)s; }
 .wl-step.done { background:%(blue_bg)s; color:%(blue)s; } .wl-step.on { background:%(blue)s; color:#fff; }
-.wl-guide { background:%(ink)s; color:#fff; border-radius:16px; padding:16px 20px; margin-bottom:16px; }
-.wl-guide .k { color:#8B95A1; font-size:12px; font-weight:700; }
-.wl-guide .t { font-size:16px; font-weight:700; margin-top:4px; line-height:1.55; }
-.wl-guide ul { margin:8px 0 0 18px; padding:0; color:#D1D6DB; font-size:14px; line-height:1.7; }
+.wl-guide { background:%(blue_bg)s; color:%(ink)s; border-radius:14px; padding:12px 16px; margin-bottom:18px;
+            border-left:4px solid %(blue)s; }
+.wl-guide .k { color:%(blue)s; font-size:12px; font-weight:800; }
+.wl-guide .t { font-size:14px; font-weight:700; margin-top:2px; line-height:1.5; }
+.wl-guide ul { margin:6px 0 0 18px; padding:0; color:%(sub)s; font-size:13px; line-height:1.6; }
 .wl-check { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid %(line)s; }
 .wl-check:last-child { border-bottom:0; }
 .wl-check .ic { width:22px; height:22px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex:none; }
@@ -107,6 +109,10 @@ def topbar(subtitle: str, now: str | None, mode: str) -> str:
     return (f'<div class="wl-top"><div class="wl-brand"><div class="wl-logo">W</div>병실관리AI'
             f'<span class="wl-badge">합성 데이터 데모</span></div><div class="wl-meta"><span>{e(subtitle)}</span>'
             + (f'<span><b>{e(now)}</b> 기준</span>' if now else "") + f'<span class="wl-badge">{e(mode)}</span></div></div>')
+
+
+def footnote(text: str) -> str:
+    return f'<div style="color:#6B7684;font-size:12px;margin-top:18px">{e(text)}</div>'
 
 
 def page_header(title: str, desc: str) -> str:
@@ -137,21 +143,22 @@ def empty(text: str) -> str:
     return f'<div class="wl-empty">{e(text)}</div>'
 
 
-BED_LEGEND = [("occupied", "재원 중", "#E5E8EB"), ("discharging", "퇴원 진행", "#FFE2A8"),
-              ("cleaning", "청소 대기·중", "#DDD2FF"), ("ready", "입실 가능", "#BDEBD4"), ("arrived", "새 환자 입실", "#C9E2FF")]
+BED_LEGEND = [("occupied", "재원 중", "#E5E8EB"), ("discharging", "퇴원 진행", "#FFE2A8"), ("dirty", "청소 대기", "#FFD3B5"),
+              ("cleaning", "청소 중", "#DDD2FF"), ("ready", "입실 가능", "#BDEBD4"), ("arrived", "새 환자 입실", "#C9E2FF")]
 
 
 def bed_board(beds: list[dict]) -> str:
     legend = "".join(f'<span><i style="background:{c}"></i>{e(t)}</span>' for _, t, c in BED_LEGEND)
-    cells = []
+    wards: dict[str, list[str]] = {}
     for b in beds:
-        tags = ""
-        if b.get("isolation"):
-            tags += chip("격리", "red")
-        cells.append(f'<div class="wl-bed s-{b["state"]}"><div class="id"><span>{e(b["label"])}</span>'
-                     f'<span>{e(b["room"])}</span></div><div class="st">{e(b["state_ko"])} {tags}</div>'
-                     f'<div class="who">{e(b.get("detail") or "")}</div></div>')
-    return f'<div class="wl-legend">{legend}</div><div class="wl-board">{"".join(cells)}</div>'
+        tags = chip("격리", "red") if b.get("isolation") else ""
+        wards.setdefault(b["ward"], []).append(
+            f'<div class="wl-bed s-{b["state"]}"><div class="id"><span>{e(b["label"])}</span>'
+            f'<span>{e(b["room"])}</span></div><div class="st">{e(b["state_ko"])} {tags}</div>'
+            f'<div class="who">{e(b.get("detail") or "")}</div></div>')
+    blocks = "".join(f'<div style="font-weight:800;color:#4E5968;margin:12px 0 8px">{e(w[1:])}병동</div>'
+                     f'<div class="wl-board">{"".join(cells)}</div>' for w, cells in wards.items())
+    return f'<div class="wl-legend">{legend}</div>{blocks}'
 
 
 def kanban(columns: list[tuple[str, list[str]]]) -> str:
@@ -177,11 +184,13 @@ def guide(kicker: str, text: str, points: list[str]) -> str:
     return f'<div class="wl-guide"><div class="k">{e(kicker)}</div><div class="t">{e(text)}</div><ul>{li}</ul></div>'
 
 
-def checks(items: list[tuple[bool, str, str]]) -> str:
+def checks(items: list[tuple]) -> str:
+    """(통과 여부 True/False/None(해당 없음), 제목, 설명)"""
     rows = []
     for ok, t, d in items:
-        ic = (f'<span class="ic" style="background:#E6F8EF;color:#03B26C">✓</span>' if ok
-              else f'<span class="ic" style="background:#FFEBEE;color:#F04452">!</span>')
+        ic = ('<span class="ic" style="background:#F2F4F6;color:#6B7684">–</span>' if ok is None else
+              '<span class="ic" style="background:#E6F8EF;color:#03B26C">✓</span>' if ok
+              else '<span class="ic" style="background:#FFEBEE;color:#F04452">!</span>')
         rows.append(f'<div class="wl-check">{ic}<div><div class="tt">{e(t)}</div><div class="dd">{e(d)}</div></div></div>')
     return f'<div class="wl-card">{"".join(rows)}</div>'
 
@@ -192,5 +201,5 @@ def table(cols: list[str], rows: list[list]) -> str:
     return f'<table class="wl-table"><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table>'
 
 
-__all__ = ["CSS", "TOKENS", "bed_board", "card", "checks", "chip", "e", "empty", "guide", "kanban", "kpis", "mini",
+__all__ = ["footnote", "CSS", "TOKENS", "bed_board", "card", "checks", "chip", "e", "empty", "guide", "kanban", "kpis", "mini",
            "page_header", "section", "steps", "table", "topbar"]

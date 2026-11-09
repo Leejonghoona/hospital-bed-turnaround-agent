@@ -68,7 +68,7 @@ class SceneRun:
                 p = self.pkg.proof
                 data["package"] = {"status": {"proposed": "승인 대기", "approved": "승인됨"}.get(self.pkg.status),
                                    "version": self.pkg.version,
-                                   "proof": [{"검사": "재생 증명", "결과": "통과" if p.get("passed") else "실패"},
+                                   "proof": [{"검사": "시험 운행 검사", "결과": "통과" if p.get("passed") else "실패"},
                                              {"검사": "사건 순서 위반", "결과": p.get("order_violations")},
                                              {"검사": "하루 재생 안전 위반", "결과": p.get("safety_violations")},
                                              {"검사": "하루 재생 배정", "결과": p.get("commits")},
@@ -102,9 +102,9 @@ def _to(run: SceneRun, hh: int, mm: int = 0) -> None:
 # ---------------- 1. 평범한 하루 ----------------
 
 def _a1(run):
-    _day(run, SEED_DAY, time(10, 30), past=False)
+    _day(run, SEED_DAY, time(8, 15), past=False)
     v = __import__("turnaround.ui.views", fromlist=["admission_view"]).admission_view(run.st)
-    return f"10:30 원무 화면. 에이전트가 확정하고 통보한 배정 {len(v['notices'])}건(근거·되돌리기 가능), 환자 연락 할 일 {len(v['contacts'])}건"
+    return f"08:15 원무 화면. 에이전트가 확정하고 통보한 배정 {len(v['notices'])}건(근거·되돌리기 가능), 환자 연락 할 일 {len(v['contacts'])}건"
 
 
 def _a2(run):
@@ -125,7 +125,7 @@ def _a3(run):
 
 SCENE_DAY = Scene("day", "1. 평범한 하루", "에이전트가 확정하고 통보한다. 사람은 환자 연락과 병동 준비만 한다.",
                   [Step("에이전트 확정 통보", "admission", _a1, ["'에이전트가 확정하고 알린 배정' 카드: 누가 어느 병상으로, 차순위, 되돌리기 시한", "사람이 할 일은 '지금 할 일'에만 모인다(평범한 배정은 처리할 것이 없음)", "병상 현황판: 색과 글자로 퇴원 진행·청소·입실 가능을 구분"]), Step("병동 입실 흐름", "ward", _a2, ["칸반: 준비 필요 → 병동 준비 완료 → 올려주세요 → 입실", "병상·병동 준비·수속이 모두 갖춰질 때만 '올려주세요'가 나간다"]),
-                   Step("하루 결과", "manager", _a3, ["사람 손 없이 확정한 비율과 안전 검사 4종(위반 0)", "흐름 지표: 퇴실·병상 준비·입실 시각", "자율권 제안: 근거로 승격·강등을 제안하고 사람이 승인"])])
+                   Step("하루 결과", "manager", _a3, ["사람 손 없이 확정한 비율과 안전 검사 4종(위반 0)", "흐름 지표: 퇴실·병상 준비·입실 시각", "자동 처리 범위 제안: 근거가 쌓이면 에이전트에 맡길 범위를 넓히자고 제안, 적용은 사람이 승인"])])
 
 
 # ---------------- 2. 예외와 승인 ----------------
@@ -165,7 +165,8 @@ def _b3(run):
                                        "isolation_ordered_by": "physician"}))
     _to(run, 14, 30)
     run.memo["iso_case"] = case
-    return f"14:00 {case}에 늦은 공기주의 격리 오더(결핵 의심). 14:30 감염관리실 화면"
+    from turnaround.ui.views import _people, who
+    return f"14:00 확정된 {who(_people(run.st.store.read()), case)} 환자에게 늦은 공기주의 격리 오더(결핵 의심)가 왔다"
 
 
 def _b4(run):
@@ -183,7 +184,9 @@ def _b4(run):
                           basis_seq=max((e.seq or 0) for e in ev), mode="llm")
     d = run.st.gw.submit_action(choice, run.st.now)
     why = {"stage_locked": "연락·확정 뒤 자동 변경 금지"}.get((d.reasons or [""])[0], ",".join(d.reasons or []))
-    return (f"시연 입력: 에이전트가 {case}를 스스로 다른 병상으로 옮기려 하면 → 게이트웨이가 "
+    from turnaround.ui.views import _people, who
+    name = who(_people(run.st.store.read()), case)
+    return (f"시연 입력: 에이전트가 {name} 환자를 스스로 다른 병상으로 옮기려 하면 → 게이트웨이가 "
             f"{'거부' if d.status == 'rejected' else d.status}({why}). 원무 화면 '막힌 판단'에 남는다")
 
 
@@ -227,20 +230,20 @@ def _answer_until(run, stop_stage: str | None):
 
 def _c2(run):
     n = _answer_until(run, "code")
-    return f"구조·형식·열 묶음에 답했다(답 {n}개, 사람 모형). 다음은 코드표 묶음"
+    return f"표 구조·값 형식·열의 뜻 질문에 답했다(답 {n}개). 다음은 코드 뜻"
 
 
 def _c3(run):
     n = run.session.import_code_master({k: dict(v) for k, v in _gold().codes.items()})
     m = _answer_until(run, None)
-    return f"병원 코드표를 한 번에 넣었다(질문 {n}개 해결, 남은 {m}개 답). 매핑 완성"
+    return f"병원 코드표를 한 번에 넣어 코드 질문 {n}개를 해결했다(남은 {m}개는 직접 답). 질문 끝"
 
 
 def _c4(run):
     run.pkg = run.session.finalize(day=3, seed=SEED_NEW)
     p = run.pkg.proof
-    return (f"재생 증명: {'통과' if p['passed'] else '실패'} (사건 순서 위반 {p['order_violations']}, 안전 위반 "
-            f"{p['safety_violations']}, 배정 {p['commits']}건, 개연성 문제 {len(p['plausibility'])})")
+    return (f"이 병원 데이터로 하루를 시험 운행해 검사: {'통과' if p['passed'] else '실패'} (사건 순서 위반 "
+            f"{p['order_violations']}건, 안전 위반 {p['safety_violations']}건, 배정 {p['commits']}건)")
 
 
 def _c5(run):
@@ -248,14 +251,14 @@ def _c5(run):
     run.pkg = run.pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
     mapped = apply_package(run.pkg, _tables())
     _day(run, SEED_NEW, time(18), mapped=mapped)
-    return "의료정보팀 승인(판 지문으로 고정) → 운영 적용 → 그 병원 하루 재생. 관리자 화면의 자율권 카드"
+    return "의료정보팀이 설정판을 승인하고 운영을 시작했다. 그 병원의 하루를 관리자 화면에서 본다"
 
 
-SCENE_ONBOARD = Scene("onboard", "3. 새 병원 온보딩과 자율권",
-                      "처음 보는 내보내기를 올려 질문에 답하고, 재생 증명 → 승인 → 운영 적용까지 한 번에 간다.",
+SCENE_ONBOARD = Scene("onboard", "3. 새 병원 시작하기",
+                      "처음 보는 병원의 내보내기 표를 올려 질문에 답하고, 시험 운행 검사 → 승인 → 운영 시작까지 한 번에 간다.",
                       [Step("업로드와 첫 질문", "onboarding", _c1, ["처음 보는 병원 내보내기 표 3개를 올렸다", "질문은 구조 → 형식 → 열 → 코드표 순서로 묶어서 묻는다", "병상 표를 못 찾아 구조부터 묻는다"]), Step("구조·형식·열 답", "onboarding", _c2, ["앞 묶음의 답으로 초안을 다시 만들어 뒤 질문이 줄어든다", "제안이 있는 질문은 확인만, 제안 없는 질문은 사람이 답을 찾는다"]),
-                       Step("코드표 일괄 입력", "onboarding", _c3, ["병원 코드표를 한 번에 넣어 코드 질문을 해결", "'모름'은 승인이 아니다: 안전 코드는 늘 사람이 확인"]), Step("재생 증명", "onboarding", _c4, ["정답이 없는 새 병원에서도 쓸 수 있는 검사로 증명", "사건 순서·하루 재생 안전·배정 발생·코드 뒤바뀜 의심"]),
-                       Step("승인·운영 적용·자율권", "manager", _c5, ["의료정보팀 승인 → 판 고정 → 그 병원 하루 재생", "관리자 화면에서 그 병원의 흐름·안전·자율권 제안을 본다"])])
+                       Step("코드표 일괄 입력", "onboarding", _c3, ["병원 코드표를 한 번에 넣어 코드 질문을 해결", "'모름'은 승인이 아니다: 안전 코드는 늘 사람이 확인"]), Step("시험 운행 검사", "onboarding", _c4, ["정답이 없는 새 병원에서도 쓸 수 있는 검사: 이 병원 데이터로 하루를 시험 운행", "사건 순서, 안전, 배정이 실제로 생기는지, 코드 뜻이 뒤바뀌지 않았는지"]),
+                       Step("승인하고 운영 시작", "manager", _c5, ["의료정보팀 승인 → 설정판 고정 → 운영 시작", "관리자 화면에서 그 병원의 흐름·안전·자동 처리 범위 제안을 본다"])])
 
 SCENES = {s.id: s for s in (SCENE_DAY, SCENE_EXCEPTION, SCENE_ONBOARD)}
 

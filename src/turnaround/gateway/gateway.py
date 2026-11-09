@@ -368,6 +368,25 @@ class Gateway:
                        how=choice.action)
         return Decision("executed", "action", autonomy)
 
+    def decline_action(self, exception_id: str, actor: str, reason: str, now: datetime) -> Decision:
+        """사람이 승인 요청을 거절한다 (4단계 UX 검수: 승인만 있고 거절이 없었다). 예외는 사람이 맡은 것으로 닫는다."""
+        events = self._events()
+        req = next((e for e in events if e.type is EventType.ACTION_APPROVAL_REQUESTED
+                    and e.payload.get("exception_id") == exception_id), None)
+        if req is None:
+            return Decision("unknown", "action")
+        roles = set(self.policy.hospital_profile.escalation_roles) | set(self.policy.manual_override.roles)
+        if actor not in roles:
+            return Decision("rejected", "action", None, ["approver_role"])
+        if any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exception_id for e in events):
+            return Decision("superseded", "action")
+        self._emit(req.case_id, f"{exception_id}:declined:{req.payload['action']}", EventType.ACTION_REJECTED, now, "human",
+                   exception_id=exception_id, action=req.payload["action"], reasons=["human_declined"], actor=actor,
+                   note=reason)
+        self._emit(req.case_id, f"{exception_id}:resolved", EventType.EXCEPTION_RESOLVED, now, exception_id=exception_id,
+                   how="human_declined")
+        return Decision("declined", "action", "human")
+
     def _targets(self, raised: Event) -> set[str]:
         """이 예외의 행동이 건드리는 입원 사례."""
         ctx = raised.payload.get("context") or {}

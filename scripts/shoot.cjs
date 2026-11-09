@@ -1,7 +1,7 @@
 // 화면 스크린샷 브라우저 조작 (scripts/screenshots.py가 Streamlit을 띄운 뒤 부른다). 합성 데이터 화면만 찍는다.
 const { chromium } = require('playwright');
 const [port, out, scale, only] = process.argv.slice(2);
-const SCENES = [['day', '1. 평범한 하루', 3], ['exception', '2. 예외와 승인', 4], ['onboard', '3. 새 병원 온보딩과 자율권', 5]];
+const SCENES = [['day', '1. 평범한 하루', 3], ['exception', '2. 예외와 승인', 4], ['onboard', '3. 새 병원 시작하기', 5]];
 
 async function idle(page) {
   await page.waitForTimeout(600);

@@ -389,3 +389,15 @@ def test_no_call_up_when_another_patient_is_recorded_on_the_bed():
     saga(store).step(at(13, 5))
     assert not types(store, T.PATIENT_CALL_UP)
     assert any(e.payload.get("reason") == "bed_occupancy_conflict" for e in types(store, T.HUMAN_TASK_CREATED))
+
+
+def test_human_can_decline_an_approval_request():
+    """4단계 UX 검수: 승인 카드에 거절이 없었다. 거절하면 실행하지 않고 예외를 사람이 맡은 것으로 닫는다."""
+    store, gw = _objection_after_contact()
+    req = types(store, T.ACTION_APPROVAL_REQUESTED)
+    exid = req[0].payload["exception_id"]
+    assert gw.decline_action(exid, "anyone", "x", at(10)).status == "rejected"
+    d = gw.decline_action(exid, "bed_manager", "병동과 통화로 해결", at(10))
+    assert d.status == "declined"
+    assert not types(store, T.PREMATCH_RELEASED)
+    assert gw.approve_action(exid, "bed_manager", at(10, 5)).status == "superseded"
