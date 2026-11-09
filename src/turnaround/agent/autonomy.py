@@ -84,15 +84,21 @@ def current_mode(unit: str, policy) -> str:
     return "human" if unit in policy.review_reasons else "auto"
 
 
-def evaluate(outcomes: list[Outcome], policy) -> list[dict]:
-    """단위마다 현재 단계, 근거, 권고(promote | demote | hold)."""
+def evaluate(outcomes: list[Outcome], policy, since: dict[str, int] | None = None) -> list[dict]:
+    """단위마다 현재 단계, 근거, 권고(promote | demote | hold).
+
+    since: 단위별로 마지막 강등 시점(outcomes 위치). 강등 뒤에는 그 뒤의 기록만 센다.
+    옛 근거로 다음 날 다시 승격하면 날마다 오르내린다(2026-11-09 측정에서 발견).
+    """
     rule = policy.autonomy_promotion
+    since = since or {}
     units = sorted({o.unit for o in outcomes})
     rows = []
     for u in units:
         mode = current_mode(u, policy)
-        human = [o for o in outcomes if o.unit == u and o.by == "human"]
-        agent = [o for o in outcomes if o.unit == u and o.by == "agent"]
+        recent_all = outcomes[since.get(u, 0):]
+        human = [o for o in recent_all if o.unit == u and o.by == "human"]
+        agent = [o for o in recent_all if o.unit == u and o.by == "agent"]
         k, n = sum(o.agreed for o in human), len(human)
         lb = wilson_lower(k, n)
         recent = agent[-rule.demote_window:]

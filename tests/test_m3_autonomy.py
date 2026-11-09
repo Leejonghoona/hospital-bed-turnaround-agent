@@ -55,3 +55,17 @@ def test_outcomes_from_gateway_events_human_and_agent():
     o2 = unit_outcomes(store2.read())
     assert [(o.unit, o.agreed, o.by) for o in o1] == [(COMMIT, True, "human")]
     assert [(o.unit, o.agreed, o.by) for o in o2] == [(COMMIT, False, "agent")]
+
+
+def test_demoted_unit_needs_fresh_evidence_before_promotion_again():
+    """강등 뒤 옛 근거로 다음 날 다시 승격하면 날마다 오르내린다(2026-11-09 측정에서 발견). 강등 뒤 새 근거만 센다."""
+    from turnaround.agent.autonomy import Outcome
+    old = [Outcome(COMMIT, f"A{i}", f"p{i}", True, "human") for i in range(30)]
+    bad = [Outcome(COMMIT, f"B{i}", f"q{i}", i >= 17, "agent") for i in range(20)]
+    outs = old + bad
+    cut = {COMMIT: len(outs)}  # 여기서 강등
+    rows = {r["unit"]: r for r in evaluate(outs, CONSERVATIVE, since=cut)}
+    assert rows[COMMIT]["recommendation"] == "hold" and rows[COMMIT]["human_n"] == 0
+    fresh = [Outcome(COMMIT, f"C{i}", f"r{i}", True, "human") for i in range(25)]
+    rows = {r["unit"]: r for r in evaluate(outs + fresh, CONSERVATIVE, since=cut)}
+    assert rows[COMMIT]["recommendation"] == "promote"

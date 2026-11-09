@@ -30,17 +30,19 @@ def _run(seed, day, policy, cfg, reviewer):
 def autonomy_curve(seed: int, days: int, start_policy, reviewer, cfg, proof_days: int = 2) -> dict:
     policy = start_policy
     outcomes = []
+    since: dict[str, int] = {}  # 단위별 마지막 강등 시점
     curve, log = [], []
     for day in range(1, days):
         ev, cases, hl, s = _run(seed, day, policy, cfg, reviewer)
         outcomes += unit_outcomes(ev, cases)
-        auto_units = sorted(r["unit"] for r in evaluate(outcomes, policy) if r["mode"] == "auto")
+        auto_units = sorted(r["unit"] for r in evaluate(outcomes, policy, since) if r["mode"] == "auto")
         curve.append({"day": day, "admissions": hl["admission_cases"], "committed": hl["committed"],
                       "no_touch": hl["no_touch_committed"], "S1": s["S1"]["violations"], "S2": s["S2"]["violations"],
                       "auto_units": auto_units})
-        for row in evaluate(outcomes, policy):
+        for row in evaluate(outcomes, policy, since):
             if row["recommendation"] == "demote":
                 policy = apply(policy, row["unit"], "human")
+                since[row["unit"]] = len(outcomes)
                 log.append({"day": day, "unit": row["unit"], "action": "demoted", "evidence": row})
             elif row["recommendation"] == "promote":
                 cand = apply(policy, row["unit"], "auto")
