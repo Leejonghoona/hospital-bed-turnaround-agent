@@ -280,3 +280,70 @@ def test_uppercase_room_codes_still_go_in_room_columns():
     """병동·병실 열의 대문자 코드(PRIVATE 등)는 사람 이름 열이 아니다(emr_d 형식)."""
     rows = [{"room_category": v} for v in ("PRIVATE", "PRIVATE", "SHARED", "SHARED")]
     assert _codes(rows, "room_category") == ["PRIVATE", "SHARED"]
+
+
+# ---------------- 4. 온보딩 승인: 사람 ID, 두 사람, 감염관리 승인, 키 있는 서명 ----------------
+
+@pytest.fixture(scope="module")
+def proposed_pkg():
+    from test_stage3_review_fixes import _pkg
+    return _pkg()
+
+
+def _ok(pkg, role, uid):
+    return pkg.approve(by_role=role, user_id=uid, acknowledge_profile_questions=True, at=DAY0)
+
+
+def test_isolation_mapping_needs_ipc_lead_and_second_person(proposed_pkg):
+    from turnaround.agent.onboarding_flow import OnboardingError, apply_package
+    assert proposed_pkg.needs_ipc_approval  # 격리 주의 키가 매핑에 있다
+    one = _ok(proposed_pkg, "medical_informatics", "u-mi-1")
+    assert one.status == "partially_approved" and one.verify() and not one.approval_complete
+    with pytest.raises(OnboardingError):
+        apply_package(one, {})
+    same = _ok(one, "ipc_lead", "u-mi-1")
+    assert same.status == "partially_approved"  # 같은 사람이 두 역할로 승인하면 한 번으로 친다
+    assert [a["user_id"] for a in same.approvals] == ["u-mi-1"]
+    two = _ok(one, "ipc_lead", "u-ipc-7")
+    assert two.status == "approved" and two.verify() and two.approval_complete
+    assert [(a["role"], a["user_id"]) for a in two.approvals] == [("medical_informatics", "u-mi-1"),
+                                                                  ("ipc_lead", "u-ipc-7")]
+    assert two.audit[-1]["event"] == "approved" and two.audit[-1]["user_id"] == "u-ipc-7"
+
+
+def test_two_non_ipc_roles_are_not_enough_for_isolation_mapping(proposed_pkg):
+    pkg = _ok(_ok(proposed_pkg, "medical_informatics", "u1"), "admission_lead", "u2")
+    assert pkg.status == "partially_approved"
+
+
+def test_ipc_lead_alone_is_not_enough(proposed_pkg):
+    assert _ok(proposed_pkg, "ipc_lead", "u-ipc").status == "partially_approved"
+
+
+def test_user_id_and_role_are_checked(proposed_pkg):
+    from turnaround.agent.onboarding_flow import OnboardingError
+    with pytest.raises(OnboardingError):
+        _ok(proposed_pkg, "아무개", "u1")
+    with pytest.raises(OnboardingError):
+        proposed_pkg.approve(by_role="ipc_lead", user_id="  ", acknowledge_profile_questions=True)
+
+
+def test_approval_signature_is_keyed_hmac(proposed_pkg, monkeypatch):
+    import dataclasses
+    pkg = _ok(_ok(proposed_pkg, "medical_informatics", "u1"), "ipc_lead", "u2")
+    assert pkg.verify()
+    forged = dataclasses.replace(pkg, approvals=pkg.approvals[:1] + ({**pkg.approvals[1], "user_id": "u9"},))
+    assert not forged.verify()
+    forged2 = dataclasses.replace(pkg, status="approved", approvals=pkg.approvals[:1])
+    assert not forged2.verify()
+    monkeypatch.setenv("TURNAROUND_APPROVAL_KEY", "another-key")
+    assert not pkg.verify()  # 키가 다르면 서명이 맞지 않는다(키 없이 다시 만들 수 없다)
+
+
+def test_legacy_single_role_call_still_runs_but_leaves_warning(proposed_pkg):
+    pkg = proposed_pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    assert pkg.status == "approved" and pkg.verify() and not pkg.approval_complete
+    assert pkg.approved_by == "medical_informatics"
+    assert pkg.audit[-1]["event"] == "approved"
+    assert "legacy_single_approval" in pkg.audit[-1].get("warnings", [])
+    assert pkg.approvals[0]["user_id"] == "unidentified:medical_informatics"

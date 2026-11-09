@@ -12,7 +12,9 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import os
 from dataclasses import dataclass, field, replace
 from datetime import datetime, time
 from types import SimpleNamespace
@@ -67,19 +69,44 @@ class OnboardingPackage:
     stats: dict = field(default_factory=dict)  # 승인 때 열 채움 비율 (변화 감지 기준)
     audit: tuple = ()  # 감사 기록 (만듦·승인)
     approval_sig: str | None = None
+    approvals: tuple = ()  # 승인 기록 [{role, user_id, at, legacy}] (2026-11-09 개인정보·IT 2회차)
+
+    @property
+    def needs_ipc_approval(self) -> bool:
+        """격리·성별 관련 매핑이 있으면 감염관리 책임자 승인이 있어야 운영에 쓴다."""
+        return _needs_ipc(self.mapping)
+
+    @property
+    def approval_complete(self) -> bool:
+        """사람 ID가 있는 승인만으로 운영 조건을 채웠는가(옛 역할만 승인은 채우지 않는다)."""
+        return _complete([a for a in self.approvals if not a.get("legacy")], self.needs_ipc_approval)
 
     def verify(self) -> bool:
-        """지문이 내용(매핑·프로필·증명·출처·기준 통계)과 맞고, 승인 기록이 그 지문에 묶여 있는가."""
+        """지문이 내용(매핑·프로필·증명·출처·기준 통계)과 맞고, 승인 기록이 그 지문에 키 있는 서명으로 묶여 있는가."""
         if _version(self.mapping, self.profile_yaml, self.ignored, self.proof, self.provenance, self.stats) != self.version:
             return False
-        if self.status == "approved":
-            return self.approval_sig == _sig(self.version, self.approved_by, self.audit)
+        if self.status in ("approved", "partially_approved"):
+            if self.status != _status_of(self.approvals, self.needs_ipc_approval):
+                return False
+            return hmac.compare_digest(self.approval_sig or "", _sig(self.version, self.approved_by, self.audit,
+                                                                     self.approvals, self.status))
         return True
 
-    def approve(self, by: str, acknowledge_profile_questions: bool = False, at: datetime | None = None
-                ) -> "OnboardingPackage":
-        if not by or by not in APPROVER_ROLES:
-            raise OnboardingError(f"승인할 수 있는 역할이 아니다: {by!r} (허용 {sorted(APPROVER_ROLES)})")
+    def approve(self, by: str | None = None, acknowledge_profile_questions: bool = False, at: datetime | None = None,
+                user_id: str | None = None, by_role: str | None = None) -> "OnboardingPackage":
+        """사람 ID(user_id)와 역할(by_role)로 승인한다. 격리·성별 매핑이 있으면 감염관리 책임자(ipc_lead)와 다른 역할의
+        다른 사람이 모두 승인해야 approved, 그 전에는 partially_approved. 같은 사람의 두 번째 승인은 세지 않는다.
+        하위 호환: user_id 없이 역할(by)만 주면 `unidentified:<역할>`로 기록하고 approved로 두되 경고를 남긴다
+        (`approval_complete`는 거짓, DECISIONS 2026-11-09)."""
+        role = by_role or by
+        if not role or role not in APPROVER_ROLES:
+            raise OnboardingError(f"승인할 수 있는 역할이 아니다: {role!r} (허용 {sorted(APPROVER_ROLES)})")
+        legacy = user_id is None
+        if not legacy and not str(user_id).strip():
+            raise OnboardingError("승인자 사람 ID가 비어 있다")
+        uid = f"unidentified:{role}" if legacy else str(user_id).strip()
+        if self.status == "approved":
+            raise OnboardingError("이미 승인된 판이다(바꾸려면 새 판을 만든다)")
         if not self.proof.get("passed"):
             raise OnboardingError(f"재생 증명을 통과하지 못해 승인할 수 없다: {self.proof.get('failures')}")
         if not self.verify():
@@ -87,9 +114,51 @@ class OnboardingPackage:
         if self.profile_questions and not acknowledge_profile_questions:
             raise OnboardingError(f"프로필 질문 {len(self.profile_questions)}개가 남아 있다(답하거나 남은 채 승인함을 명시)")
         when = (at or datetime.now()).isoformat(timespec="seconds")
-        audit = self.audit + ({"event": "approved", "by": by, "at": when, "version": self.version,
-                               "profile_questions_open": len(self.profile_questions)},)
-        return replace(self, status="approved", approved_by=by, audit=audit, approval_sig=_sig(self.version, by, audit))
+        entry = {"event": "approved", "by": role, "user_id": uid, "at": when, "version": self.version,
+                 "profile_questions_open": len(self.profile_questions)}
+        approvals = self.approvals
+        if any(a["user_id"] == uid for a in approvals):
+            entry["counted"] = False  # 같은 사람이 두 역할로 승인하면 한 번으로 친다
+        else:
+            approvals = approvals + ({"role": role, "user_id": uid, "at": when, "legacy": legacy},)
+        needs = self.needs_ipc_approval
+        status = _status_of(approvals, needs)
+        if legacy and not _complete(approvals, needs):
+            entry["warnings"] = ["legacy_single_approval"] + (
+                ["ipc_lead_missing"] if needs and not any(a["role"] == "ipc_lead" for a in approvals) else [])
+        entry["status_after"] = status
+        audit = self.audit + (entry,)
+        approved_by = "+".join(a["role"] for a in approvals)
+        return replace(self, status=status, approved_by=approved_by, audit=audit, approvals=approvals,
+                       approval_sig=_sig(self.version, approved_by, audit, approvals, status))
+
+
+# 이 키가 매핑에 있으면 감염관리 책임자 승인이 필요하다 (격리·성별, 설계 가정)
+_IPC_KEYS = ("precautions", "precaution_status", "organism", "isolation_ordered_by", "gender", "sporicidal",
+             "aerosol_wait_min")
+
+
+def _needs_ipc(mapping) -> bool:
+    keys = {v for t in mapping.tables.values() for v in t.columns.values()} | set(mapping.codes)
+    return any(k.split(".")[-1] in _IPC_KEYS for k in keys)
+
+
+def _complete(approvals, needs_ipc: bool) -> bool:
+    if not approvals:
+        return False
+    if not needs_ipc:
+        return True
+    ipc = {a["user_id"] for a in approvals if a["role"] == "ipc_lead"}
+    others = {a["user_id"] for a in approvals if a["role"] != "ipc_lead"}
+    return any(i != o for i in ipc for o in others)  # 감염관리 책임자와 다른 역할의 다른 사람
+
+
+def _status_of(approvals, needs_ipc: bool) -> str:
+    if not approvals:
+        return "proposed"
+    if _complete(approvals, needs_ipc) or any(a.get("legacy") for a in approvals):
+        return "approved"
+    return "partially_approved"
 
 
 def _version(mapping, profile_yaml, ignored, proof=None, provenance=None, stats=None) -> str:
@@ -100,9 +169,15 @@ def _version(mapping, profile_yaml, ignored, proof=None, provenance=None, stats=
     return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
-def _sig(version, by, audit) -> str:
-    blob = json.dumps({"version": version, "by": by, "audit": list(audit)}, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(blob.encode()).hexdigest()[:16]
+_DEV_APPROVAL_KEY = "turnaround-dev-approval-key"  # 개발·시연용. 운영은 TURNAROUND_APPROVAL_KEY를 쓴다
+
+
+def _sig(version, by, audit, approvals=(), status="approved") -> str:
+    """승인 기록 서명: 키 있는 HMAC-SHA256 (키 없는 해시는 누구나 다시 만들 수 있다)."""
+    key = os.environ.get("TURNAROUND_APPROVAL_KEY") or _DEV_APPROVAL_KEY
+    blob = json.dumps({"version": version, "by": by, "audit": list(audit), "approvals": list(approvals),
+                       "status": status}, sort_keys=True, ensure_ascii=False)
+    return hmac.new(key.encode(), blob.encode(), hashlib.sha256).hexdigest()
 
 
 def _file_sha(*paths) -> str:
