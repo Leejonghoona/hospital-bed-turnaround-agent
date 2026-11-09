@@ -73,6 +73,11 @@ LOCKED_SAFETY_TIERS = {
 }
 
 
+# 안전(격리·동명이인·입력 누락)과 소아 검토는 어떤 병원 설정·승격으로도 자동이 되지 않는다
+SAFETY_REVIEW_LOCKED = frozenset({"isolation", "preemptive_isolation", "isolation_discharge_bed", "same_name_same_ward",
+                                  "missing_input", "pediatric"})
+
+
 class Policy(BaseModel):
     model_config = ConfigDict(frozen=True)
     version: str
@@ -121,6 +126,17 @@ class Policy(BaseModel):
             for a in rule.allowed:
                 if a.startswith("wait") and not rule.companions.get(a):
                     raise ValueError(f"{trig}.{a}: 기다림에는 함께 할 행동(companions)이 있어야 한다")
+        return self
+
+    @model_validator(mode="after")
+    def _safety_review_locked(self):
+        """안전 검토 사유는 병원 프로필이나 승격 기준으로 지울 수 없다 (최고점 루프 1회차 안전 검토 D)."""
+        missing = SAFETY_REVIEW_LOCKED - set(self.review_reasons)
+        if missing:
+            raise ValueError(f"안전 검토 사유 {sorted(missing)}는 빼거나 자동으로 돌릴 수 없다")
+        never_missing = SAFETY_REVIEW_LOCKED - set(self.autonomy_promotion.never)
+        if never_missing:
+            raise ValueError(f"승격 금지 목록에서 {sorted(never_missing)}를 뺄 수 없다")
         return self
 
     @model_validator(mode="after")

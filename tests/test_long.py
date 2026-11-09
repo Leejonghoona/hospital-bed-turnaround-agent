@@ -137,9 +137,12 @@ def test_gateway_fuzzing_never_executes_unsafe_or_double_booked(seed):
                 prop = gw._proposal(pid, store.read())
                 gw.commit(pid, gw.location_version(prop.bed_id), now)
         else:
+            claim = rng.choice([None, ("ipc-1", "ipc")])
+            if claim and rng.random() < 0.5:  # 절반은 감염관리실이 실제로 승인한 기록이 있다
+                gw.approve_safety_exception(case, bed, approver="ipc-1", role="ipc", now=now)
             gw.manual_override(case, bed, actor="u", role="bed_manager", reason="other", now=now,
                                reason_text=rng.choice([None, "사유"]),
-                               safety_exception_by=rng.choice([None, ("ipc-1", "ipc")]))
+                               safety_exception_by=claim)
     ev = store.read()
     assigned = gw._assignments(ev)
     assert len(set(assigned.values())) == len(assigned), "이중 배정"

@@ -315,6 +315,7 @@ def test_manual_override_cannot_break_safety_rule_without_ipc_exception():
     store, gw = make([adm(organism="MTB", gender="M")])
     d = gw.manual_override("A1", "W71-R03-B2", actor="u1", role="bed_manager", reason="patient_request", now=at(12))
     assert d.status == "refused" and "airborne_needs_negative_pressure" in d.reasons
+    gw.approve_safety_exception("A1", "W71-R03-B2", approver="ipc-1", role="ipc", now=at(12, 4))
     d2 = gw.manual_override("A1", "W71-R03-B2", actor="u1", role="bed_manager", reason="clinical", now=at(12, 5),
                             safety_exception_by=("ipc-1", "ipc"))
     assert d2.status == "applied"
@@ -337,6 +338,7 @@ def test_manual_override_cannot_use_occupied_bed_even_with_exception():
     store, gw = make([adm("A1"), adm("A2")])
     _through_to_ward_acceptance(store, gw, "p1", "A1", "W72-R04-B2")
     gw.commit("p1", gw.location_version("W72-R04-B2"), at(10))
+    gw.approve_safety_exception("A2", "W72-R04-B2", approver="ipc-1", role="ipc", now=at(11, 59))
     d = gw.manual_override("A2", "W72-R04-B2", actor="u", role="bed_manager", reason="vip", now=at(12),
                            safety_exception_by=("ipc-1", "ipc"))
     assert d.status == "refused" and "bed_occupied" in d.reasons
@@ -353,6 +355,7 @@ def test_manual_override_cannot_skip_terminal_cleaning_even_with_exception():
                      isolation_order=True, precautions=["contact"], organism="MRSA"),
            ev("D1", "patient_departed", EventType.PATIENT_DEPARTED, at(8), bed_id="W71-R02-B1")]
     store, gw = make(evs)
+    gw.approve_safety_exception("A1", "W71-R02-B1", approver="ipc-1", role="ipc", now=at(8, 59))
     d = gw.manual_override("A1", "W71-R02-B1", actor="u", role="bed_manager", reason="vip", now=at(9),
                            safety_exception_by=("ipc-1", "ipc"))
     assert d.status == "refused" and "precondition_unmet" in d.reasons
@@ -459,6 +462,7 @@ def _mo(gw, case, bed, now, **kw):
 def test_tb_room_sharing_is_forbidden_even_with_ipc_approval():
     census = {"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)}
     store, gw = make([adm(gender="M", organism="MTB")], census=census)
+    gw.approve_safety_exception("A1", "W71-R03-B2", approver="ipc-1", role="ipc", now=at(11))
     d = _mo(gw, "A1", "W71-R03-B2", at(12), safety_exception_by=("ipc-1", "ipc"), reason_text="음압실 없음")
     assert d.status == "refused" and d.tier == "forbidden"
 
@@ -466,6 +470,7 @@ def test_tb_room_sharing_is_forbidden_even_with_ipc_approval():
 def test_same_room_same_name_is_forbidden():
     census = {"W71-R04-B1": census_patient("SYN-C1", name="김가온")}
     store, gw = make([adm(name="김가온")], census=census)
+    gw.approve_safety_exception("A1", "W71-R04-B3", approver="ipc-1", role="ipc", now=at(11))
     d = _mo(gw, "A1", "W71-R04-B3", at(12), safety_exception_by=("ipc-1", "ipc"), reason_text="보호자 요청")
     assert d.status == "refused" and d.tier == "forbidden"
 
@@ -473,6 +478,7 @@ def test_same_room_same_name_is_forbidden():
 def test_airborne_in_single_room_needs_preapproval_and_night_proxy_counts():
     store, gw = make([adm(gender="M", organism="MEASLES")])
     assert _mo(gw, "A1", "W71-R02-B1", at(12), reason_text="급함").tier == "preapproval"
+    gw.approve_safety_exception("A1", "W71-R02-B1", approver="dr-k", role="id_oncall", now=at(1, day=1))
     d = _mo(gw, "A1", "W71-R02-B1", at(2, day=1), safety_exception_by=("dr-k", "id_oncall"))
     assert d.status == "applied"
 
@@ -535,6 +541,7 @@ def test_room_closed_after_approval_blocks_commit():
 
 def test_manual_override_cannot_use_out_of_service_room_even_with_exception():
     store, gw = make([adm(), room_off("W72-R04", "surveillance_hold", at(8), source="human")])
+    gw.approve_safety_exception("A1", "W72-R04-B2", approver="ipc-1", role="ipc", now=at(8))
     d = _mo(gw, "A1", "W72-R04-B2", at(9), safety_exception_by=("ipc-1", "ipc"), reason_text="급함")
     assert d.status == "refused" and d.reasons == ["room_out_of_service"]
 
@@ -618,5 +625,6 @@ def test_gateway_tb_wait_has_60_min_floor_even_with_shorter_hospital_rule():
 def test_gender_room_is_forbidden_by_law_even_with_reason_or_exception():
     """의료법 시행규칙 제35조의2제2호: 입원실은 남녀별로 구별하여 운영 (현행, 단서 없음). DECISIONS 2026-11-09."""
     store, gw = make([adm(gender="F")])
+    gw.approve_safety_exception("A1", "W72-R03-B1", approver="ipc-1", role="ipc", now=at(11))
     d = _mo(gw, "A1", "W72-R03-B1", at(12), reason_text="가족 요청", safety_exception_by=("ipc-1", "ipc"))
     assert d.status == "refused" and d.tier == "forbidden"

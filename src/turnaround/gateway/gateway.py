@@ -668,7 +668,7 @@ class Gateway:
                 if r_other and r_other != room and self.room_by_id[r_other].ward_id == ward and other.name == patient.name:
                     r.append("same_name_same_ward")
                     break
-            if self._isolation_discharge_pending(prop.bed_id, events) is not None:
+            if self._isolation_discharge_pending(prop.bed_id, events) is not None or self._room_terminal_pending(prop.bed_id, events):
                 r.append("isolation_discharge_bed")
         return r
 
@@ -895,7 +895,7 @@ class Gateway:
             d = self._reject_commit(prop, ["room_out_of_service"], now, tag)
             self._notify_if_accepted(prop, events, now, "room_out_of_service")
             return d
-        if self._isolation_discharge_pending(prop.bed_id, events):
+        if self._room_terminal_pending(prop.bed_id, events):  # 병실 단위: 다인실 옆 침상 포함 (최고점 루프 1회차)
             return self._reject_commit(prop, ["precondition_unmet"], now, tag)  # LP-04: 보류, 재분류 아님
         if version != self.location_version(prop.bed_id):
             d = self._reject_commit(prop, ["version_conflict"], now, tag)
@@ -971,6 +971,32 @@ class Gateway:
         self._audit(f"gw:{qid}:query", case, now, "query", qid, d, role=role)
         return d
 
+    # ---------- 안전 예외 사전 승인 (최고점 루프 1회차 안전 검토 A) ----------
+
+    def approve_safety_exception(self, case: str, bed_id: str, approver: str, role: str, now: datetime) -> Decision:
+        """감염관리실(또는 야간 대행)이 특정 환자·병상에 대한 안전 예외를 미리 승인한다. 승인은 기록으로만 인정한다:
+        직접 수정 때 역할 문자열을 주장하는 것으로는 통과하지 않는다."""
+        mo = self.policy.manual_override
+        if role not in mo.safety_exception_roles or not approver:
+            d = Decision("refused", "safety_exception", None, ["role_not_allowed"])
+        elif bed_id not in self.room_of:
+            d = Decision("refused", "safety_exception", None, ["unknown_case_or_bed"])
+        else:
+            self._emit(case, f"gw:se:{case}:{bed_id}:{approver}:{now.isoformat()}", EventType.SAFETY_EXCEPTION_APPROVED,
+                       now, "human", bed_id=bed_id, by=approver, role=role)
+            d = Decision("recorded", "safety_exception")
+        self._audit(f"gw:se:{case}:{bed_id}:{now.isoformat()}:audit", case, now, "safety_exception", bed_id, d,
+                    actor=approver, role=role)
+        return d
+
+    def _safety_exception_recorded(self, case: str, bed_id: str, claim: tuple[str, str] | None, requester: str,
+                                   events: list[Event]) -> bool:
+        if not claim or claim[1] not in self.policy.manual_override.safety_exception_roles or claim[0] == requester:
+            return False
+        return any(e.type is EventType.SAFETY_EXCEPTION_APPROVED and e.case_id == case
+                   and e.payload.get("bed_id") == bed_id and e.payload.get("by") == claim[0]
+                   and e.payload.get("role") == claim[1] for e in events)
+
     # ---------- 관리자 직접 수정 ----------
 
     def manual_override(self, case: str, bed_id: str, actor: str, role: str, reason: str, now: datetime,
@@ -989,8 +1015,8 @@ class Gateway:
         elif bed_id in self._occupants(events, exclude_case=case):
             # 물리 사실(병상 점유)은 누구도, 어떤 예외로도 넘지 못한다
             d = Decision("refused", "override", None, ["bed_occupied"])
-        elif self._isolation_discharge_pending(bed_id, events):
-            d = Decision("refused", "override", None, ["precondition_unmet"])  # 종말소독 완료 전
+        elif self._room_terminal_pending(bed_id, events):
+            d = Decision("refused", "override", None, ["precondition_unmet"])  # 같은 병실 종말소독 완료 전
         elif self._out_of_service(bed_id, events):
             d = Decision("refused", "override", None, ["room_out_of_service"])  # 폐쇄·고장·감시 대기
         elif blocked := self._on_hold(bed_id, events):
@@ -1003,7 +1029,7 @@ class Gateway:
             exception = None
             tier = self._safety_tier(violations, patient) if violations else None
             if violations:
-                approved = bool(safety_exception_by and safety_exception_by[1] in mo.safety_exception_roles)
+                approved = self._safety_exception_recorded(case, bed_id, safety_exception_by, actor, events)
                 ok = (tier == "preapproval" and approved) or (tier == "reason_entry" and (reason_text or approved))
                 if not ok:
                     d = Decision("refused", "override", tier, violations)

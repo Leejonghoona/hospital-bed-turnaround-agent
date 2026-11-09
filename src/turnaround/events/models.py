@@ -74,6 +74,7 @@ class EventType(str, Enum):
     CASE_ROUTED_REVIEW = "case_routed_review"  # 담당 검토 큐로
     MANAGER_CONFIRM_REQUESTED = "manager_confirm_requested"  # 1단계 병동 확인 등급의 담당 확인
     MANAGER_APPROVED = "manager_approved"
+    SAFETY_EXCEPTION_APPROVED = "safety_exception_approved"  # 감염관리실 등 권한자가 낸 안전 예외 사전 승인 (병상 지정)
     WARD_ACCEPTANCE_ASKED = "ward_acceptance_asked"
     WARD_REJECTED = "ward_rejected"  # 책임간호사 수용 불가 회신
     NO_BED_REPORTED = "no_bed_reported"

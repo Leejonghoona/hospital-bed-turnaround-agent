@@ -118,6 +118,8 @@ def apply(policy, unit: str, to: str):
     """정책 사본을 돌려준다. to = auto(승격) | human(강등)."""
     if unit == COMMIT:
         return policy.model_copy(update={"autonomy": {**policy.autonomy, COMMIT: "auto" if to == "auto" else "human"}})
+    if to == "auto" and unit in set(policy.autonomy_promotion.never):
+        raise ValueError(f"{unit}는 승격 금지 유형이라 에이전트에 맡길 수 없다")
     reasons = [r for r in policy.review_reasons if r != unit]
     if to == "human":
         reasons.append(unit)
