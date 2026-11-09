@@ -148,6 +148,9 @@ class PlanningTools:
         held = self.held_beds(events, exclude_case=case)
         load = self._ward_load(events, case)
         state = fold(events)
+        # 양성 결과는 나왔는데 격리 오더가 없음: 막지 않고 1인실·같은 균 코호트를 점수로 우선 (인터뷰 2 Q7)
+        positives = [org for _, _, org, res in state.screening_results.get(case, []) if res == "positive"]
+        unordered = positives if positives and case not in state.isolation_ordered else []
         out = []
         room_ok: dict[str, bool] = {}
         for bed in self.gw.beds:
@@ -161,7 +164,7 @@ class PlanningTools:
             if not room_ok[r]:
                 continue
             ready, disc = self.ready_at(b, events, now, state)
-            sc, parts = self._score(patient, payload, b, ready, now, load)
+            sc, parts = self._score(patient, payload, b, ready, now, load, unordered)
             out.append(Candidate(b, self.score_overrides.get(b, sc), ready, disc, parts))
         return sorted(out, key=lambda c: (-c.score, c.ready_at, c.bed_id))
 
@@ -174,7 +177,7 @@ class PlanningTools:
         return load
 
     def _score(self, p: Patient, payload: dict, bed_id: str, ready: datetime, now: datetime,
-               load: dict[str, int]) -> tuple[float, dict]:
+               load: dict[str, int], positive_unordered: list[str] | None = None) -> tuple[float, dict]:
         w = self.w
         room = self.gw.room_by_id[self.gw.room_of[bed_id]]
         ward = self.wards.get(room.ward_id)
@@ -186,7 +189,9 @@ class PlanningTools:
             parts["negative_pressure_preserve"] = w.negative_pressure_preserve  # LP-18 음압실 보존
         needs_single = bool(p.isolation_order) or payload.get("single_room_reason") not in (None, "preference")
         wants_single = payload.get("single_room_reason") == "preference" or payload.get("wants_single_room")
-        if room.room_type is RoomType.SINGLE:
+        if positive_unordered and (room.room_type is RoomType.SINGLE or room.cohort_key in positive_unordered):
+            parts["positive_unordered_single"] = w.positive_unordered_single
+        elif room.room_type is RoomType.SINGLE:
             if wants_single and not needs_single:
                 parts["single_room_requested"] = w.single_room_requested
             elif not needs_single:

@@ -19,6 +19,8 @@ from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, vacancy_floor
 
+from .isolation import decide_isolation_info
+
 
 class SagaPolicy(BaseModel):
     """타이머 기한. 정책값이며 생성기 분포를 쓰지 않는다."""
@@ -33,11 +35,26 @@ class SagaPolicy(BaseModel):
     bed_ach: dict[str, int] = {}
     removal_pct: float = 99.9
     aerosol_wait_override_min: int | None = None  # 병원 규칙
+    # 격리 정보 (설계 개정 3.7 (가)). 위험 조건이 비어 있으면 알림을 내지 않는다(지금 동작)
+    isolation_risk_conditions: tuple[str, ...] = ()
+    isolation_alert_to: tuple[str, ...] = ("bed_manager", "ipc")
+    isolation_mismatch_after: timedelta = timedelta(minutes=60)  # 설계 가정
 
     @classmethod
     def for_layout(cls, rooms, beds, **kw) -> "SagaPolicy":
         ach = {r.id: r.air_changes_per_hour for r in rooms}
         return cls(bed_ach={b.id: ach[b.room_id] for b in beds}, **kw)
+
+    @classmethod
+    def from_policy(cls, policy, rooms=None, beds=None, **kw) -> "SagaPolicy":
+        """정책 파일의 병원 프로필 값으로 만든다. 프로필 기본값(legacy)이면 지금 SagaPolicy()와 같다."""
+        hp = policy.hospital_profile
+        h, m = (int(x) for x in hp.discharge_sequence.rx_due_at.split(":"))
+        vals = dict(rx_expected_by=time(h, m), isolation_risk_conditions=tuple(hp.isolation.risk_conditions),
+                    isolation_alert_to=tuple(hp.isolation.alert_to),
+                    isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min))
+        vals.update(kw)
+        return cls.for_layout(rooms, beds, **vals) if rooms is not None else cls(**vals)
 
     def aerosol_wait(self, bed_id: str | None, organism: str | None = None) -> int:
         floor = vacancy_floor(organism)  # 결핵 60분 하한 (지침 하한이라 시험용 덮어쓰기보다도 우선)
@@ -143,6 +160,10 @@ class SagaState:
     pins: dict[str, str] = field(default_factory=dict)  # 고정된 입원 사례 → 직접 수정한 사람 (GW-11)
     pin_triggers: list[Event] = field(default_factory=list)  # 고정 뒤 생긴 안전 관련 변화
     confirmed_corrections: set[str] = field(default_factory=set)
+    # 격리 정보 (설계 개정): 사례 → [(이벤트 ID, 인지 시각, 균, 결과)], 사례 → 첫 격리 오더 인지 시각
+    screening_results: dict[str, list[tuple[str, datetime, str, str]]] = field(default_factory=dict)
+    screening_pending: dict[str, int] = field(default_factory=dict)
+    isolation_ordered: dict[str, datetime] = field(default_factory=dict)
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
@@ -187,6 +208,16 @@ def fold(events: Iterable[Event]) -> SagaState:
         if ev.case_id in s.matches and ev.type in _MATCH_TYPES:
             s.matches[ev.case_id].facts.setdefault(ev.type, ev.observed_at)
             continue
+        if ev.type is EventType.SCREENING_RESULT_REPORTED:
+            s.screening_results.setdefault(ev.case_id, []).append(
+                (ev.event_id, ev.observed_at, ev.payload.get("organism", ""), ev.payload.get("result", "")))
+            s.screening_pending[ev.case_id] = max(0, s.screening_pending.get(ev.case_id, 0) - 1)
+            continue
+        if ev.type is EventType.SCREENING_ORDERED:
+            s.screening_pending[ev.case_id] = s.screening_pending.get(ev.case_id, 0) + 1
+            continue
+        if ev.type is EventType.ISOLATION_ORDER_ADDED:
+            s.isolation_ordered.setdefault(ev.case_id, ev.observed_at)  # 퇴원 사례 처리는 아래에서 그대로
         if ev.type in (EventType.ADMISSION_REQUESTED, EventType.ADMISSION_CANCELLED):
             s.admission_facts.setdefault(ev.case_id, {}).setdefault(ev.type, ev.observed_at)
             if ev.type is EventType.ADMISSION_REQUESTED:
@@ -278,6 +309,7 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
         if t.case_id in s.pins:
             out.cmd(t.case_id, f"task:pinned_review:{t.event_id}", EventType.HUMAN_TASK_CREATED, t.observed_at,
                     reason="pinned_placement_review", assignee=s.pins[t.case_id], trigger=t.type.value)
+    decide_isolation_info(s, now, out, policy)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \

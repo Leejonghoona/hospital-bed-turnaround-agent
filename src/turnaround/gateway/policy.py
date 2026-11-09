@@ -41,6 +41,7 @@ class Scoring(BaseModel):
     near_nurse_station_high_risk: float = 10.0
     ward_load_per_pending: float = -3.0
     ready_delay_per_10min: float = -1.0
+    positive_unordered_single: float = 40.0  # 양성 결과·격리 오더 없음: 1인실·같은 균 코호트 우선 (인터뷰 2 Q7, 차단 아님)
     rematch_gain_min: float = 3.0  # 6항 변동 최소: 재매칭은 이득이 이 값을 넘을 때만 (준비 30분 단축)
 
 

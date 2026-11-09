@@ -339,3 +339,17 @@ def test_without_priority_rule_order_is_arrival_order():
     icu = adm("A2", gender="F", dept="일반외과", icu=True, when=at(16, day=-1))
     store, gw = make([early, icu], policy=pol)
     assert agent(gw).tools.pending_admissions(store.read()) == ["A1", "A2"]
+
+
+# ---------- 인터뷰 2 Q7: 양성 결과·격리 오더 없음 → 1인실 점수 우선 (막지 않음) ----------
+
+def test_positive_without_order_prefers_single_room_but_does_not_block():
+    from turnaround.sim.models import RoomType
+    rtype = {b.id: next(r for r in H.rooms if r.id == b.room_id).room_type for b in H.beds}
+    pos = ev("A1", "screen:VRE", EventType.SCREENING_RESULT_REPORTED, at(8), "his", organism="VRE", result="positive")
+    store, gw = make([adm(gender="F", dept="일반외과"), pos])
+    cands = agent(gw).tools.candidates("A1", at(9))
+    assert rtype[cands[0].bed_id] is RoomType.SINGLE and "positive_unordered_single" in cands[0].parts
+    assert any(rtype[c.bed_id] is RoomType.MULTI for c in cands)  # 다인실도 후보에 남는다 (차단 아님)
+    store2, gw2 = make([adm(gender="F", dept="일반외과")])
+    assert rtype[agent(gw2).tools.candidates("A1", at(9))[0].bed_id] is not RoomType.SINGLE
