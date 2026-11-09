@@ -332,13 +332,41 @@ class Gateway:
                        how=choice.action)
         return Decision("executed", "action", autonomy)
 
+    def approve_action(self, exception_id: str, actor: str, now: datetime) -> Decision:
+        """사람 승인이 필요한 행동(propose_rematch 등)을 승인하고 실행한다."""
+        events = self._events()
+        req = next((e for e in events if e.type is EventType.ACTION_APPROVAL_REQUESTED
+                    and e.payload.get("exception_id") == exception_id), None)
+        raised = next((e for e in events if e.type is EventType.EXCEPTION_RAISED
+                       and e.payload.get("exception_id") == exception_id), None)
+        if req is None or raised is None:
+            return Decision("unknown", "action")
+        if any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exception_id for e in events):
+            return Decision("superseded", "action")
+        action = req.payload["action"]
+        prop = next((e for e in events if e.type is EventType.ACTION_PROPOSED
+                     and e.payload.get("exception_id") == exception_id and e.payload.get("action") == action), None)
+        from turnaround.agent.brain import ActionChoice
+        choice = ActionChoice(exception_id=exception_id, trigger=raised.payload["trigger"], case=raised.case_id,
+                              action=action, params=(prop.payload.get("params") if prop else {}) or {},
+                              rationale=(prop.payload.get("rationale") if prop else "") or "",
+                              basis_seq=max((e.seq or 0) for e in events), mode="approved")
+        base = dict(exception_id=exception_id, action=action)
+        self._emit(raised.case_id, f"{exception_id}:approved:{action}", EventType.ACTION_APPROVED, now, "human",
+                   **base, actor=actor)
+        self._execute_action(choice, raised, now)
+        self._emit(raised.case_id, f"{exception_id}:executed", EventType.ACTION_EXECUTED, now, **base, autonomy="human")
+        self._emit(raised.case_id, f"{exception_id}:resolved", EventType.EXCEPTION_RESOLVED, now,
+                   exception_id=exception_id, how=action)
+        return Decision("executed", "action", "human")
+
     def _execute_action(self, choice, raised: Event, now: datetime) -> None:
         exid, case = choice.exception_id, choice.case
         if choice.action == "escalate":
             self._emit(case, f"{exid}:task:escalate", EventType.HUMAN_TASK_CREATED, now, reason="brain_escalate",
                        kind="brain_escalate", assignee=choice.params.get("role", "bed_manager"),
                        trigger=choice.trigger, bed_id=raised.payload.get("bed_id"))
-        elif choice.action == "rematch_now":
+        elif choice.action in ("rematch_now", "propose_rematch"):
             # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
             self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
         elif choice.action == "nudge_order":

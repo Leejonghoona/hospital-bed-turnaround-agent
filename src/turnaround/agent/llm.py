@@ -102,9 +102,16 @@ def _fake_exception_action(ctx: dict) -> dict:
     """가짜 LLM의 예외 행동 결정표 (설계 개정 4.5). 같은 입력에 같은 출력. 실제 모델 평가의 비교선."""
     ex = ctx.get("exception", {})
     allowed = [a["id"] for a in ctx.get("allowed_actions", [])]
+    st0 = ctx.get("case_state") or {}
     if ex.get("stage") in ("after_contact", "after_commit", "after_arrival"):
-        # 목표 함수 2항: 연락·확정·입실 뒤에는 매칭을 스스로 바꾸지 않는다 (트리거와 상관없이)
+        # 목표 함수 2항: 연락·확정·입실 뒤에는 매칭을 스스로 바꾸지 않는다 (트리거와 상관없이).
+        # 다시 찾기는 추천안으로 사람 승인을 받는다 (사용자 검토 XD-028). 입실 뒤는 사람에게
+        if "propose_rematch" in allowed and ex.get("stage") != "after_arrival":
+            return {"action": "propose_rematch", "params": {}, "rationale": "연락 뒤: 다시 찾은 추천안을 사람이 승인, 재연락은 원무"}
         return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "연락 뒤: 사람에게"}
+    if st0.get("scarce_room") and "propose_rematch" in allowed:
+        # 음압실처럼 부족한 자원: 자동으로 잡지 않고 추천안으로 승인 (사용자 검토 XD-007·012)
+        return {"action": "propose_rematch", "params": {}, "rationale": "부족 자원: 추천안을 사람이 승인"}
     trig, st = ex.get("trigger"), ctx.get("case_state") or {}
     if trig == "discharge_order_late" and "nudge_order" in allowed:
         return {"action": "nudge_order", "params": {}, "rationale": "처방 없음: 병동·주치의에게 재촉"}

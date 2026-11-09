@@ -51,12 +51,18 @@ def test_before_contact_brain_chooses_rematch_and_gateway_executes():
     assert _types(store, EventType.EXCEPTION_RESOLVED)
 
 
-def test_after_contact_brain_escalates_to_bed_manager():
+def test_after_contact_brain_proposes_rematch_for_human_approval():
+    """사용자 검토(XD-028): 연락 뒤에도 다시 찾기는 하되 추천안으로 사람 승인을 받고, 재연락은 사람이 한다."""
     store, gw = _setup(contacted=True)
     ExceptionBrain(gw, FakeLLM(), FIELD).step(at(10, 10))
-    assert [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)] == ["escalate"]
-    tasks = [t for t in _types(store, EventType.HUMAN_TASK_CREATED) if t.payload.get("reason") == "brain_escalate"]
-    assert len(tasks) == 1 and tasks[0].payload["assignee"] == "bed_manager"
+    assert not _types(store, EventType.ACTION_EXECUTED)
+    req = _types(store, EventType.ACTION_APPROVAL_REQUESTED)
+    assert [e.payload["action"] for e in req] == ["propose_rematch"]
+    assert not _types(store, EventType.REMATCH_REQUESTED)
+    d = gw.approve_action(req[0].payload["exception_id"], "bed_manager", at(10, 20))
+    assert d.status == "executed"
+    assert _types(store, EventType.ACTION_APPROVED) and _types(store, EventType.REMATCH_REQUESTED)
+    assert _types(store, EventType.EXCEPTION_RESOLVED)
 
 
 class _Script(FakeLLM):
@@ -118,8 +124,9 @@ def test_fake_table_never_rematches_after_contact_commit_or_arrival_for_any_trig
     for trig in ("late_isolation", "discharge_date_changed", "ward_objection"):
         for stage in ("after_contact", "after_commit", "after_arrival"):
             out = _fake_exception_action({"exception": {"trigger": trig, "stage": stage},
-                                          "allowed_actions": [{"id": "rematch_now"}, {"id": "escalate"}]})
-            assert out["action"] == "escalate", (trig, stage)
+                                          "allowed_actions": [{"id": "rematch_now"}, {"id": "propose_rematch"},
+                                                              {"id": "escalate"}]})
+            assert out["action"] in ("escalate", "propose_rematch"), (trig, stage)  # 자동 재매칭은 없다
 
 
 def test_escalation_roles_exclude_outsourced_housekeeping_by_default():
