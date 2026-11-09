@@ -402,7 +402,7 @@ def injection_v2(llm: LLM, limit: int | None = None) -> dict:
             "changed_pairs_valid": changed, "format_error_pairs": fmt, "stopped": stopped}
 
 
-def planning_v2(llm: LLM, limit: int | None = None) -> dict:
+def planning_v2(llm: LLM, limit: int | None = None, shuffle_n: int = 50) -> dict:
     from turnaround.agent.planner import SYSTEM as PLAN_SYSTEM
     from .eval_sets import load
     items = load("planning")[:limit]
@@ -421,8 +421,25 @@ def planning_v2(llm: LLM, limit: int | None = None) -> dict:
         ok = pick in {c["bed_id"] for c in ctx["candidates"]}
         valid += ok
         agree.append(float(ok and pick in it["gold_beds"]))
+    # 불변성 검사: 후보 순서를 섞어도 같은 판단을 하는가 (첫 후보만 고르는 모델을 걸러낸다)
+    shuffled_agree, srng = [], random.Random(0)
+    for it in items[:done][:shuffle_n]:
+        ctx = json.loads(json.dumps(it["context"]))
+        srng.shuffle(ctx["candidates"])
+        try:
+            pick = llm.complete_json("choose_bed", PLAN_SYSTEM, json.dumps(ctx, ensure_ascii=False)).get("bed_id")
+        except BudgetExceeded as e:
+            stopped = str(e)
+            break
+        except LLMError:
+            pick = None
+        shuffled_agree.append(float(pick in it["gold_beds"]))
+    first_pick_agree = statistics.fmean(float(it["context"]["candidates"][0]["bed_id"] in it["gold_beds"])
+                                        for it in items[:done]) if done else None
     return {"n": done, "valid_rate": round(valid / done, 4) if done else None,
             "agree_with_objective": round(statistics.fmean(agree), 4) if agree else None,
+            "agree_when_shuffled": round(statistics.fmean(shuffled_agree), 4) if shuffled_agree else None,
+            "first_candidate_baseline": round(first_pick_agree, 4) if first_pick_agree is not None else None,
             "agree_ci95": _cluster_ci(agree), "stopped": stopped,
             "note": "정답이 점수 함수 1순위라 규칙 모드는 정의상 전부 일치. 이 값은 규칙 대비 손실만 보여 준다"}
 
@@ -447,6 +464,18 @@ def qa_v2(llm: LLM, limit: int | None = None) -> dict:
             "ci95": _cluster_ci(hits), "stopped": stopped}
 
 
+def manifest() -> dict:
+    """세트 파일과 프롬프트의 SHA-256. 결과가 어느 세트·지시문으로 나왔는지 고정한다 (봉인·재현성)."""
+    import hashlib
+
+    from turnaround.agent.planner import SYSTEM as PLAN_SYSTEM
+    from turnaround.agent.qa import SYSTEM as QA_SYSTEM
+    h = lambda b: hashlib.sha256(b).hexdigest()[:16]  # noqa: E731
+    sets = {p.stem: h(p.read_bytes()) for p in sorted((ROOT / "evals" / "model_eval").glob("*.jsonl"))}
+    prompts = {"extract": h(EXTRACT_SYSTEM.encode()), "plan": h(PLAN_SYSTEM.encode()), "qa": h(QA_SYSTEM.encode())}
+    return {"sets": sets, "prompts": prompts}
+
+
 def check_v2(spec: str, max_usd: float, parts: tuple[str, ...] = ("injection", "qa", "planning", "extraction"),
              limit: int | None = None) -> dict:
     """비용 상한 안에서 v2 세트를 잰다. 싸고 관문에 가까운 것부터 잰다(인젝션 → 질의 → 계획 → 추출)."""
@@ -455,7 +484,8 @@ def check_v2(spec: str, max_usd: float, parts: tuple[str, ...] = ("injection", "
         return {"model": spec, "note": "규칙 모드: 계획 일치율 1.0(정의상), 추출·질의 없음"}
     price = _price(spec)
     llm = Budgeted(Recorder(base), price, max_usd)
-    out: dict = {"model": spec, "date": date.today().isoformat(), "max_usd": max_usd, "suite": "v2"}
+    out: dict = {"model": spec, "date": date.today().isoformat(), "max_usd": max_usd, "suite": "v2",
+                 "manifest": manifest()}
     fn = {"injection": injection_v2, "qa": qa_v2, "planning": planning_v2, "extraction": extraction_v2}
     for p in parts:
         t0 = time.monotonic()

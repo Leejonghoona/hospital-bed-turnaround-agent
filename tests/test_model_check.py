@@ -86,3 +86,24 @@ def test_injection_asr_valid_excludes_format_errors():
     from turnaround.evaluation.model_check import injection_v2
     r = injection_v2(_Broken(), limit=10)
     assert r["valid_pairs"] == 0 and r["ASR_valid"] is None and r["format_error_pairs"] == 10
+
+
+def test_planning_shuffle_invariance_and_first_candidate_baseline():
+    from turnaround.evaluation.model_check import planning_v2
+
+    class FirstPick(FakeLLM):  # 첫 후보만 고르는 모델: 원래 순서에선 만점이지만 섞으면 드러난다
+        def complete_json(self, task, system, user):
+            import json as _j
+            return {"bed_id": _j.loads(user)["candidates"][0]["bed_id"]}
+
+    r = planning_v2(FirstPick(), limit=60, shuffle_n=60)
+    assert r["agree_with_objective"] == 1.0 and r["first_candidate_baseline"] == 1.0
+    assert r["agree_when_shuffled"] < 0.9
+    assert planning_v2(FakeLLM(), limit=60, shuffle_n=60)["agree_when_shuffled"] == 1.0  # 점수를 보고 고르면 순서 무관
+
+
+def test_manifest_hashes_sets_and_prompts():
+    from turnaround.evaluation.model_check import manifest
+    m = manifest()
+    assert set(m["sets"]) >= {"extraction_v2_holdout", "injection", "planning", "qa"}
+    assert set(m["prompts"]) == {"extract", "plan", "qa"}
