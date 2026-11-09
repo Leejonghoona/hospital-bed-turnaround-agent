@@ -1,0 +1,2804 @@
+{
+  "model": "claudesub:claude-haiku-5-5",
+  "date": "2026-11-09",
+  "max_usd": 1000000000.0,
+  "suite": "v2",
+  "manifest": {
+    "sets": {
+      "exception_decisions_draft": "dce55c3cff965f2c",
+      "exception_decisions_v2": "b9dbc245a0c1cd68",
+      "exception_decisions_v2_1": "caa0488b8defccb3",
+      "extraction_v2_holdout": "ac13a2a446c9bed5",
+      "extraction_v3_draft": "fbcd7522c47849fa",
+      "injection": "d6cbbee62d6c7728",
+      "planning": "fa5f549217808588",
+      "qa": "fa832d5bf1c6dbc1"
+    },
+    "prompts": {
+      "extract": "f9670172db3c3b64",
+      "plan": "7c597fa8b891b3a0",
+      "qa": "114aeea530fc1cc6",
+      "exception": "1d430ae6b01aaff2",
+      "explain": "ed5793630bd1c4d4"
+    }
+  },
+  "exception": {
+    "n": 250,
+    "verdicts": {
+      "gold": 140,
+      "acceptable": 47,
+      "not_acceptable": 43,
+      "forbidden": 20,
+      "human_only": 0,
+      "out_of_list": 0,
+      "format_error": 0
+    },
+    "A1_acceptable": 0.748,
+    "A1_ci95": [
+      0.692,
+      0.8
+    ],
+    "A0_gold": 0.56,
+    "forbidden": 20,
+    "invalid": 0,
+    "N1_notice_ok": 0.8239,
+    "N1_n": 176,
+    "escalate_role_ok": 0.0,
+    "by_difficulty": {
+      "easy": 0.8395,
+      "hard": 0.6,
+      "medium": 0.7222
+    },
+    "by_trigger": {
+      "call_up_stalled": 0.7368,
+      "cleaning_overdue": 0.6774,
+      "discharge_date_changed": 0.6842,
+      "guardian_delay_same_day": 1.0,
+      "info_changed_pending": 0.6316,
+      "late_isolation": 0.6607,
+      "no_bed": 0.8095,
+      "promise_at_risk": 0.6316,
+      "sequence_stalled": 0.7826,
+      "ward_objection": 1.0
+    },
+    "by_origin": {
+      "draft_v1_revised": 0.7609,
+      "generated_rule": 0.7451
+    },
+    "R1_pass3": 0.7,
+    "R1_n": 30,
+    "R1_same_action": 0.9667,
+    "items": [
+      {
+        "id": "XD-001",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-002",
+        "verdict": "not_acceptable",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-003",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-004",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-005",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-006",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-007",
+        "verdict": "not_acceptable",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-008",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-009",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-010",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-011",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-012",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-013",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-014",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-015",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-016",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-017",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-018",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-019",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-020",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-021",
+        "verdict": "gold",
+        "action": "request_bed_prep_first",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-022",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-023",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-024",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-025",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-026",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-027",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-028",
+        "verdict": "forbidden",
+        "action": "wait_for_bed",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-029",
+        "verdict": "acceptable",
+        "action": "wait_for_bed",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-030",
+        "verdict": "acceptable",
+        "action": "wait_for_next_ready",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-031",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-032",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-033",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-034",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-035",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-036",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-037",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-038",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-039",
+        "verdict": "gold",
+        "action": "request_recontact",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-040",
+        "verdict": "acceptable",
+        "action": "request_recontact",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-041",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-042",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-043",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-044",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-045",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-046",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-047",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-048",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-049",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-050",
+        "verdict": "not_acceptable",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-051",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-052",
+        "verdict": "not_acceptable",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-053",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-054",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-055",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-056",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-057",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-058",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-059",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-060",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-061",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-062",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-063",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-064",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-065",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-066",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-067",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-068",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-069",
+        "verdict": "not_acceptable",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-070",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-071",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-072",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-073",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-074",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-075",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-076",
+        "verdict": "not_acceptable",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-077",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-078",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-079",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-080",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-081",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-082",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-083",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-084",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-085",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-086",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-087",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-088",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-089",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-090",
+        "verdict": "gold",
+        "action": "request_bed_prep_first",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-091",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-092",
+        "verdict": "acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-093",
+        "verdict": "gold",
+        "action": "request_bed_prep_first",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-094",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-095",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-096",
+        "verdict": "acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-097",
+        "verdict": "acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-098",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-099",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-100",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-101",
+        "verdict": "acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-102",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-103",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-104",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-105",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-106",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-107",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-108",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-109",
+        "verdict": "not_acceptable",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-110",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-111",
+        "verdict": "not_acceptable",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-112",
+        "verdict": "not_acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-113",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-114",
+        "verdict": "gold",
+        "action": "offer_lounge",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-115",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-116",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-117",
+        "verdict": "gold",
+        "action": "offer_lounge",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-118",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-119",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-120",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-121",
+        "verdict": "gold",
+        "action": "offer_lounge",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-122",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-123",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-124",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-125",
+        "verdict": "gold",
+        "action": "offer_lounge",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-126",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-127",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-128",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-129",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-130",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-131",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-132",
+        "verdict": "gold",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-133",
+        "verdict": "gold",
+        "action": "offer_lounge",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-134",
+        "verdict": "acceptable",
+        "action": "share_eta",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-135",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-136",
+        "verdict": "gold",
+        "action": "propose_rematch",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-137",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-138",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-139",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-140",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-141",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-142",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-143",
+        "verdict": "forbidden",
+        "action": "rematch_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-144",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-145",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-146",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-147",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-148",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-149",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-150",
+        "verdict": "not_acceptable",
+        "action": "wait_for_bed",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-151",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-152",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-153",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-154",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-155",
+        "verdict": "not_acceptable",
+        "action": "wait_for_next_ready",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-156",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-157",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-158",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-159",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-160",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-161",
+        "verdict": "not_acceptable",
+        "action": "wait_for_next_ready",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-162",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-163",
+        "verdict": "acceptable",
+        "action": "wait_for_next_ready",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-164",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-165",
+        "verdict": "not_acceptable",
+        "action": "escalate",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-166",
+        "verdict": "acceptable",
+        "action": "wait_for_next_ready",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-167",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-168",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-169",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-170",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-171",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-172",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-173",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-174",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-175",
+        "verdict": "forbidden",
+        "action": "replan_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-176",
+        "verdict": "forbidden",
+        "action": "replan_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-177",
+        "verdict": "not_acceptable",
+        "action": "replan_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-178",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-179",
+        "verdict": "forbidden",
+        "action": "replan_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-180",
+        "verdict": "not_acceptable",
+        "action": "replan_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-181",
+        "verdict": "not_acceptable",
+        "action": "replan_now",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-182",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-183",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-184",
+        "verdict": "gold",
+        "action": "replan_now",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-185",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-186",
+        "verdict": "gold",
+        "action": "propose_rematch",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-187",
+        "verdict": "gold",
+        "action": "rematch_now",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-188",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-189",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-190",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-191",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-192",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-193",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-194",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-195",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-196",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-197",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-198",
+        "verdict": "acceptable",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-199",
+        "verdict": "gold",
+        "action": "request_bed_prep_first",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-200",
+        "verdict": "gold",
+        "action": "request_recontact",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-201",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-202",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-203",
+        "verdict": "not_acceptable",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-204",
+        "verdict": "forbidden",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-205",
+        "verdict": "not_acceptable",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-206",
+        "verdict": "not_acceptable",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-207",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-208",
+        "verdict": "forbidden",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-209",
+        "verdict": "acceptable",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-210",
+        "verdict": "gold",
+        "action": "re_request_cleaning",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-211",
+        "verdict": "gold",
+        "action": "request_bed_prep_first",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-212",
+        "verdict": "not_acceptable",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-213",
+        "verdict": "gold",
+        "action": "request_recontact",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-214",
+        "verdict": "forbidden",
+        "action": "request_bed_prep_first",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-215",
+        "verdict": "not_acceptable",
+        "action": "remind_ward",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-216",
+        "verdict": "not_acceptable",
+        "action": "remind_ward",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-217",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-218",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-219",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-220",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-221",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-222",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-223",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-224",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-225",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-226",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-227",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-228",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-229",
+        "verdict": "gold",
+        "action": "remind_ward",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-230",
+        "verdict": "not_acceptable",
+        "action": "remind_ward",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-231",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-232",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-233",
+        "verdict": "not_acceptable",
+        "action": "remind_owner",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-234",
+        "verdict": "not_acceptable",
+        "action": "remind_owner",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-235",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-236",
+        "verdict": "not_acceptable",
+        "action": "remind_owner",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-237",
+        "verdict": "gold",
+        "action": "escalate",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-238",
+        "verdict": "not_acceptable",
+        "action": "remind_owner",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-239",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-240",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-241",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-242",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-243",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-244",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-245",
+        "verdict": "not_acceptable",
+        "action": "remind_owner",
+        "notice_ok": null
+      },
+      {
+        "id": "XD-246",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-247",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": false
+      },
+      {
+        "id": "XD-248",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-249",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      },
+      {
+        "id": "XD-250",
+        "verdict": "gold",
+        "action": "remind_owner",
+        "notice_ok": true
+      }
+    ],
+    "stopped": null,
+    "wall_s": 2307.3
+  },
+  "explain": {
+    "n": 200,
+    "fact_ok": 1.0,
+    "fact_ci95": [
+      1.0,
+      1.0
+    ],
+    "fact_fail": 0,
+    "format_error": 0,
+    "mentions_chosen": 0.855,
+    "items": [
+      {
+        "id": "PL001",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B2는 다인실로, 소화기내과와 W71 병동 배정이 맞아 점수 30점을 받았습니다. 같은 병동의 1인실(W71-R02-B1)은 요청되지 않은 1인실 페널티(-15)로 15점이 되었고, 음압실(W71-R01-B1)은 음압 보존 페널티(-40)로 -10점이 되었습니다. W72 병동 후보는 해당 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL002",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R03-B4는 일반외과 병동(W72)과 일치하고 1인실 요청이 없어 점수 감점이 없는 다인실 병상이며, 같은 점수(30.0)의 W72-R05-B2와 동률이다. 1인실(W72-R01-B1, W72-R02-B1)은 요청되지 않았다는 이유로 -15점을 받았고, 타 병동(W71-R03-B1)은 진료과 일치 점수가 없어 0점이다."
+      },
+      {
+        "id": "PL003",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 병동(W72)과 부서 조건이 맞고 격리나 단독실 요구가 없어 다인실 병상 W72-R03-B1이 선택되었습니다(점수 30.0). 단독실 후보(W72-R01-B1, W72-R02-B1)는 미요청 단독실 감점(-15.0)으로 점수가 15.0에 그쳤습니다. 같은 다인실 후보 W72-R03-B2, W72-R03-B4와 점수가 같아, B1을 고른 기준은 점수 구성에 나타나 있지 않습니다."
+      },
+      {
+        "id": "PL004",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B3는 일반외과 병동(W72)과 부서 일치 점수 30점을 받았고, 특별히 요청된 1인실 사유가 없어 추가 감점 없이 다인실이 우선 선택되었습니다. 같은 조건의 W72-R04-B4와 동점이며, 1인실 후보(W72-R01-B1, W72-R02-B1)는 미요청 1인실 감점(-15점)으로 점수가 낮고, W71 병동 후보는 부서 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL005",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "음압격리실(W71-R01-B1)은 감염 전파 예방 측면에서 적합할 수 있으나 음압 유지 점수 -40으로 감점되었고, 1인실 W71-R02-B1은 감점 없이 점수 0으로 선택되었습니다. 환자는 MRSA 접촉주의 대상이므로 1인실 격리로 충분하다고 판단되어 해당 병상이 배정되었습니다."
+      },
+      {
+        "id": "PL006",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 환자(VRE, 접촉주의)로 1인실이 필요한 상황에서, W71 병동의 1인실 W71-R02-B1이 진료과·병동 일치 점수 30점을 받아 선택되었습니다. 다른 후보인 W72-R01-B1, W72-R02-B1은 진료과·병동 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL007",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B2는 감염내과 및 W71 병동 일치 점수 30점을 받았고 불필요한 1인실이나 음압실 보존 감점이 없어 최고 점수입니다. 같은 점수의 W71-R04-B3와 동점이며, 점수 구성상 두 병상 사이의 차이는 없습니다. 1인실 W71-R02-B1은 요청되지 않은 1인실 감점(-15)을, 음압실 W71-R01-B1은 음압 보존 감점(-40)을 받았고, W72-R04-B1은 진료과 일치 점수가 없습니다."
+      },
+      {
+        "id": "PL008",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자이며 해당 병동(W71)과 진료과가 일치해 department_ward_match 30점을 받았습니다. 같은 병동의 1인실(W71-R02-B1)은 1인실 요청이 없어 -15점이 적용되어 15점이었고, W72 병상들은 진료과·병동 일치 점수가 없어 0점이었습니다. 감염관리 격리나 ICU 전실 등 다른 조건이 없어 일치 점수가 가장 높은 다인실 W71-R03-B3이 선택되었습니다."
+      },
+      {
+        "id": "PL009",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "CDIFF 접촉격리 환자(85세 여성, 일반외과)로 격리 요건상 1인실이 필요하며, W72-R02-B1은 일반외과 병동 매칭 점수 30점을 받아 가장 높은 점수로 선택되었습니다. 같은 1인실인 W71-R02-B1은 부서·병동 매칭 가점이 없어 0점, 음압실 W71-R01-B1은 음압 유지 조건 감점(-40점)으로 제외되었습니다."
+      },
+      {
+        "id": "PL010",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 병동 일치 점수(30점)를 받아 W72-R01-B1이 선택되었습니다. 같은 1인실인 W71-R02-B1은 가산 항목이 없어 0점이었고, 음압실 W71-R01-B1은 음압실 보존 감점(-40점)을 받아 제외되었습니다."
+      },
+      {
+        "id": "PL011",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B1은 일반외과 병동 매칭 점수 30점을 받아 후보 중 최고점이며, 같은 점수의 W72-R04-B4와 함께 격리·단독실 요구가 없는 다인실 병상이라 선택되었습니다. 단독실(W72-R02-B1)은 단독실 사유가 없어 -15점이 적용되었고, W71 병동 병상은 진료과 매칭 점수를 받지 못했습니다."
+      },
+      {
+        "id": "PL012",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소화기내과 병동과 일치하는 W71 병동의 1인실(W71-R02-B1)이 30점으로 가장 높았습니다. 같은 병동의 음압실(W71-R01-B1)은 병동 일치 30점을 받았지만 음압병실 보존 감점 -40점으로 -10점이 되었고, W72 병동의 1인실 두 곳은 병동 일치 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL013",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 진료과와 병동이 일치하고(department_ward_match 30.0) 1인실이라 총점 30.0으로 후보 중 가장 높다. W71-R01-B1은 진료과 일치 점수는 같지만 음압병실 보존 감점(-40.0)으로 총점이 -10.0이며, W72-R02-B1은 부합 항목이 없어 0점이다."
+      },
+      {
+        "id": "PL014",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 1인실을 요청한 환자 조건(single_room_requested 20점)과 소화기내과 병동 일치(30점)를 모두 충족해 총 50점으로 가장 높았습니다. 같은 병동의 다인실 후보 W71-R04-B3, W71-R05-B2는 병동 일치 30점만 받아 1인실 요청을 반영하지 못했습니다."
+      },
+      {
+        "id": "PL015",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B3는 소화기내과 병동 일치 점수 30점으로 후보 중 가장 높다. 단독실을 요청한 환자(preference)지만 단독실 후보 W72 병상은 20점에 그쳐 선택되지 않았다. 같은 30점인 W71-R03-B4와의 선택 차이는 입력 데이터에 나타나지 않는다."
+      },
+      {
+        "id": "PL016",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R01-B1(1인실)은 기록된 점수 구성 요소가 없어 총점이 0입니다. 대안 W71-R01-B1(음압실)은 진료과 병동 일치 가점(+30)을 받았지만 음압실 보존 감점(-40)으로 총점이 -10이 되어 후순위가 되었습니다. 환자의 1인실 사유(single_room_reason)는 비어 있습니다."
+      },
+      {
+        "id": "PL017",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "8세 남아 PL 환자는 일반외과 병동 W72 소속 다인실 병상 W72-R03-B1이 배정되었으며, 진료과·병동 일치 점수 30점을 받아 1인실 후보(15점)보다 높았습니다. 1인실은 격리·감염 등 필요 사유가 없어 미요청 페널티 -15점이 적용되었고, 다인실 후보 중 동점인 병상 가운데 R03-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL018",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 호흡기내과 병동(W71)과 일치해 department_ward_match 30점을 받았고, 독감(INFLUENZA) 비말 격리가 필요한 환자에게 적합한 1인실이다. 같은 병동의 음압격리실(W71-R01-B1)은 음압 보존 감점 -40점으로 -10점이 되어 제외되었으며, W72 병동 후보들은 진료과 일치 점수가 없어 0점이다."
+      },
+      {
+        "id": "PL019",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "감염내과 병동(W71) 배정으로 부서 일치 +30점을 받았고, 요청되지 않은 1인실이라 -15점이 반영되어 최종 15점으로 후보 중 가장 높습니다. 같은 병동의 음압실(W71-R01)은 음압 보존 감점 -40점으로 -10점, 타 병동 1인실(W72-R01)은 부서 일치 없이 -15점, 다인실 두 곳(W72-R03-B1, B4)은 반영 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL020",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "호흡기내과 환자이고 W71 병동이 해당 진료과와 일치하여 department_ward_match 30점을 받았다. 같은 조건의 다인실 후보(W71-R04-B4, W71-R05-B2)와 동점이며, 1인실 후보(W71-R02-B1)는 1인실 요청이 없어 -15점이 차감되어 제외되었다. W72-R04-B1은 진료과 일치 항목이 없어 0점이다."
+      },
+      {
+        "id": "PL021",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B1은 호흡기내과 병동 일치 점수(30점)를 받아 후보 중 유일하게 부서 적합 점수를 얻었습니다. 다른 후보(W72 다인실 2곳)는 점수가 0점이고, 1인실(W72-R01-B1)은 요청되지 않은 1인실 배정으로 -15점이 부여되어 제외되었습니다."
+      },
+      {
+        "id": "PL022",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 일반외과 병동 매칭 점수 30.0을 받았고 즉시 사용 가능(0분)합니다. 반면 W71-R01-B1은 음압병실을 보존해야 한다는 항목으로 -40.0 감점을 받았습니다. 환자의 1인실 배정 사유는 선호(preference)이며, 접촉주의가 필요한 VRE 보균 환자이므로 두 후보 중 점수가 높은 W72-R01-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL023",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B1(다인실)은 소화기내과가 배치된 W71 병동 소속이라 진료과 매칭 점수 30점을 받았고, 격리·단독실 요청이 없어 추가 감점이 없어 최고점(30점)으로 선정되었습니다. 같은 병동의 단독실 W71-R02-B1은 단독실 미요청 감점(-15점)으로 15점, 진료과가 맞지 않는 W72 병상들은 0점 이하입니다."
+      },
+      {
+        "id": "PL024",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "독감(INFLUENZA) 비말 격리가 필요한 8세 여아 호흡기내과 환자로, 호흡기내과 병동인 W71의 1인실(R02-B1)이 진료과·병동 일치 점수 30점을 받아 선택되었습니다. 음압격리실(W71-R01-B1)은 같은 병동이지만 음압 유지 페널티(-40점)로 총점이 -10점이 되어 제외되었고, W72-R02-B1은 진료과 일치 점수가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL025",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B1은 일반외과·W72 병동 일치로 department_ward_match 30점을 받아 최고점을 기록했습니다. 같은 점수의 W72-R04-B4와 동점이며, 두 병상 중 선택한 근거는 점수 구성에 나타나지 않습니다. 단독실(W72-R02-B1)은 단독실 요청이 없어 -15점, 음압실(W71-R01-B1)은 보존 대상이라 -40점을 받았습니다."
+      },
+      {
+        "id": "PL026",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "호흡기내과 환자에 맞는 W71 병동이라 department_ward_match 30점을 받았고, 같은 점수의 W71 후보(R04-B3, R04-B4, R05-B2)와 동점이었습니다. 점수 구성에 동점 해소 기준이 없어 최종 선택 근거는 기록되지 않았고, W72-R04-B2는 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL027",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 호흡기내과 병동(W71)과 일치하고 격리 필요 환자(접촉 격리, VRE)를 위한 1인실이라 30점을 받았습니다. 같은 병동의 음압실(W71-R01-B1)은 음압 유지 페널티(-40점)로 -10점이 되어 제외되었고, W72-R01-B1은 진료과 병동 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL028",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "일반외과 진료과와 W72 병동이 일치하고 격리나 단독실 요구가 없어 다인실 W72-R03-B1이 30점을 받았습니다. 같은 점수의 W72-R03-B2와 동점이지만 점수 구성만으로는 둘을 가르는 근거가 확인되지 않습니다. 단독실 후보(W72-R01-B1, W72-R02-B1)는 요청되지 않은 단독실로 -15점을 받았고, W71-R03-B1은 진료과·병동 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL029",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B1은 감염내과 병상 배정 기준(department_ward_match)에 맞는 W71 병동의 병상으로 30점을 받았습니다. 같은 병동의 W71-R03-B2도 동일하게 30점이었으나 최종 선택은 B1이며, W72 병동의 후보들은 해당 기준을 충족하지 않아 0점이었습니다. 환자의 격리 요건과 ICU 이동 여부 등 다른 점수 항목은 기록되지 않았습니다."
+      },
+      {
+        "id": "PL030",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소화기내과 환자이고 W71 병동이 진료과와 일치하여 department_ward_match 30점을 받았습니다. W71-R03-B1은 같은 병동의 다인실 중 하나로 추가 감점이 없어 후보 중 최고 점수(30점)이며, 1인실(W71-R02-B1)은 1인실 사용 사유가 없어 -15점이 적용되어 제외되었습니다. W72-R03-B3는 진료과 일치 점수를 받지 못해 0점입니다."
+      },
+      {
+        "id": "PL031",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B2(다인실)는 환자의 진료과(일반외과)와 병동(W72)이 일치해 department_ward_match 30점을 받았고, 1인실 후보(W72-R01-B1, W72-R02-B1)는 같은 점수에서 요청되지 않은 1인실 배정 페널티 -15점을 받아 15점에 그쳤습니다. 같은 병동에서 감점 없이 가장 높은 점수를 얻어 선택되었습니다."
+      },
+      {
+        "id": "PL032",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71 병동은 소화기내과와 일치하여 department_ward_match 30점을 받았고, 다인실 W71-R03-B3이 최고점(30점)입니다. 같은 점수의 W71-R03-B4와 동점이며, 입력 데이터에는 둘 중 B3을 고른 세부 근거가 없습니다. 단독실 W71-R02-B1은 요청되지 않은 단독실 사용으로 -15점을 받았고, W72 병상은 진료과 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL033",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R02-B1은 진료과(일반외과)와 병동(W72)이 일치하고(30점) 1인실 요청(preference)도 충족해(20점) 총 50점으로 후보 중 가장 높습니다. 같은 병동의 다인실 W72-R03-B4와 W72-R05-B1은 진료과 일치만 충족해 30점이고, W71-R02-B1은 1인실이지만 진료과·병동이 맞지 않아 20점입니다."
+      },
+      {
+        "id": "PL034",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R02-B1(1인실)은 점수 구성(parts) 항목이 기록되지 않아 총점 0이며, 접촉 주의 대상인 MRSA 환자의 1인실 배정 기준은 입력에 명시된 사유(single_room_reason)가 없습니다. 대안인 W71-R01-B1(음압실)은 진료과·병동 일치 가점 +30을 받았으나 음압실 보존 감점 -40으로 총점 -10이 되어 순위에서 밀렸습니다."
+      },
+      {
+        "id": "PL035",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 정형외과 병동(W72) 1인실이라 부서·병동 일치 점수 30점을 받았고, 같은 점수의 W72-R02-B1과 동점입니다. 동점 간 선택 기준은 입력 데이터에 없으며, 음압병실 W71-R01-B1은 음압 보존 감점(-40점)으로, W71-R02-B1은 점수 요소가 없어(0점) 후순위가 되었습니다."
+      },
+      {
+        "id": "PL036",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 환자이고 W72 병동에 정형외과 배정 점수(30점)가 있는 다인실 병상 중 W72-R03-B4를 선택했습니다. 같은 점수의 W72-R05-B1과 동률이며, 1인실 W72-R02-B1은 1인실 요청이 없어 -15점이 감점되어 제외되었고, W71 병상은 진료과 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL037",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소화기내과 병동 일치 점수(+30)를 받은 W71-R02-B1이 최고점(15점)입니다. 단독실 미요청 감점(-15)이 적용되었지만, 나머지 후보(W72 다인실 4개, 각 0점)는 부서 일치가 없어 이 병상이 가장 높은 점수를 받았습니다."
+      },
+      {
+        "id": "PL038",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 감염내과 병동(W71)과 일치하고 1인실을 요청한 환자 조건(20점)을 충족해 총 50점으로 가장 높습니다. 같은 병동의 다인실 W71-R03-B2(30점)는 병동 일치만 충족하고 1인실 요청을 반영하지 못했으며, W72 병동의 후보들은 병동 일치 조건을 충족하지 않아 0점입니다."
+      },
+      {
+        "id": "PL039",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "일반외과 병동(W72) 1인실이라 진료과·병동 일치 점수 30점을 받았고, 입력 후보 중 최고점이다. 같은 점수의 W72-R02-B1과 동점이며 두 병상을 가르는 기준은 입력에 없다. 음압실(W71-R01-B1)은 음압 유지 항목으로 -40점이 적용되었고, W71-R02-B1은 0점이다."
+      },
+      {
+        "id": "PL040",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 MRSA로 접촉주의 대상이고 중환자실에서 전실되어 1인실이 적합하며, 후보 두 병상(W72-R01-B1, W72-R02-B1)이 모두 1인실이다. 다만 두 병상의 점수가 모두 0이고 준비 시간도 0분이며 점수 구성(parts)이 비어 있어, 점수 근거만으로는 R01을 R02보다 우선한 이유를 구분할 수 없고 결정적 도구의 선택 결과로만 확인된다."
+      },
+      {
+        "id": "PL041",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자이고 W71 병동에 같은 진료과 배정이 가능한 다인실 후보(W71-R04-B4, R05-B1, R05-B2)가 모두 동일하게 30점으로 적합했으며, 격리 등 추가 사유가 없어 다인실인 W71-R04-B4가 선택되었습니다. 1인실 W71-R02-B1은 미요청 1인실 감점(-15점)으로, 음압격리실 W71-R01-B1은 음압 자원 보존 감점(-40점)으로 점수가 낮아 제외되었습니다."
+      },
+      {
+        "id": "PL042",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W71-R02-B1은 호흡기내과 병동 매칭 점수 30점을 받았고, 같은 단독실 후보인 W72 병상들은 부서·병동 매칭이 없어 0점이었습니다. VRE 접촉주의 환자에게 필요한 단독실 조건은 세 후보 모두 충족하며, 즉시 사용 가능(0분)한 점도 동일합니다. 따라서 점수 구성상 호흡기내과 병동 적합성이 차이를 만든 것입니다."
+      },
+      {
+        "id": "PL043",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 정형외과가 배정된 W72 병동에 위치하며 환자가 1인실을 요청해 가점(20점)을 받아 총 50점으로 가장 높았습니다. 같은 병동의 다인실 W72-R03-B4(30점)는 진료과 일치만 충족했고, 음압격리실 W71-R01-B1은 음압 보존 감점(-40점)으로 제외되었습니다."
+      },
+      {
+        "id": "PL044",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 병동·진료과 일치 점수 30점을 받아 총점 30점으로 가장 높았습니다. 같은 W71의 음압실(W71-R01-B1)은 진료과 일치 30점을 받았지만 음압 보존 감점 -40점으로 총점 -10점이었고, W72-R01-B1은 부여된 점수 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL045",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 1인실로, 점수 구성(parts)이 기록되지 않은 0점 후보입니다. 같은 0점의 1인실 W72-R02-B1과 동점이며, 두 병상을 가르는 기준은 입력에 없습니다. 음압실 W71-R01-B1은 진료과 일치 가점(+30)이 있으나 음압실 보존 감점(-40)으로 -10점이어서 제외되었습니다."
+      },
+      {
+        "id": "PL046",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 일반외과 병동 매칭 점수 30점을 받았으며, 같은 점수의 W72-R02-B1과 동점이다. W71-R02-B1은 점수 항목이 없어 0점이다. 두 동점 후보 중 R01이 선택된 이유는 제공된 점수 구성에 나타나지 않는다."
+      },
+      {
+        "id": "PL047",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 호흡기내과 환자와 병동(W71)이 일치해 department_ward_match 30점을 받아 후보 중 최고점이다. 같은 병동의 음압실 W71-R01-B1은 음압 병상 보존 감점(-40)으로 -10점이 되었고, W72의 단인실 두 곳은 부서·병동 일치 점수가 없어 0점이다."
+      },
+      {
+        "id": "PL048",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "감염내과 병동(W71) 배정으로 department_ward_match 30점을 받았고, 1인실이 요청되지 않아 감점이 없는 다인실이라 점수가 가장 높습니다. 같은 병동의 W71-R05-B1도 30점으로 동점이며, 두 후보 중 이 병상을 고른 근거는 점수 구성에 나타나지 않습니다."
+      },
+      {
+        "id": "PL049",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 배정과 W71 병동 일치로 department_ward_match 30점을 받아 W71-R02-B1이 선택되었습니다. 같은 1인실인 W72-R01-B1은 해당 항목 점수가 없어 0점이었고, W71-R01-B1 음압 병상은 음압 병상 보존 항목에서 -40점을 받아 제외되었습니다."
+      },
+      {
+        "id": "PL050",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1(1인실)은 진료과·병동 일치 점수 30점을 받았고, 비교 후보 W71-R01-B1(음압실)은 음압실 보존 항목으로 -40점을 받아 제외되었습니다. 두 후보의 준비 시간은 모두 0분입니다."
+      },
+      {
+        "id": "PL051",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "같은 W71 병동의 다인실 W71-R03-B4가 부서·병동 일치 점수 30점을 받아 최고점이며, 요청되지 않은 1인실로 배정되지 않아 감점이 없습니다. 같은 병동의 1인실 W71-R02-B1은 미요청 1인실 감점(-15)으로 15점이 되었고, W72 병상들은 부서·병동 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL052",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "부서·병동 일치 점수(30점)를 받은 유일한 후보라서 W71-R02-B1을 선택했습니다. 같은 1인실인 W72의 두 병상은 점수 구성 항목이 없어 0점이었고, W71-R01-B1은 음압실 보존 감점(-40점)으로 최종 -10점이 되어 제외되었습니다."
+      },
+      {
+        "id": "PL053",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 진료과와 W71 병동이 일치해 department_ward_match 30점을 받았고, 같은 조건의 W72 병상은 해당 점수가 없어 0점입니다. 음압격리실(W71-R01-B1)은 진료과 일치 30점을 받았지만 음압 병실 보존 항목에서 -40점을 받아 -10점이므로, 격리 사유가 없는 환자에게 음압실을 쓰지 않는 방향으로 W71-R04-B4가 선택되었습니다."
+      },
+      {
+        "id": "PL054",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자가 감염내과 소속이고 접촉주의(MRSA) 격리가 필요해 1인실이 요구되는데, W71-R02-B1은 감염내과 병동 매칭(30점)을 충족하는 유일한 후보입니다. 나머지 후보 W72 병실 2곳은 병동 매칭 점수가 없어 0점이므로 W71-R02-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL055",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "같은 병동(W71)과 진료과 조건을 모두 만족하는 후보 중 1인실인 W71-R02-B1만 1인실 요청 가점(20점)을 받아 총점 50점으로 가장 높았습니다. 나머지 4개 후보는 다인실이라 동일 병동·진료과 점수 30점에 그쳤습니다."
+      },
+      {
+        "id": "PL056",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R01-B1은 일반외과 병동(W72)과 환자 진료과가 일치하여 부서 매칭 점수 30점을 받았고, 접촉 격리(MRSA)에 맞는 1인실이며 즉시 사용 가능(0분)합니다. 후보 W71-R02-B1은 1인실이지만 부서 매칭 점수가 없어 0점, W71-R01-B1은 음압실 보존 규칙에 따라 -40점으로 제외되었습니다."
+      },
+      {
+        "id": "PL057",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B4는 호흡기내과 및 W71 병동 일치 점수 30점을 받아 최고점을 기록했습니다. 같은 병동의 W71-R02-B1은 같은 일치 점수를 받았지만 요청되지 않은 1인실 감점 -15점으로 15점에 그쳤고, W72 병동의 병상들은 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL058",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B2는 호흡기내과 병동 매칭 점수 30점을 받았고, 다인실이며 1인실 미요청 감점이 없어 최고 점수(30점)를 기록했습니다. 같은 점수의 W71-R04-B3도 있었으나 결정적 규칙에 따라 B2가 선택되었습니다."
+      },
+      {
+        "id": "PL059",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "8세 여아 정형외과 환자로 정형외과 병동(W72)의 다인실 W72-R04-B1이 선택되었습니다. 진료과·병동 일치 점수 30점을 받았고, 1인실은 요청되지 않았는데도 배정 시 -15점이 적용되어 제외되었습니다. 같은 조건의 다인실 W72-R04-B3과 동점이며 두 병상 모두 즉시 사용 가능(0분)하므로, 동점 중 R04-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL060",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "진료과(일반외과)와 병동(W72)이 일치하고 1인실을 요청하지 않아 다인실 후보 모두 동점(30점)이었으며, 그중 W72-R03-B1이 선택되었습니다. 1인실 후보 W72-R02-B1은 불필요한 1인실 배정 감점(-15점)으로 15점에 그쳐 제외되었습니다."
+      },
+      {
+        "id": "PL061",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71 병동이 감염내과 진료과와 일치하고 1인실을 요청하지 않아 단독실 감점이 없는 다인실 W71-R03-B4가 30점으로 가장 높습니다. 같은 병동의 W71-R02-B1은 1인실 감점(-15점)으로 15점, W71-R01-B1은 음압실 보존 감점(-40점)으로 -10점이며, W72 병상들은 진료과 일치 점수가 없고 1인실 감점(-15점)을 받아 -15점입니다."
+      },
+      {
+        "id": "PL062",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소아 정형외과 환자(8세 남아)로 정형외과 병동 매칭 점수 30점을 받은 W72 다인실 W72-R03-B4가 선택되었습니다. 같은 병동의 1인실(W72-R01-B1, W72-R02-B1)은 격리나 1인실 요청이 없는데도 1인실이라 미요청 1인실 감점(-15점)을 받아 15점에 그쳤고, W71 병동 후보들은 진료과 매칭이 없어 점수가 낮아 제외되었습니다."
+      },
+      {
+        "id": "PL063",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "8세 여아(감염내과, 격리 요건 없음)에게 W71-R04-B2 다인실 병상을 배정했습니다. 감염내과 병동 일치 점수(30점)는 모든 후보가 동일하게 받았고, 다인실 병상에는 추가 감점이 없었습니다. 1인실(W71-R02-B1)은 단독실 사유가 없어 -15점, 음압실(W71-R01-B1)은 음압 병상 보존 감점(-40점)을 받아 제외되었습니다."
+      },
+      {
+        "id": "PL064",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R05-B1은 호흡기내과 병동 일치 점수 30점으로 후보 중 가장 높습니다. 1인실 선호 점수 20점을 받은 W72-R01-B1보다 점수가 높아 선택되었으며, 이 환자는 격리 주의사항이 없어 음압격리실 W71-R01-B1은 보존 감점(-40점)으로 제외되었습니다."
+      },
+      {
+        "id": "PL065",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B1은 감염내과 병동 매칭 점수(30점)를 받았고, 특별한 격리 요건이나 1인실 사유가 없어 다인실 병상이 적합합니다. 같은 병동의 다른 다인실 후보(B2, B4)와 동점이며, 1인실(W71-R02-B1)은 미요청 1인실 감점(-15점)으로 제외되었고 W72-R03-B2는 진료과 매칭이 없어 0점입니다."
+      },
+      {
+        "id": "PL066",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R01-B1은 일반외과 병동 일치(+30)로 점수를 얻었고, 단독실을 요청하지 않은 데 대한 감점(-15)을 적용해 총점 15점입니다. 다인실 후보(W71-R04-B1, W71-R05-B2)는 0점, 다른 단독실 W71-R02-B1은 -15점이며, 같은 점수의 W72-R02-B1과 동점입니다."
+      },
+      {
+        "id": "PL067",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B1은 감염내과 진료 부서와 병동이 일치해 부서·병동 적합 점수 30.0점을 받았고, 같은 점수를 받은 W71의 다른 후보 두 곳(W71-R05-B1, W71-R05-B2)과 함께 최상위권이었습니다. W72 후보들은 해당 부서 병동이 아니어서 점수가 0점입니다. 입력된 정보에는 격리 필요 사항이 없어 병실 유형이나 격리 점수는 판단 기준이 되지 않았고, 최종 선택은 동점 후보 중 결정적 도구가 고른 결과입니다."
+      },
+      {
+        "id": "PL068",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 소아(8세) 환자로 W71 병동 내 호흡기내과 배정이 일치하여 기본 점수 30점을 받았습니다. 같은 병동의 1인실(W71-R02-B1)은 1인실을 요청받지 않아 -15점 감점되어 15점에 그쳤고, W72 후보 2개는 진료과·병동 일치 조건을 충족하지 않아 0점이었습니다. 따라서 W71-R03-B4(다인실, 30점)가 최고점 후보로 선택되었습니다."
+      },
+      {
+        "id": "PL069",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "정형외과 병동(W72)과 진료과가 일치하여 department_ward_match 30점을 받았습니다. 1인실 요청(W71-R02-B1, 20점)보다 점수가 높고, W72-R04-B3·B4와 동점이며 동점 정렬 기준은 제공된 데이터에 없습니다."
+      },
+      {
+        "id": "PL070",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 일반외과 병동(W72) 일치 점수 30점을 받았고, 접촉격리(VRE) 환자를 위한 1인실이라 다른 환자와의 접촉을 줄일 수 있습니다. 같은 점수의 W72-R02-B1 대비 특별한 차이는 없으나 선택된 병상으로 확정되었습니다. 음압격리실(W71-R01-B1)은 음압 유지 점수 -40점으로 제외되었고, W71-R02-B1은 부서 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL071",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 1인실이면서 소화기내과 병동 일치 점수(30점)를 받았고, 비말 격리 대상 환자를 수용하기에 적합합니다. 같은 병동의 음압실 W71-R01-B1은 병동 일치 30점을 받았지만 음압실 보존 감점(-40점)으로 -10점이 되었고, W72의 두 1인실은 해당 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL072",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소화기내과 병동 매칭(W71, +30점)으로 W71-R02-B1이 가장 높은 점수를 받았습니다. 같은 병동의 음압격리실(W71-R01-B1)은 음압 병상 보존 규칙(-40점)으로 -10점이 되었고, W72의 1인실 2곳은 진료과 매칭 점수가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL073",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 환자이고 W72가 정형외과 병동과 일치하여 department_ward_match 30점을 받았으며, 같은 점수의 다인실 후보 W72-R03-B4와 W72-R05-B1 중 하나가 선택되었습니다. 1인실 요청이 없어 1인실 후보(W72-R01-B1)는 -15점 감점을 받아 제외되었고, W71 병동 후보들은 부서 일치 점수를 받지 못해 점수가 낮습니다."
+      },
+      {
+        "id": "PL074",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "소아 환자(8세, 남아)이며 호흡기내과 환자로, 호흡기내과 병동 배정 기준(department_ward_match 30점)을 충족하는 W71 병동의 R03 다인실 B1 병상이 선택되었습니다. 같은 기준을 만족하는 W71-R03-B4와 동점이며, W72 병동 후보는 해당 점수가 없어 제외되었습니다."
+      },
+      {
+        "id": "PL075",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 1인실이며 정형외과 병동 매칭 점수 30점을 받았습니다. 같은 점수의 W72-R02-B1(1인실)과 동점이고, 음압실(W71-R01-B1)은 음압 자원 보존 사유로 -40점을 받아 제외되었습니다. 두 1인실 사이의 최종 선택 근거는 점수 구성에 나타나지 않습니다."
+      },
+      {
+        "id": "PL076",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 정형외과 병동(W72) 1인실로 진료과·병동 일치 점수 30점을 받았고, 준비 시간도 0분이라 후보 중 가장 적합합니다. 접촉주의(VRE) 격리에 맞는 1인실이며, 음압격리 병상(W71-R01-B1, -40점)은 해당 환자에게 필요하지 않아 제외되었습니다."
+      },
+      {
+        "id": "PL077",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 환자이며 W72 병동에 정형외과 배정 점수(30점)를 받은 multi 병실 중 첫 번째인 W72-R04-B1을 선택했습니다. 같은 조건의 W72-R04-B2, B4도 동점이었으나 격리·1인실 요구 등 추가 사유가 없어 다인실 병상을 우선했으며, 1인실 후보(W72-R01-B1, R02-B1)는 1인실 요청이 없어 -15점 감점되었습니다."
+      },
+      {
+        "id": "PL078",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1(1인실, 점수 0)이 선택되었습니다. 후보 W71-R01-B1(음압실)은 소화기내과 병동 일치 +30점을 받았지만 음압 시설 보존 항목에서 -40점이 적용되어 총점 -10점입니다. 선택된 병상의 점수 구성 항목은 기록되지 않았습니다."
+      },
+      {
+        "id": "PL079",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 정형외과 병동 매칭 점수 30.0으로, 같은 점수의 W72-R02-B1과 함께 최고점이다. W71 병동 후보는 매칭 점수가 없거나(W71-R02-B1, 0점) 음압 병실 보존 감점(W71-R01-B1, -40점)을 받아 낮게 평가되었고, 두 최고점 후보 중 R01을 고른 근거는 점수 구성에 나타나지 않는다."
+      },
+      {
+        "id": "PL080",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 감염내과 병동 매칭(30점)에 더해 1인실 요청이 반영되어(20점) 총 50점으로 후보 중 가장 높아 선택되었습니다. 나머지 다인실 후보 4개(W71-R04-B1, R04-B3, R04-B4, R05-B1)는 병동 매칭 30점만 받아 30점입니다. 환자 기록상 감염 관련 격리 요건은 없고 1인실 사용 사유는 본인 선호(preference)입니다."
+      },
+      {
+        "id": "PL081",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소화기내과 환자이며 격리 필요사항(precautions)과 감염 정보(organism)가 없어 1인실 사유가 해당하지 않습니다. 후보 5개 병상 모두 W71 병동 다인실로 소화기내과 병동 적합도 점수(30.0)가 동일하고 즉시 사용 가능(ready_in_min 0)하여, 동점 후보 중 W71-R04-B1이 선택되었습니다. 점수상 병상 간 차이는 없습니다."
+      },
+      {
+        "id": "PL082",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "환자의 진료과(감염내과)와 W71 병동이 일치해 department_ward_match 30점을 받았고, 격리 요건이나 1인실 요청이 없어 다인실 배정이 적합하다. 같은 점수(30점)의 W71-R05-B1과 동점이며, 점수 구성상 두 병상을 구분하는 요소는 없다. 1인실인 W71-R02-B1은 1인실 요청이 없어 -15점을 받았고, W72 병상은 일치 항목이 없어 0점이다."
+      },
+      {
+        "id": "PL083",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B3은 진료과·병동 일치 점수 30점을 받았습니다. 같은 점수의 다인실 후보 3곳(W71-R04-B4, W71-R05-B1, W71-R05-B2)과 동점이며, 점수 구성상 이들을 가르는 요인은 입력에 없습니다. 1인실 후보(W71-R02-B1)는 요청되지 않은 1인실 감점 -15점으로 점수가 낮아 제외되었습니다."
+      },
+      {
+        "id": "PL084",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "8세 여아 PL 환자는 호흡기내과 병동 배정 조건과 MRSA 접촉 격리 필요성을 고려해야 하며, 1인실이 필요합니다. W71-R02-B1은 진료과-병동 일치 점수 30.0점을 받아 가장 높은 점수를 얻었고, 나머지 후보 W72 병실들은 해당 항목에서 점수를 받지 못해 0점이었습니다. 따라서 W71-R02-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL085",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "일반외과 병동 W72의 1인실 W72-R01-B1이 진료과·병동 일치 점수 30점을 받았고, 같은 점수의 W72-R02-B1과 함께 최고점 후보입니다. 접촉주의(MRSA) 환자에게 적합한 1인실이며 즉시 사용 가능(0분)합니다. 음압격리실 W71-R01-B1은 음압 유지 자원 보존 사유로 -40점을 받아 제외되었고, W71-R02-B1은 점수가 0점입니다."
+      },
+      {
+        "id": "PL086",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "다른 후보는 모두 같은 일반외과 병동(W72)의 다인실이거나 1인실 미요청 감점(-15)이 있는 W72-R02-B1, 또는 부서 매칭이 없는 W71-R04-B2(0점)입니다. W72-R04-B1은 환자의 일반외과 병동 매칭(30점)을 만족하고 감점 요인이 없어 최고점(30점)을 받았으며, 같은 점수의 W72-R04-B2·B3 중 결정적 도구가 B1을 선택했습니다."
+      },
+      {
+        "id": "PL087",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 소화기내과가 배치된 W71 병동의 1인실로, 병동-진료과 일치 점수 30점을 받았습니다. VRE 접촉주의 환자에게 필요한 1인실 조건을 충족하며, 같은 병동의 W71-R01-B1은 음압격리실로 음압 유지 페널티(-40점)가 적용되어 제외되었고, W72-R01-B1은 진료과 일치 점수가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL088",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 환자이고 접촉격리(MRSA)가 필요해 1인실이 요구되며, 두 조건을 모두 만족하는 W71-R02-B1을 선택했습니다. 이 병상은 진료과-병동 일치 점수(30점)를 받았고 준비까지 0분이 걸립니다. 음압격리실(W71-R01-B1)은 같은 병동이지만 음압 유지 조건으로 -40점이 반영되어 제외되었고, W72-R02-B1은 진료과-병동 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL089",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 환자로 W71 병동의 부서 매칭 점수(30점)를 받은 다중실 W71-R03-B4가 선택되었습니다. 같은 병동의 1인실 W71-R02-B1도 부서 매칭은 같지만 요청되지 않은 1인실 사용으로 -15점을 받아 15점에 그쳤고, W72 병동 후보들은 부서 매칭 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL090",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B1은 감염내과 병동 매칭(30점)을 충족하며, 1인실을 요청하지 않았으므로 1인실 페널티가 없는 다인실 병상입니다. 같은 조건의 W71-R03-B2, B3와 동점이며 후보 중 가장 먼저 선택되었습니다. 1인실(W71-R02-B1)은 요청되지 않은 1인실 사유로 -15점을 받아 제외되었고, W72-R03-B1은 진료과 매칭이 되지 않아 0점입니다."
+      },
+      {
+        "id": "PL091",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R03-B2는 일반외과 병동(W72) 소속으로 진료과·병동 일치 점수 30점을 받았고, 격리·감염 주의사항이나 1인실 요청이 없어 같은 조건의 다인실 후보 중 하나로 선택되었습니다. 1인실 후보(W72-R02-B1)는 요청되지 않은 1인실 배정 감점(-15점)으로 15점에 그쳤고, W71 병상은 진료과 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL092",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R03-B2(다인실)는 일반외과 매칭 점수 30점을 받아 부서·병동 적합도가 가장 높다. 후보 W71-R03-B2는 같은 다인실이지만 점수 0점이고, W71-R02-B1은 1인실로 요청되지 않은 1인실 사용에 따른 감점(-15점)을 받아 제외되었다."
+      },
+      {
+        "id": "PL093",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자의 진료과(호흡기내과)가 W71 병동과 일치하여 department_ward_match 30점을 받았고, 격리나 ICU 이동 등 다른 조건은 없습니다. W72 후보 2개는 해당 점수가 없어 0점입니다. 다만 W71-R03-B1은 W71의 B2·B4와 동점(30점)이고, 제시된 점수 구성만으로는 세 병상 중 B1을 고른 이유가 드러나지 않습니다."
+      },
+      {
+        "id": "PL094",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "일반외과 환자이고 W72 병동이 해당 진료과와 일치하여 기본 점수 30점을 받았습니다. 다인실 후보(R03-B1, R03-B3, R03-B4, R05-B1)가 모두 같은 점수로 동점이며, 1인실(R01-B1)은 요청되지 않은 1인실 사용으로 -15점이 적용되어 제외되었습니다. 그중 R03-B1이 최종 선택되었습니다."
+      },
+      {
+        "id": "PL095",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자가 접촉주의(contact)와 MRSA 보균 상태라 독립 1인실(W71-R02-B1)이 선택되었습니다. 음압격리실(W71-R01-B1)은 감점 -40점(음압 설비 보존 비용)이 있어 점수가 낮고, 독립 1인실은 감점 없이 0점으로 더 높은 점수를 받았습니다. 두 후보 모두 즉시 사용 가능(0분)하므로 준비 시간은 차이에 영향을 주지 않았습니다."
+      },
+      {
+        "id": "PL096",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B3는 소화기내과 병동 일치 점수 30점으로 최고점이며, 같은 점수의 W71-R03-B4와 동점이다(동점 간 우선 기준은 입력에 없음). 1인실을 요청했으나 1인실 W72-R01-B1은 1인실 요청 점수 20점으로 낮아 선택되지 않았다."
+      },
+      {
+        "id": "PL097",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "chosen_bed_id인 W71-R02-B1은 소화기내과 병동 일치 점수 30.0을 받아 후보 중 가장 높다. 후보 W72-R01-B1은 점수 구성(parts)이 비어 있고 총점 0이라 배정 근거가 없다. 접촉주의(VRE) 환자이므로 1인실 배정은 두 후보 모두 충족하지만, 선택 근거로 제시된 항목은 진료과·병동 일치뿐이다."
+      },
+      {
+        "id": "PL098",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "접촉주의(VRE)가 필요한 환자로, 정형외과 병동 일치 점수 30점을 받은 W72-R02-B1 1인실이 선택되었습니다. 음압병실(W71-R01-B1)은 음압 병실 보존 항목에서 -40점을 받아 후보에서 제외되었습니다."
+      },
+      {
+        "id": "PL099",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 호흡기내과 병동(W71) 일치 점수 30점으로 총점 30점이 가장 높아 선택되었다. 같은 병동의 음압격리실(W71-R01-B1)은 부서 일치 점수는 같지만 음압 병상 보존 감점(-40점)으로 총점이 -10점이었고, W72-R01-B1은 부서·병동 일치 항목이 없어 0점이었다."
+      },
+      {
+        "id": "PL100",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 병동 일치(30점)로 W71-R03-B3을 선택했습니다. 1인실 요청(20점)은 격리 등 감염 관리 사유가 아니라 환자 선호에 따른 것이어서 병동·진료과 일치보다 낮게 반영되었습니다. 같은 30점의 W71-R03-B4와 동점이며, 입력 데이터에는 이 둘 사이의 동점 처리 기준이 없습니다."
+      },
+      {
+        "id": "PL101",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "감염내과 병동(W71)과 진료과가 일치해 department_ward_match 30점을 받았고, 1인실이 요청되지 않은 상태여서 1인실 후보(W71-R02-B1)의 -15점 감점이 없으며, 즉시 배정 가능(ready_in_min 0)입니다. 같은 30점인 W71-R03-B4와 동점이며, 두 병상 간 선택 이유는 점수 구성에 나타나지 않습니다. W72 병상은 진료과·병동 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL102",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "호흡기내과 환자에 맞는 W71 병동의 다인실 병상으로, 부서·병동 일치 점수 30점을 받았습니다. 같은 점수의 W71-R05-B1과 동점이며, 1인실 W71-R02-B1은 요청되지 않은 1인실 배정으로 -15점을 받았고, W72 병상은 부서·병동 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL103",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "정형외과 병동(W72)에 배정되어 부서·병동 일치 점수 30점을 받았고, 1인실을 요청한 환자 조건에 맞아 1인실 점수 20점을 더해 총 50점입니다. 같은 점수의 W72-R02-B1도 후보였으나, 최종 선택은 결정적 배정 도구가 했으며 동점 간 선택 기준은 제공된 점수 구성에 나타나지 않습니다. 다인실 후보는 30점입니다."
+      },
+      {
+        "id": "PL104",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 인플루엔자로 비말 격리가 필요해 1인실이 적합하며, W72-R01-B1과 W72-R02-B1은 모두 점수 0으로 동점이다. 음압실 W71-R01-B1은 음압 유지 감점(-40)을 받아 -10점으로 낮았다. 두 1인실 사이의 선택 근거는 제공된 점수 구성에 나타나 있지 않다."
+      },
+      {
+        "id": "PL105",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 소화기내과 병동 일치로 30점을 받았고, 접촉주의 대상이며 1인실인 환자 조건에 맞아 선택되었습니다. 같은 병동의 음압실 W71-R01-B1도 부서 일치 30점을 받았지만 음압 병상 보존 감점 -40점으로 최종 -10점이 되었고, W72-R02-B1은 부서 일치 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL106",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 병동(W72)에 배정된 1인실 B1은 진료과 일치 점수 30점을 받았지만, 1인실을 요청한 사유가 없어 -15점이 더해져 최종 15점이다. 다른 다인실 후보(W71-R04-B2, B4)는 0점이고, 음압실(W71-R01-B1)은 음압 유지 감점으로 -40점이라 가장 낮아 W72-R01-B1이 가장 높은 점수의 병상이다."
+      },
+      {
+        "id": "PL107",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "접촉주의(VRE) 환자로 두 후보 모두 단독실(W72-R01-B1, W72-R02-B1)이며 점수는 둘 다 0이고 구성 요소(parts)가 없어, 점수 차이로는 W72-R01-B1을 고른 근거를 확인할 수 없습니다. 병상 선택은 결정적 도구가 수행했으며, 동점 시 적용된 기준은 입력에 포함되어 있지 않습니다."
+      },
+      {
+        "id": "PL108",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "W71 병동 감염내과 배정 조건과 일치하는 다인실 병상으로 부서·병동 일치 점수 30점을 받았습니다. 같은 점수의 W71-R03-B4와 동점이며, 1인실인 W71-R02-B1은 요청되지 않은 1인실 사유로 -15점이 적용되었고, W72 후보들은 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL109",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자에게 W71 병동의 병실 중 department_ward_match(30점)를 받은 다인실 병상들이 동일 점수로 후보에 올랐으며, 그중 W71-R04-B1이 선택되었습니다. 1인실(W71-R02-B1)은 1인실 요청 사유가 없어 -15점이 감점되어 제외되었고, W72-R04-B1은 진료과 병동 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL110",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B1은 환자의 진료과(소화기내과)가 배정 병동 W71과 일치해 department_ward_match 30점을 받았다. 같은 점수의 W71-R04-B3, W71-R05-B2와 동점이며, W72 병동 후보들은 진료과 일치 점수가 없어 0점이다. 세 동점 후보 중 어느 병상을 고를지는 결정 도구가 정했고, 준비 시간(ready_in_min)은 모두 0분이다."
+      },
+      {
+        "id": "PL111",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "진료과 일치 점수(30점)를 받은 W71-R03-B4가 가장 높은 점수로 선택되었습니다. 1인실 후보 W72-R01-B1, W72-R02-B1은 1인실 요청 점수(20점)만 받았고 진료과 일치 점수는 없었습니다. 격리 주의사항이 없어 다인실 배정이 문제되지 않으며, 나머지 후보는 점수가 0입니다."
+      },
+      {
+        "id": "PL112",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "두 후보(W72-R01-B1, W72-R02-B1)는 점수 0으로 동점이고 점수 구성(parts)이 비어 있어 점수 차이로는 선택 이유를 설명할 수 없습니다. 두 병상 모두 같은 병동의 1인실이며 즉시 사용 가능(0분)하므로, 결정적 도구가 R01-B1을 선택했습니다."
+      },
+      {
+        "id": "PL113",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 환자(접촉주의, MRSA)에게 W72 병동 단일병실 W72-R01-B1이 부서·병동 일치 점수 30점을 받았다. 같은 점수의 W72-R02-B1과 동점이며, 입력에 동점 처리 기준이 없어 R01이 선택된 이유는 명시되지 않고, 음압병실 W71-R01-B1은 음압 보존 감점(-40점)으로 제외되었다."
+      },
+      {
+        "id": "PL114",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "접촉격리(VRE) 환자에게 1인실인 W72-R02-B1이 배정되었습니다. 음압병실인 W71-R01-B1은 진료과 일치 점수(+30)를 받았으나 음압병실 보존 항목(-40)으로 총점이 -10이 되어, 총점 0인 W72-R02-B1보다 낮게 평가되었습니다."
+      },
+      {
+        "id": "PL115",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "소화기내과 환자로 병동(W71) 부서 일치 점수 30점을 받았고, 같은 조건의 다인실이라 선택됐습니다. 같은 점수의 W71-R05-B1도 있어 점수상 동점이며, 두 병상을 가르는 근거는 점수 구성에 나타나지 않습니다. W71-R02-B1은 요청되지 않은 1인실이라 -15점, W72 병상은 부서 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL116",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "두 후보(W72-R01-B1, W72-R02-B1)는 모두 1인실이고 점수(0)와 준비 시간(0분)이 같아, 입력 데이터만으로는 R01-B1을 고른 차별적 근거를 확인할 수 없습니다. 비말 격리가 필요한 인플루엔자 환자이므로 두 후보 모두 1인실 요건을 충족하며, 선택 사유는 결정적 도구의 동점 처리 규칙에 따른 것으로 보입니다."
+      },
+      {
+        "id": "PL117",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 단일병실이면서 감염내과 병동(W71) 일치 점수 30점을 받았고, 접촉주의 대상인 VRE 환자에게 적합한 격리 조건을 갖춘 병상입니다. 같은 병동의 음압병실 W71-R01-B1은 음압 보존 페널티(-40점)로 총점이 -10점이 되었고, W72의 단일병실은 진료과 일치 점수가 없어 0점이었으므로 W71-R02-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL118",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "소화기내과 병동(W71)과 일치하고 단독실을 요청하지 않은 다인실 병상이며, 이 조건에서 감점이 없어 최고점 30점을 받았습니다. 같은 병동의 단독실(W71-R02-B1)은 단독실 미요청 감점 -15점으로 15점에 그쳤고, 타과 병동(W72-R05-B2)은 과 일치 점수가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL119",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "chosen_bed_id인 W72-R02-B1(1인실)은 정형외과 병동 일치 점수 30점을 받았습니다. 같은 1인실인 W71-R02-B1은 점수가 0점이라 병동·진료과 일치 가점이 없었고, 음압실 W71-R01-B1은 음압 보존 감점 -40점으로 제외되었습니다. 접촉 주의(MRSA) 환자를 단독 격리하는 1인실이면서 정형외과 병동에 배정되는 W72-R02-B1이 가장 높은 점수를 얻었습니다."
+      },
+      {
+        "id": "PL120",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 접촉주의가 필요한 CDIFF 환자에게 적합한 1인실이며 점수는 0점입니다. 같은 점수의 1인실 W72-R02-B1과 비교했을 때 점수 구성에서 차이가 확인되지 않습니다. 음압병실 W71-R01-B1은 진료과 일치 +30점을 받았지만 음압병실 보존 항목에서 -40점이 적용되어 -10점으로 제외되었습니다."
+      },
+      {
+        "id": "PL121",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "호흡기내과 병동 일치(W71)로 30점을 받았고, 격리 요건이나 1인실 요청이 없어 다인실 병상이 감점 없이 적합합니다. 같은 30점인 W71-R05-B1과 동점이며, 두 병상 중 이 병상을 고른 추가 기준은 입력에 없습니다. 1인실(-15)과 음압실(-40)은 불필요한 감점으로 제외되었습니다."
+      },
+      {
+        "id": "PL122",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W71-R02-B1 단인실은 감염내과 병동 일치 점수 30점을 받았고 감점이 없어 최고 점수(30)입니다. 같은 병동의 음압실 W71-R01-B1은 병동 일치 점수는 같지만 음압 유지 감점 -40점으로 총점이 -10점이며, W72-R02-B1 단인실은 병동 일치 등 가산 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL123",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 단독실이면서 호흡기내과 병동(W71) 일치로 department_ward_match 30점을 받았습니다. 같은 병동의 음압실 W71-R01-B1은 병동 일치 30점에도 음압실 보존 감점 -40으로 총점 -10이었고, W72-R01-B1은 가점 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL124",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 점수 구성에서 department_ward_match 30.0점을 받았고, 후보 W72-R02-B1은 점수 구성 항목이 없어 0점이었습니다. 두 후보 모두 1인실이며 준비 시간은 0분이므로, 이 비교에서는 진료과와 병동 일치 여부가 선택을 가른 것으로 보입니다."
+      },
+      {
+        "id": "PL125",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B1은 정형외과 진료과 및 W72 병동 일치로 30점을 받았고, 1인실 요청이 없어 단일실 감점(-15)도 없는 다인실이다. 같은 조건의 W72-R04-B2, B3도 30점으로 동점이며, 이 중 B1이 결정적 도구에 의해 선택되었다(동점 간 선택 기준은 제공된 정보에 없음). W72-R01-B1(1인실)은 15점, W71-R04-B1은 진료과·병동 일치가 없어 0점이다."
+      },
+      {
+        "id": "PL126",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 MRSA 접촉주의 대상이라 1인실이 필요하며, 정형외과 병동인 W72의 1인실 W72-R01-B1이 부서·병동 일치 점수 30점으로 선택되었습니다. 같은 조건의 W72-R02-B1도 동점이었고, W71의 음압격리실(W71-R01-B1)은 음압 유지 감점 -40점으로 후순위가 되었습니다."
+      },
+      {
+        "id": "PL127",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 감염내과 환자이고 W71 병동이 해당 진료과와 일치하여 department_ward_match 30점을 받았다. 병상 W71-R03-B2는 같은 점수(30점)를 받은 W71-R03-B3과 동점이며, 1인실 배정은 요청되지 않아 단독실 병상(W71-R02-B1)은 -15점 감점되었다. 격리 필요 사항이나 중환자실 전실 등 추가 가산점 요인은 없어 두 다인실 후보 중 B2가 선택되었다."
+      },
+      {
+        "id": "PL128",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "감염내과 병동(W71)의 다인실 병상으로, 진료과·병동 일치 점수 30점을 받았습니다. 같은 점수의 W71-R04-B3과 동점이며, 격리 필요나 1인실 요청이 없어 1인실 감점(-15점)이 없는 후보입니다. W72 병상은 해당 항목에서 점수를 받지 못했습니다. 동점 중 선택 기준은 입력 데이터에 없습니다."
+      },
+      {
+        "id": "PL129",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 접촉주의 대상(CDIFF)이고 1인실을 선호해 두 후보 모두 W72 병동의 1인실이다. 두 후보의 점수와 구성 요소(parts)가 모두 0으로 같아 점수 차이로는 선택 이유를 설명할 수 없으며, 결정적 도구가 W72-R01-B1을 선택했다."
+      },
+      {
+        "id": "PL130",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "chosen_bed_id인 W72-R02-B1(1인실)은 정형외과 병동 일치 점수 30점만 받아 후보 중 가장 높다. 같은 1인실인 W71-R02-B1은 점수 0점이고, 음압실 W71-R01-B1은 음압 유지 항목에서 -40점을 받아 제외 쪽으로 기울었다. 환자는 비말 격리 대상(인플루엔자)이므로 1인실 배정이 적합하다."
+      },
+      {
+        "id": "PL131",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "환자는 소화기내과 환자이며 접촉주의(MRSA) 격리가 필요합니다. W71 병동 1인실 B1 병상(R02)은 진료과-병동 일치 점수 30점을 받아 선택되었고, 비교 후보인 W72 병동 1인실 B1(R02)은 해당 점수가 없어 0점입니다. 두 병상 모두 즉시 사용 가능(0분)하므로 병동 일치 여부가 결정 요인입니다."
+      },
+      {
+        "id": "PL132",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "일반외과 진료과와 W72 병동이 일치하는 다인실 병상으로 진료과·병동 일치 30점을 받아 최고점입니다. 같은 병동의 1인실(W72-R01-B1)은 1인실을 요청받지 않아 -15점 감점되어 15점이고, W71 병상들은 진료과·병동 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL133",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 환자이고 W72 병동에 정형외과 매칭 점수(30점)를 받은 병상 중 다인실 W72-R04-B4가 선택되었습니다. 1인실 후보 두 곳(W72-R01-B1, W72-R02-B1)은 요청되지 않은 1인실 배정 감점(-15점)으로 15점에 그쳤고, W71 병동 후보들은 진료과 매칭이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL134",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "8세 여아(소화기내과) 환자로 과 병동 일치 점수 30점을 받았고, 감염·격리·ICU 전원 등 추가 요구사항이 없어 특실 사유가 없는 다인실 W71-R04-B4를 선택했습니다. 같은 과 병동의 1인실 W71-R02-B1은 불필요한 1인실 감점(-15)으로 15점, 음압실 W71-R01-B1은 음압 보존 감점(-40)으로 -10점, 다른 병동 후보들은 과 병동 일치 점수가 없어 0점 이하여서 제외됐습니다."
+      },
+      {
+        "id": "PL135",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B2는 감염내과 병동(W71)의 다인실 병상으로, 부서·병동 일치 점수 30점을 받아 후보 중 최고점입니다. 특별히 요청된 격리 사유나 1인실 사유가 없어 1인실(W71-R02-B1)은 미요청 페널티 -15점으로 제외되었고, 타 병동 병상(W72-R04-B4)은 부서 일치 항목이 없어 0점입니다. 같은 30점인 W71-R04-B3, W71-R05-B2 중에서는 기록된 점수 구성상 차이가 없어 최종 선택 근거는 점수 외 요소로 보이며, 이 카드에는 그 근거가 기재되어 있지 않습니다."
+      },
+      {
+        "id": "PL136",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R02-B1 병상은 정형외과 병동 매칭 점수 30점을 받아 선택되었습니다. 대안인 W71-R02-B1은 부서 매칭 점수가 없어 0점이었습니다. 환자는 접촉주의(VRE) 대상이므로 1인실 조건에 해당하며, 두 후보 모두 1인실이고 즉시 사용 가능(0분)합니다."
+      },
+      {
+        "id": "PL137",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 소화기내과 병동(W71)과 일치하며 1인실을 요청한 조건을 모두 충족해 총점 50점으로 가장 높았습니다. 같은 병동의 다인실(W71-R03-B2, B4)은 30점, 다른 병동의 1인실(W72-R01-B1, R02-B1)은 20점이었습니다."
+      },
+      {
+        "id": "PL138",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "85세 여성 환자로 특별한 격리 주의사항이나 1인실 요청 사유가 없어, 일반외과가 배정된 W72 병동의 다인실 중 즉시 준비 가능한 W72-R04-B2를 선택했습니다. 같은 조건의 다인실 후보 W72-R04-B3, B4와 점수가 같으며(각 30점), 1인실 후보(W72-R01-B1, W72-R02-B1)는 1인실 요청이 없어 15점 감점되어 제외되었습니다."
+      },
+      {
+        "id": "PL139",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 1인실이면서 소화기내과 병동 매칭 점수(30점)를 받아 후보 중 최고점을 기록했습니다. 같은 W71의 음압실 W71-R01-B1은 음압 유지 보존 감점(-40점)으로 -10점에 그쳤고, W72의 1인실 후보들은 부서·병동 매칭 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL140",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R03-B4(다인실)는 일반외과 병동 매칭 점수 30점을 받고 1인실 미요청 감점이 없어 총점 30점으로 최고점이다. 같은 병동의 1인실 후보(W72-R01-B1, W72-R02-B1)도 매칭 30점이지만 미요청 1인실 감점 -15점을 받아 15점이고, W71 병동 후보들은 진료과 병동 매칭이 없어 0점 이하이므로 W72-R03-B4가 선택되었다."
+      },
+      {
+        "id": "PL141",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B1은 다인실로, 진료과·병동 일치 점수 30점을 받아 총점 30점입니다. 같은 점수의 다인실 후보(W71-R04-B4, W71-R05-B1, W71-R05-B2)와 동점이며, 1인실 후보(W71-R02-B1)는 1인실 요청이 없어 -15점을 받아 15점입니다."
+      },
+      {
+        "id": "PL142",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R02-B1(1인실)은 점수 0으로 감점 항목이 없었습니다. 대안인 W71-R01-B1(음압실)은 진료과·병동 일치 +30점을 받았지만 음압 자원 보존 항목에서 -40점을 받아 최종 -10점이 되었습니다. 따라서 접촉 주의가 필요한 환자에게 음압실 자원을 쓰지 않고 감점이 없는 1인실이 선택되었습니다."
+      },
+      {
+        "id": "PL143",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 진료과(호흡기내과)와 병동이 일치해 +30점을 받았고, 단독실을 요청하지 않아 -15점을 받아 최종 15점으로 최고점이다. 다른 다인실 후보(W72)는 진료과 일치 점수가 없어 0점이었고, 단독실 W72-R01-B1은 -15점이었다."
+      },
+      {
+        "id": "PL144",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 병동(W71)의 병상이 부서 일치 점수 30점으로 단독실 후보(20점)보다 높았습니다. 단독실은 격리 사유가 아닌 환자 선호로 요청되었고 감염 주의사항도 없어, 부서 적합성을 우선해 W71-R04-B1을 선택했습니다."
+      },
+      {
+        "id": "PL145",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 소화기내과 병동 일치 항목만으로 30점을 받아 최고 점수로 선택되었습니다. 나머지 W72 두 병상은 점수 구성 항목이 기록되지 않고 0점이며, 접촉 격리(CDIFF) 관련 항목은 점수 구성에 나타나지 않습니다."
+      },
+      {
+        "id": "PL146",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환아는 감염내과 환자이고 비말 격리 대상이며, 감염내과 병동인 W71의 단독실 W71-R02-B1이 부서·병동 일치 점수 30점으로 가장 높습니다. 같은 단독실인 W72-R02-B1은 부서 일치 점수가 없어 0점이고, 음압실 W71-R01-B1은 음압 병실 보존 감점(-40)으로 -10점에 그쳐 제외되었습니다."
+      },
+      {
+        "id": "PL147",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "정형외과 병동(W72) 일치 점수 30점을 받았고, 1인실 요청이 없어 1인실 감점(-15)이 없는 다인실이라 선택되었습니다. 같은 점수의 W72-R04-B4와 점수 구성상 차이가 없어, 두 병상 중 R04-B1이 고정된 기준에 따라 선택된 것으로 보입니다."
+      },
+      {
+        "id": "PL148",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 인플루엔자로 비말 격리가 필요하고 단일병실을 희망하여 두 후보 모두 단일병실인 W72 병동이 적합합니다. 두 후보의 점수(0)와 구성 항목(parts)이 동일해 점수상 차이는 없으며, 결정적 도구가 W72-R01-B1을 선택했습니다."
+      },
+      {
+        "id": "PL149",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "같은 W71 병동의 두 후보 중 1인실 W71-R02-B1이 선택되었습니다(점수 30.0 대 -10.0). 음압실 W71-R01-B1은 음압실 보존 패널티(-40.0)를 받아 낮은 점수가 되었으며, 접촉 주의 대상인 MRSA 환자에게는 1인실이 적합한 것으로 판단되었습니다."
+      },
+      {
+        "id": "PL150",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "정형외과 병동 일치 점수(30점)를 받은 W72 단독실이며, 같은 점수의 W72-R02-B1과 동점이다. 두 병상의 선택 차이는 제공된 점수 구성에 없어 설명할 수 없고, 음압실(W71-R01-B1)은 음압 유지 감점(-40점)으로 제외되었다."
+      },
+      {
+        "id": "PL151",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "소화기내과 환자에 맞는 W71 병동 병상으로 department_ward_match 30점을 받았고, 같은 점수의 W71 후보 4개 중 하나입니다. 동점 후보 간 선택 기준은 입력에 없으며, W72-R04-B1은 부서·병동 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL152",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 1인실을 요청한 환자 조건(single_room_requested +20)과 감염내과 병동 일치(+30)를 모두 충족해 총점 50점으로 후보 중 가장 높습니다. 같은 병동의 다인실 W71-R03-B1(30점)은 병실 조건을 충족하지 못했고, W72-R02-B1(20점)은 병동이 달라 감염내과 일치 점수를 받지 못했습니다. 음압실 W71-R01-B1은 음압 유지 페널티(-40)로 제외되었습니다."
+      },
+      {
+        "id": "PL153",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71 병동이 환자의 진료과(소화기내과)와 맞아 부서·병동 일치 점수 30점을 받았고, 격리나 단독실 사유가 없어 다인실인 W71-R03-B4가 선택되었습니다. 같은 병동의 단독실 W71-R02-B1은 단독실 미요청 감점(-15)으로 15점이었고, W72 병상들은 일치 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL154",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "정형외과 환자이므로 정형외과 병동인 W72의 병상이 부합 점수 +30을 받았고, 요청되지 않은 1인실 배정에 대한 -15를 감점해 최종 15점이 되었습니다. 나머지 후보(W71 다인실)는 부합 항목이 없어 0점이므로 이 병상이 가장 높은 점수를 받았습니다."
+      },
+      {
+        "id": "PL155",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자로 W71 병동의 호흡기내과 배정 조건(department_ward_match 30점)을 충족한 4개 병상(W71-R04-B1, R04-B2, R04-B4, R05-B1) 중 하나이며, 격리·감염 관리 요건이나 ICU 이송 여부 등 추가 가산 요인은 없어 동점 후보 중 결정적 도구가 W71-R04-B1을 선택했습니다. W72-R04-B1은 부서·병동 일치 점수가 없어 0점으로 제외되었습니다."
+      },
+      {
+        "id": "PL156",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "접촉격리(CDIFF) 환자로 두 후보 모두 1인실이며 즉시 사용 가능(0분)하고, 일반외과 병동 일치 점수는 W72-R01-B1과 W72-R02-B1이 모두 30점으로 같다. 점수 구성상 두 병상 사이에 차이가 없어 최종 선택은 결정적 도구가 지정한 W72-R01-B1이다."
+      },
+      {
+        "id": "PL157",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 소화기내과 환자 배정과 병동이 맞아 department_ward_match 점수 30.0을 받았고, 비교 후보 W72-R02-B1은 해당 항목 점수가 없어 0점이었습니다. 접촉주의(CDIFF) 대상 환자이며 두 후보 모두 1인실이지만, 점수 구성상 차이는 진료과·병동 일치 여부에서 났습니다."
+      },
+      {
+        "id": "PL158",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1(1인실, 점수 0)이 W71-R01-B1(음압실, 점수 -10)보다 점수가 높아 선택되었습니다. 음압실은 진료과·병동 일치 가점(+30)을 받았지만 음압실 보존 감점(-40)이 더 커서 총점이 낮아졌습니다. 선택된 병상은 점수 구성 항목이 기록되어 있지 않으므로, 근거는 후보 간 총점 비교에 한정됩니다."
+      },
+      {
+        "id": "PL159",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "일반외과 병동 일치(W72, +30)로 가점을 받았고, 1인실 요청이 없어 감점(-15)을 받아 최종 점수 15점으로 같은 점수의 W72-R02-B1과 동점이었습니다. 다인실 W71-R04-B2는 0점, 음압 보존이 필요한 W71-R01-B1은 -40점이라 제외됩니다. 두 동점 후보 중 R01을 고른 근거는 점수 구성에 나타나 있지 않습니다."
+      },
+      {
+        "id": "PL160",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 1인실이며 호흡기내과 병동 매칭(+30점)을 받았다. VRE 접촉주의 환자이므로 1인실이 적합하고, 같은 병동의 음압격리실(W71-R01-B1)은 음압 보존 감점(-40점)으로 총점이 -10점에 그쳤으며, W72-R02-B1은 진료과 매칭이 없어 0점이었다."
+      },
+      {
+        "id": "PL161",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B1은 정형외과 병동(W72)에 속하는 다인실 병상으로 부서·병동 일치 점수 30점을 받았고, 환자가 1인실을 요청하지 않아 1인실 감점이 없으며 즉시 사용 가능(0분)합니다. 같은 점수의 W72-R04-B4와 동점이었으나 먼저 정렬된 W72-R04-B1이 선택되었습니다. 1인실(W72-R02-B1)은 단독실 미요청 감점 -15점으로 15점에 그쳤고, 음압실(W71-R01-B1)은 음압 보존 감점 -40점, W71-R04-B3은 부서 일치가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL162",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R02-B1은 정형외과 병동 소속 병상이고 1인실 요청을 충족해 총점 50점으로 가장 높았습니다(진료과 일치 30점, 1인실 요청 20점). 차점인 W71-R02-B1은 1인실 요청만 충족해 20점이며, 음압 병실 W71-R01-B1은 음압 유지 감점(-40점)으로 제외되었습니다."
+      },
+      {
+        "id": "PL163",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 호흡기내과 병동 일치(30점)와 1인실 요청 충족(20점)을 모두 만족해 총 50점으로 후보 중 가장 높다. 같은 병동의 다인실(30점)과 W72의 1인실(20점)은 각각 한 가지 조건만 충족해 점수가 낮다."
+      },
+      {
+        "id": "PL164",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 배정 병동인 W71에서 부서·병동 일치 점수 30점을 받아 W71-R03-B1로 정해졌으며, 같은 점수의 W71-R03-B2와 동점이라 점수만으로는 두 병상을 구분할 수 없습니다. 음압 병상 W71-R01-B1은 음압 보존 감점(-40)으로 제외되었고, W72 병상은 부서 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL165",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자이고 W71 병동이 진료과와 일치하여 department_ward_match 30점을 받았으며, 단독실 선호도 충족됩니다. W71-R01-B1은 같은 병동이지만 음압실로 negative_pressure_preserve 감점(-40)을 받아 제외되었고, W72의 단독실 두 곳은 진료과 일치 점수가 없어 0점입니다. 따라서 점수가 가장 높은 W71-R02-B1이 선택되었습니다."
+      },
+      {
+        "id": "PL166",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R04-B1은 소아 환자(8세, 여아)의 진료과가 일반외과이고 병동 배정이 일치하여 부서·병동 일치 점수 30점을 받았습니다. 다른 후보 중 W71 다인실 병상은 점수가 0점이고, 음압실 W71-R01-B1은 음압 유지 조건으로 -40점이 감점되어 제외되었습니다."
+      },
+      {
+        "id": "PL167",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "격리 주의사항과 병원체가 없고 ICU 출신이 아니어서 다인실이 적합하며, W72-R04-B1은 감점 없이 점수 0으로 다인실 후보 3곳(B1, B3, B4)과 동점입니다. 음압격리실(W71-R01-B1)은 감염내과 병동 일치 가점(+30)이 있으나 음압실 보존 감점(-40)으로 -10점이고, 단독실(W72-R01-B1)은 요청되지 않은 단독실 배정으로 -15점입니다. 동점 후보 중 B1을 고른 구체적 근거는 점수 구성에 나타나 있지 않습니다."
+      },
+      {
+        "id": "PL168",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "VRE 접촉주의 환자이므로 음압 병실(W71-R01-B1)은 격리 보존 규칙에 따라 -40점으로 제외되었다. 일반외과 병동인 W72의 1인실(W72-R01-B1)은 진료과 일치 점수 30점을 받아 최고점을 얻었고, 접촉주의 환자에게 적합한 1인실이어서 선택되었다. 다른 1인실(W71-R02-B1)은 진료과 일치 점수가 없어 0점이었다."
+      },
+      {
+        "id": "PL169",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 감염내과 환자이고 W71 병동이 해당 진료과와 일치하여 department_ward_match 30점을 받았다. 같은 조건의 W71-R04-B1과 W71-R04-B2가 동점이므로 두 병상 중 B1이 선택되었으며, W72 병상들은 진료과 일치 점수가 없어 0점이다."
+      },
+      {
+        "id": "PL170",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "소화기내과 환자이고 W71 병동이 진료과와 맞아 department_ward_match 점수 30점을 받았으며, 같은 점수의 다인실 후보 중 W71-R04-B2를 선택했습니다. 1인실(W72)은 특별한 격리나 사유가 없어 불필요한 1인실 배정으로 -15점을 받아 제외되었습니다."
+      },
+      {
+        "id": "PL171",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 환자(독감, 비말 격리)이며 W71 병동의 W71-R02-B1 단인실이 진료과-병동 일치 점수 30점을 받았습니다. 후보 W72-R01-B1은 부합하는 점수 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL172",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 진료과(호흡기내과)와 병동이 일치한다는 항목에서 30점을 받아 후보 중 유일하게 점수가 부여되었습니다. 나머지 두 후보(W72-R01-B1, W72-R02-B1)는 점수 항목이 없어 0점이며, 준비 시간은 세 후보 모두 0분입니다."
+      },
+      {
+        "id": "PL173",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 환자이고 접촉 격리(MRSA)가 필요해, 감염내과가 배정된 W71 병동의 1인실인 W71-R02-B1이 선택되었습니다(부서·병동 일치 30점). 같은 병동의 음압실 W71-R01-B1은 부서 일치 점수는 같지만 환자에게 음압이 필요하지 않아 음압 자원 보존 감점(-40점)으로 최종 -10점이 되었고, W72-R01-B1은 부서·병동 일치가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL174",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "단독실(W71-R02-B1)은 감점 항목이 없어 점수 0으로 선택되었습니다. 음압실(W71-R01-B1)은 음압 병상 보존 항목에서 -40점을 받았고, 환자의 주의사항이 비말(droplet)뿐이라 음압 병상을 배정할 근거가 없어 후순위가 되었습니다."
+      },
+      {
+        "id": "PL175",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R03-B3는 다인실이면서 소화기내과 병동 적합 점수(30.0)만 받고 감점이 없어 최고점입니다. 같은 W71의 1인실 W71-R02-B1은 요청되지 않은 1인실 감점(-15)으로 15점이었고, W72 병동 후보들은 진료과 적합 점수가 없어 0점 이하였습니다. 모든 후보의 준비 시간은 0분입니다."
+      },
+      {
+        "id": "PL176",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염내과 병동인 W71의 다인실 병상(W71-R04-B2)이 진료과 일치 점수 30점으로 가장 높아 선택되었습니다. 같은 W71의 음압병실(W71-R01-B1)은 격리 사유가 없어 음압 자원 보존 감점(-40점)을 받았고, W72 다인실 병상들은 진료과 일치 점수가 없어 0점이었습니다."
+      },
+      {
+        "id": "PL177",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R02-B1은 일반외과 병동 일치 점수 30점으로 후보 중 가장 높습니다. 같은 1인실인 W71-R02-B1은 부여된 점수 항목이 없어 0점이고, 음압실인 W71-R01-B1은 음압 유지 항목에서 -40점을 받아 제외되었습니다."
+      },
+      {
+        "id": "PL178",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자(8세 여아)로 부서-병동이 일치하는 W72 병동의 다인실 W72-R04-B3가 선택되었습니다. 격리 필요가 없어 음압병실(W71-R01-B1)은 음압 보존 페널티(-40)로 제외되었고, 단독실(W72-R02-B1)은 요청이 없어 -15점을 받았습니다. 같은 병동의 다인실 B4와 점수(0)가 같아 최종 선택은 두 후보 중 하나이며, 대기 시간은 모두 0분입니다."
+      },
+      {
+        "id": "PL179",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "감염 예방을 위해 접촉주의가 필요한 CDIFF 환자로, 1인실이 필요한 조건을 충족하는 W72 병동의 단독 병실 두 곳(W72-R01-B1, W72-R02-B1)이 모두 부서·병동 적합도 30점으로 동점이었고, 그중 R01-B1이 선택되었습니다. W71-R02-B1은 점수 구성 요소가 없어 0점으로 후보에서 제외된 것으로 보입니다."
+      },
+      {
+        "id": "PL180",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "소화기내과 환자로 W71 병동이 부서와 맞아 department_ward_match 30점을 받았고, 같은 점수의 W71-R03-B4와 동점이었습니다. 동점 중 B3이 선택된 기준은 입력 데이터에 없습니다. 1인실 W71-R02-B1은 1인실 요청이 없어 -15점을 받았고, W72 병상은 부서·병동 일치 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL181",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R04-B1은 감염내과 배정과 병동 일치 점수 30점을 받아 후보 중 최고점이며, 1인실을 요청한 사유가 없어 감점이 없는 다인실 병상입니다. 같은 병동의 다른 다인실 후보(W71-R04-B2, W71-R05-B2)와 동점이었고 즉시 사용 가능(0분)하여, 결정적 규칙에 따라 이 병상이 선택되었습니다."
+      },
+      {
+        "id": "PL182",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "W71 호흡기내과 병동 배정 점수가 30점으로 최고점이며, 격리 주의사항과 음압병실 필요 사유가 없어 다인실 중 선택됐습니다. 같은 점수의 W71-R04-B4와 동점이었고, 두 병상 중 B3을 고른 세부 기준은 입력 데이터에 없습니다. 1인실(W71-R02-B1)은 미요청 1인실 감점(-15)으로, 음압병실(W71-R01-B1)은 음압 병상 보존 감점(-40)으로 제외되었습니다."
+      },
+      {
+        "id": "PL183",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "정형외과 병동 매칭 점수(30점)를 받은 W72 병동의 단인실 두 곳(W72-R01-B1, W72-R02-B1)이 동점이었고, 다른 병동인 W71-R02-B1은 0점이었습니다. 두 후보 중 R01-B1이 선택된 근거는 점수 구성에 나타나 있지 않습니다."
+      },
+      {
+        "id": "PL184",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "일반외과 병동(W72)과 일치해 department_ward_match 30점을 받았고, 1인실을 요청하지 않았으므로 단독실 감점(-15)이 없는 다인실 W72-R03-B3이 최고점(30점)입니다. 같은 병동의 1인실 2곳은 요청되지 않은 단독실 감점으로 15점, W71 병동 후보들은 진료과 일치 점수가 없고 음압실은 보존 대상이어서 감점되어 순위가 낮습니다."
+      },
+      {
+        "id": "PL185",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1을 선택한 이유는 환자의 진료과(정형외과)와 병동(W72)이 일치하여 부서·병동 적합도 점수 30.0을 받았기 때문입니다. 같은 점수를 받은 W72-R02-B1과 동일한 조건이며, 음압격리 병상(W71-R01-B1, -40.0)은 음압 보존 감점으로 제외되었습니다."
+      },
+      {
+        "id": "PL186",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자는 호흡기내과 환자이며 W71 병동에 해당 진료과 매칭 점수 30점을 받은 병상 중 하나로, 격리나 단독실 요구 사유가 없어 다인실인 W71-R04-B2가 선택되었습니다. 같은 점수를 받은 W71-R05-B1과 동점이며, 단독실 W71-R02-B1은 단독실 요청이 없어 -15점이 적용되어 제외되었고, W72 병동 병상은 진료과 매칭 점수를 받지 못했습니다."
+      },
+      {
+        "id": "PL187",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R02-B1은 정형외과 병동(W72) 일치(30점)와 환자가 요청한 1인실(20점)을 모두 충족해 총 50점으로 가장 높았습니다. 같은 병동의 다인실 후보(30점)는 1인실 요청을 충족하지 못했고, W71의 1인실(20점)은 진료과 병동이 일치하지 않아 제외되었습니다."
+      },
+      {
+        "id": "PL188",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W71-R02-B1은 1인실이며 진료과·병동 일치 점수 30점을 받았습니다. 같은 병동의 음압실 W71-R01-B1은 같은 일치 점수를 받았지만 음압 자원 보존 감점 -40점으로 -10점이 되었고, W72의 두 후보는 일치 항목이 없어 0점이었습니다."
+      },
+      {
+        "id": "PL189",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 department_ward_match 30점으로 일반외과 병동 조건에 맞는 1인실입니다. 같은 점수의 W72-R02-B1과 동점이며, 음압실 후보 W71-R01-B1은 음압 병상 보존 항목에서 -40점을 받아 제외되었습니다. 두 1인실 중 R01을 고른 근거는 점수 구성에 나타나지 않습니다."
+      },
+      {
+        "id": "PL190",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 정형외과 병동(W72) 배정 점수 30.0으로, 같은 병동의 1인실 W72-R02-B1과 동점이다. 음압실 W71-R01-B1은 음압 병상 보존 항목으로 -40.0을 받아 제외되었다. 점수 구성에 동점 해소 기준은 없으므로, 두 1인실 중 R01이 선택된 이유는 이 데이터만으로는 확인되지 않는다."
+      },
+      {
+        "id": "PL191",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R02-B1은 정형외과 병동(W72) 배정(30점)과 환자가 요청한 1인실 선호(20점)가 모두 맞아 총 50점으로 후보 중 가장 높았습니다. 같은 병동의 다인실 W72-R05-B2는 과 일치만 충족해 30점, 1인실이지만 다른 병동인 W71-R02-B1은 1인실 요청만 충족해 20점이었습니다."
+      },
+      {
+        "id": "PL192",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R03-B1은 정형외과 병동(W72)과 부서가 일치해 department_ward_match 30점을 받았고, 특별히 요구된 격리·1인실 사유가 없어 다인실이라는 점에서 같은 점수의 W72-R03-B3과 동점이다. 1인실 W72-R01-B1은 단독실이 요청되지 않아 -15점을 받아 제외되었으며, W71 병동 후보들은 부서 일치 점수가 없어 0점이다."
+      },
+      {
+        "id": "PL193",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "W72-R01-B1은 일반외과 병동 일치 점수(30.0점)를 받아 선택되었습니다. 두 번째 후보 W71-R02-B1은 진료과·병동 일치 점수가 없어 0점이었습니다. 두 병상 모두 1인실이고 즉시 사용 가능(0분)하며, 접촉주의 대상인 VRE 환자에게 필요한 1인실 조건은 충족됩니다."
+      },
+      {
+        "id": "PL194",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "8세 여아 환자로 격리 요건과 1인실 사유가 없고, 호흡기내과 진료과·W71 병동이 일치해 30점 만점인 다인실 W71-R04-B1을 골랐습니다. 같은 점수의 다인실 W71-R04-B2, W71-R05-B2와 동점이며, 1인실 W71-R02-B1은 미요청 1인실 감점(-15)으로 15점, W72-R04-B4는 점수 구성 항목이 없어 0점입니다."
+      },
+      {
+        "id": "PL195",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "환자의 진료과(감염내과)와 일치하는 W71 병동의 1인실 W71-R02-B1이 부서·병동 일치 점수 30점을 받아 최고점이다. 같은 병동의 음압실 W71-R01-B1은 음압실 보존 감점(-40)으로 최종 -10점이 되었고, W72의 1인실 2개는 부서 일치 항목이 없어 0점이었다."
+      },
+      {
+        "id": "PL196",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "정형외과 병동인 W72에 있고 1인실이 필요하지 않은 다인실 병상이라 부서·병동 일치 점수 30점을 받았다. 같은 조건의 W72-R05-B2와 동점이며, 두 병상 중 최종 선택 기준은 제공된 점수 구성에 나타나지 않는다. 1인실 후보(W72-R01-B1, W71-R02-B1)는 요청되지 않은 1인실 배정으로 -15점을 받았다."
+      },
+      {
+        "id": "PL197",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W72-R01-B1은 정형외과 병동 일치 점수 30점을 받아 0점인 W71-R02-B1보다 높다. 같은 W72 병동의 W72-R02-B1과도 점수가 같으므로, 두 병상 중 R01-B1을 고른 이유는 제시된 점수 구성만으로는 확인되지 않는다."
+      },
+      {
+        "id": "PL198",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "호흡기내과 환자이며 W71 병동에 해당 진료과 매칭 점수(30점)를 받은 다인실 W71-R03-B4가 선택되었습니다. 같은 병동의 1인실 W71-R02-B1도 매칭 점수는 같았으나, 1인실을 요청할 사유가 없어 -15점이 적용되어 제외되었고, W72 병동 후보들은 진료과 매칭 점수가 없어 0점입니다."
+      },
+      {
+        "id": "PL199",
+        "ok": 1.0,
+        "mentions_chosen": 1.0,
+        "text": "선택된 W71-R02-B1(1인실)은 감점이 없어 점수 0이며, 후보 W71-R01-B1(음압실)은 음압 병상 보존 항목에서 -40점을 받아 제외되었습니다. 환자는 접촉주의(CDIFF) 대상이므로 1인실이 배정 기준에 맞는 병상으로 선택되었습니다."
+      },
+      {
+        "id": "PL200",
+        "ok": 1.0,
+        "mentions_chosen": 0.0,
+        "text": "일반외과 병동(W72)의 다인실 중 점수가 가장 높은 병상이며, 과 일치 점수 30점을 받았습니다. 같은 점수의 W72-R03-B4와 동점이고, 1인실(W72-R01, R02)은 격리 등 1인실 요청이 없어 -15점을 받아 제외되었습니다. W71 병상은 과 일치 항목이 없어 0점입니다."
+      }
+    ],
+    "stopped": null,
+    "wall_s": 1132.4
+  },
+  "latency_p50_s": 6.751,
+  "latency_p95_s": 9.101,
+  "tokens": {
+    "input": 600673,
+    "output": 302472
+  },
+  "spent_usd_est": 0.0,
+  "api_equiv_usd": 0.3643,
+  "note": "구독 경유 대리 측정: 온도 고정 불가, 지연에 Claude Code 기동 시간 포함. 정확도 비교에만 쓴다",
+  "price_used": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}
