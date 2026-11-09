@@ -245,3 +245,38 @@ def test_redaction_is_idempotent():
     for text, _ in BYPASS:
         once = redact_for_external(text)
         assert redact_for_external(once) == once
+
+
+# ---------------- 3. 매핑 프로필: 의미 없는 열 이름에서도 이름·진단이 나가지 않는다 ----------------
+
+def _codes(rows, col):
+    from turnaround.agent.mapping_agent import llm_profile, profile
+    return llm_profile(profile({"t": rows}))["t"]["columns"][col].get("codes")
+
+
+@pytest.mark.parametrize("vals", [("KIMMINSU", "LEEYOUNGHEE"), ("HIV", "HBV"), ("HCV", "AIDS"),
+                                  ("JOHNSMITH", "MARYLEE"), ("Hiv", "Hbv")])
+def test_neutral_column_does_not_send_romanized_names_or_diagnoses(vals):
+    rows = [{"c1": v} for v in vals for _ in range(2)]
+    assert not _codes(rows, "c1")
+
+
+@pytest.mark.parametrize("col", ["guardian", "GUARDIAN_NM", "보호자", "보호자관계", "contact", "nok", "NOK_REL", "email",
+                                 "E_MAIL"])
+def test_guardian_contact_columns_send_no_values(col):
+    rows = [{col: v} for v in ("Mary", "Mary", "John", "John")]
+    assert not _codes(rows, col)
+
+
+def test_known_code_words_still_go_under_neutral_columns():
+    rows = [{"c1": s, "c2": i, "c3": y} for s, i, y in
+            zip("MFMFMF", ("contact", "droplet", "contact", "droplet", "airborne", "airborne"), "YNYNYN")]
+    assert _codes(rows, "c1") == ["F", "M"]
+    assert _codes(rows, "c2") == ["airborne", "contact", "droplet"]
+    assert _codes(rows, "c3") == ["N", "Y"]
+
+
+def test_uppercase_room_codes_still_go_in_room_columns():
+    """병동·병실 열의 대문자 코드(PRIVATE 등)는 사람 이름 열이 아니다(emr_d 형식)."""
+    rows = [{"room_category": v} for v in ("PRIVATE", "PRIVATE", "SHARED", "SHARED")]
+    assert _codes(rows, "room_category") == ["PRIVATE", "SHARED"]

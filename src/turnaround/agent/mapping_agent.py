@@ -93,7 +93,13 @@ _MIN_REPEAT = 2  # k: 값이 이만큼 반복돼야 코드로 본다
 # 열 이름이 이 뜻이면 값 전체를 보내지 않는다(이름·진단·메모·연락처·주소·주민번호)
 _SENSITIVE_COL = ("pt_nm", "nm", "name", "성명", "이름", "환자명", "dx", "diag", "diagnosis", "진단", "상병",
                   "memo", "note", "notes", "remark", "comment", "메모", "비고", "특이사항", "tel", "phone", "mobile",
-                  "hp", "contact_no", "연락처", "전화", "휴대폰", "addr", "address", "주소", "rrn", "ssn", "jumin", "주민")
+                  "hp", "contact_no", "연락처", "전화", "휴대폰", "addr", "address", "주소", "rrn", "ssn", "jumin", "주민",
+                  # 보호자·연락처·이메일 뜻 (2026-11-09 개인정보·IT 2회차)
+                  "guardian", "보호자", "contact", "nok", "email", "e_mail", "mail", "메일")
+_LATIN_WORD = re.compile(r"[A-Z]{5,}")  # 어휘에 없는 라틴 대문자 5자 이상 값은 로마자 이름 모양으로 본다(병동·병실 열 제외)
+# 진단 약어 차단 목록 (열 이름이 의미 없어도 나가지 않는다). 감염관리 코드(VRE·CRE·MRSA·TB 등)는 격리 판단용이라 넣지 않는다
+_DX_ABBR = frozenset({"hiv", "hbv", "hcv", "aids", "hpv", "hsv", "std", "sti", "vdrl", "rpr", "etoh", "scz", "mdd",
+                      "bpd", "ptsd"})
 
 
 _NAME_TOKS = ("pt_nm", "nm", "name", "성명", "이름", "환자명")
@@ -128,6 +134,8 @@ def _safe_code(v: str, known: set[str], struct: bool = False) -> bool:
     if sum(ch.isdigit() for ch in v) >= 3 or (_ICD_LIKE.search(v) and not struct):
         return False
     if _HANGUL_NAME.match(v) and _norm(v) not in known and not v.endswith(_CODE_SUFFIX):
+        return False
+    if _norm(v) in _DX_ABBR or (_LATIN_WORD.fullmatch(v) and _norm(v) not in known and not struct):
         return False
     return True
 
