@@ -10,10 +10,16 @@ Direction = Literal["loosen", "tighten", "neutral"]
 def correction_direction(current: Mapping, field: str, value) -> Direction:
     if field == "precautions":
         old, new = set(current.get("precautions") or ()), set(value or ())
-        if new < old:
-            return "loosen"
+        if old - new:
+            return "loosen"  # 하나라도 빠지면 완화다(교체 contact→droplet 포함, 2단계 안전 검수 M5)
         if new > old:
             return "tighten"
+    if field == "precaution_status":
+        rank = {"confirmed": 3, "suspected": 2, "preemptive": 1, None: 0}
+        o, n = rank.get(current.get("precaution_status"), 0), rank.get(value, 0)
+        return "loosen" if n < o else "tighten" if n > o else "neutral"
+    if field == "organism" and current.get("organism") and not value:
+        return "loosen"
     return "neutral"
 
 

@@ -134,10 +134,12 @@ def _fake_exception_action(ctx: dict) -> dict:
         if "replan_now" in allowed:
             return {"action": "replan_now", "params": {}, "rationale": "정정된 값으로 다시 찾음"}
     if trig == "promise_at_risk":
-        if not st.get("cleaning_started") and "re_request_cleaning" in allowed:
-            return {"action": "re_request_cleaning", "params": {}, "rationale": "약속 위험: 청소 재요청"}
-        if not st.get("isolation_discharge") and "request_bed_prep_first" in allowed:
-            return {"action": "request_bed_prep_first", "params": {}, "rationale": "청소 중: 침상 정리 먼저"}
+        # 원무 관점 (2단계 현장 검수 H4): 퇴실 전이면 재연락, 퇴실 뒤 청소 전이면 재요청 1회, 그 뒤에도 위험이면 재연락
+        if ex.get("stage") != "occupant_not_departed" and ex.get("attempts", 0) == 0:
+            if not st.get("cleaning_started") and "re_request_cleaning" in allowed:
+                return {"action": "re_request_cleaning", "params": {}, "rationale": "약속 위험: 청소 재요청"}
+            if not st.get("isolation_discharge") and "request_bed_prep_first" in allowed:
+                return {"action": "request_bed_prep_first", "params": {}, "rationale": "청소 중: 침상 정리 먼저"}
         if "request_recontact" in allowed:
             return {"action": "request_recontact", "params": {}, "rationale": "약속을 지키기 어려움: 원무 재연락"}
     if trig == "call_up_stalled":
@@ -152,7 +154,8 @@ def _fake_exception_action(ctx: dict) -> dict:
     if trig == "sequence_stalled" and "remind_owner" in allowed:
         return {"action": "remind_owner", "params": {}, "rationale": "처방 없음: 병동·주치의에게 재촉"}
     if trig == "guardian_delay_same_day":
-        if (st.get("next_admission_waiting") or st.get("waiting_matches")) and "offer_lounge" in allowed:
+        if (st.get("next_admission_waiting") or st.get("waiting_matches")) and "offer_lounge" in allowed \
+                and not st.get("isolation_discharge") and not st.get("mobility_aid"):
             return {"action": "offer_lounge", "params": {}, "rationale": "다음 입원 대기: 라운지 제안으로 병상 먼저 비움"}
         if "wait" in allowed:
             return {"action": "wait", "params": {}, "rationale": "기다리는 입원 없음: 보호자 도착까지 둠"}

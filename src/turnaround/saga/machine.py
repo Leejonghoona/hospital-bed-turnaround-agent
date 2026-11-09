@@ -116,6 +116,7 @@ class DischargeCase:
     hold: bool = False  # 급변 전동 때 병상을 잡아 둠 (풀릴 때까지 다른 환자 배정 불가)
     cleaning_dones: list[datetime] = field(default_factory=list)  # 청소 완료 신호 시각들 (종말소독 상향 뒤 판정용)
     guardian_eta: datetime | None = None  # 마지막으로 알려진 보호자 도착 예정
+    mobility_aid: bool = False  # 이동 보조 필요 (추출·입력 사실, 라운지 제외 판단)
     cleaning_done_kinds: list[tuple[datetime, str | None]] = field(default_factory=list)  # (시각, 청소 종류)
     bed_prep_dones: list[datetime] = field(default_factory=list)  # 병원 직원 침상 정리(재설치) 완료 신호들
 
@@ -185,6 +186,7 @@ class SagaState:
     no_bed_reports: list[Event] = field(default_factory=list)  # 병상 없음 보고 (E5)
     objections: list[Event] = field(default_factory=list)  # 병동 이의 (E8)
     admission_cmds: dict[str, set[str]] = field(default_factory=dict)  # 입원 사례에 낸 사가 명령 키
+    contact_promise: dict[str, str] = field(default_factory=dict)  # 연락 때 환자에게 안내한 시각 (E9 약속)
 
     def admission_commands(self, case: str) -> set[str]:
         return self.admission_cmds.get(case, set())
@@ -213,6 +215,8 @@ def fold(events: Iterable[Event]) -> SagaState:
             s.admission_cmds.setdefault(ev.case_id, set()).add(ev.event_id)
         if ev.type is EventType.WARD_OBJECTION_RAISED:
             s.objections.append(ev)
+        if ev.type is EventType.PATIENT_CONTACTED and ev.payload.get("promised_at"):
+            s.contact_promise[ev.case_id] = ev.payload["promised_at"]
         if ev.type is EventType.MANUAL_OVERRIDE_APPLIED:
             s.pins[ev.case_id] = ev.payload.get("actor", "")
             continue
@@ -310,6 +314,8 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.eta_updates.append((ev.event_id.split(":", 1)[1], ev.observed_at))
         if ev.type in (EventType.GUARDIAN_ETA_SET, EventType.GUARDIAN_ETA_UPDATED) and ev.payload.get("eta"):
             d.guardian_eta = datetime.fromisoformat(ev.payload["eta"])
+        if d is not None and ev.payload.get("mobility_aid") is True:
+            d.mobility_aid = True
         if ev.type is EventType.DISCHARGE_RX_REVISED:
             d.rx_revisions.append((ev.event_id.split(":", 1)[1], ev.observed_at, ev.payload.get("reason")))
         if ev.source == "saga":
@@ -568,7 +574,9 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
                         exception_id=f"E3:{d.id}", trigger="guardian_delay_same_day", bed_id=bed,
                         stage="before_departure", deadline=d.guardian_eta.isoformat(),
                         context={"next_admission_waiting": _bed_awaited(s, bed),
-                                 "guardian_wait_min": int((d.guardian_eta - ready).total_seconds() // 60)})
+                                 "guardian_wait_min": int((d.guardian_eta - ready).total_seconds() // 60),
+                                 # 라운지 제외 대상 판단에 쓴다 (2단계 안전 검수 H2)
+                                 "isolation_discharge": d.isolation, "mobility_aid": bool(d.mobility_aid)})
 
         # 처방 수정은 지연 사유로 기록
         for key, seen_at, why in d.rx_revisions:
@@ -609,7 +617,8 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
             terminal_from = iso_at
             out.cmd(d.id, "cleaning_request:terminal_upgrade", EventType.CLEANING_REQUEST_ISSUED, iso_at, bed_id=bed,
                     cleaning_type="terminal", reason="isolation_after_departure", **extra)
-        issued = d.seen(EventType.CLEANING_REQUEST_ISSUED) or departed
+        # 퇴실 전 요청(재요청 포함)은 실제 요청이 아니다: 타이머는 퇴실 뒤부터 (2단계 현장 검수 H1)
+        issued = max(d.seen(EventType.CLEANING_REQUEST_ISSUED) or departed, departed)
         limit = p.cleaning_overdue_terminal if d.isolation else p.cleaning_overdue_general
         done = d.seen(EventType.CLEANING_DONE)
         ready = d.seen(EventType.BED_READY)

@@ -123,7 +123,8 @@ def _entry_humans(st: DemoState, now: datetime, ev) -> None:
         if e.type is EventType.MATCH_COMMITTED and e.observed_at + _CONTACT_AFTER * _M <= now and \
                 (case, EventType.PATIENT_CONTACTED) not in seen and 7 <= now.hour < 20:  # 주말·휴일은 당직 원무(설계 가정)
             st.store.append(_human_event(case, "patient_contacted", EventType.PATIENT_CONTACTED, now,
-                                         bed_id=e.payload.get("bed_id"), by="admission_office"))
+                                         bed_id=e.payload.get("bed_id"), by="admission_office",
+                                         promised_at=_announce(st, case, now, ev).isoformat()))
             seen.add((case, EventType.PATIENT_CONTACTED))
         if e.type is EventType.WARD_ASSIGNMENT_NOTIFIED and e.observed_at + _WARD_PREP_AFTER * _M <= now and \
                 (case, EventType.WARD_PREP_DONE) not in seen:
@@ -133,6 +134,26 @@ def _entry_humans(st: DemoState, now: datetime, ev) -> None:
                 (case, EventType.PATIENT_ARRIVED) not in seen:
             st.store.append(_human_event(case, "patient_arrived", EventType.PATIENT_ARRIVED, now, bed_id=e.payload.get("bed_id")))
             seen.add((case, EventType.PATIENT_ARRIVED))
+
+
+def _announce(st: DemoState, case: str, now: datetime, ev) -> datetime:
+    """원무가 연락 때 환자에게 안내하는 수속 시각 (2단계 현장 검수 H4). 설계 가정: 입원 예정 시각과 연락 1시간 뒤 중
+    늦은 쪽, 병상이 아직 비지 않았으면 병원 입원 수속 창 시작보다 이르게 부르지 않는다."""
+    req = next((datetime.fromisoformat(e.payload["requested_at"]) for e in ev
+                if e.type is EventType.ADMISSION_REQUESTED and e.case_id == case and e.payload.get("requested_at")), now)
+    t = max(req, now + timedelta(hours=1))
+    from turnaround.saga import fold
+    m = fold(ev).matches.get(case)
+    ready = False
+    if m is not None:
+        from turnaround.saga.machine import current_discharge
+        d = current_discharge(fold(ev), m)
+        ready = d is None or bool(d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY))
+    if not ready:
+        h, mi = map(int, st.gw.policy.hospital_profile.admission_window[0].split(":"))
+        t = max(t, now.replace(hour=h, minute=mi, second=0, microsecond=0))
+    return t.replace(minute=(t.minute // 30) * 30, second=0, microsecond=0) + (timedelta(minutes=30) if t.minute % 30 else
+                                                                               timedelta())
 
 
 def _human_event(case, key, etype, now, **payload):

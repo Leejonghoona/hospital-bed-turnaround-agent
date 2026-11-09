@@ -17,7 +17,7 @@ from turnaround.events.models import EventType
 
 STEP_LIMITS = {"billing_review": timedelta(minutes=90), "medication": timedelta(minutes=120),
                "billing_payment": timedelta(minutes=60)}
-STEP_OWNER = {"billing_review": "billing", "medication": "pharmacy", "billing_payment": "billing"}
+STEP_OWNER = {"billing_review": "discharge_review", "medication": "pharmacy", "billing_payment": "cashier"}
 PROMISE_MARGIN = timedelta(minutes=60)
 CALL_UP_GRACE = timedelta(minutes=20)
 
@@ -126,19 +126,28 @@ def _promise_and_call_up(s, now, out, p):
         d = current_discharge(s, m)
         ready_at = (d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY)) if d is not None else promise
         contacted = m.facts.get(EventType.PATIENT_CONTACTED)
-        # E9 약속 위험: 연락했고(입실 시각을 알렸고) 약속 60분 전에도 병상이 준비되지 않음
-        risk_at = promise - PROMISE_MARGIN
+        # E9 약속 위험: 약속은 원무가 연락 때 환자에게 안내한 시각(연락 사건의 promised_at)이다. 값이 없으면 내지 않는다.
+        # 연락 때 이미 지난 약속, 연락 전에 이미 준비된 병상은 올리지 않는다 (2단계 현장 검수 H4)
+        told = s.contact_promise.get(m.admission_id)
         key9, ex9 = f"promise:{m.bed_id}", f"E9:{m.admission_id}"
-        if contacted is not None and d is not None and now >= risk_at and (ready_at is None or ready_at > risk_at):
-            at = max(risk_at, contacted)
-            out.cmd(m.admission_id, f"promise_at_risk:{m.bed_id}", EventType.PROMISE_AT_RISK, at, bed_id=m.bed_id,
-                    promise_at=promise.isoformat())
-            _raise(out, m.admission_id, key9, at, ex9, "promise_at_risk",
-                   "cleaning_in_progress" if d.seen(EventType.CLEANING_STARTED) else "cleaning_pending", p,
-                   admission_id=m.admission_id, bed_id=m.bed_id, discharge_id=d.id,
-                   context={"contacted": True, "promise_at": promise.strftime("%H:%M"),
-                            "cleaning_started": d.seen(EventType.CLEANING_STARTED) is not None,
-                            "isolation_discharge": d.isolation})
+        if told and contacted is not None and d is not None:
+            promise_at = datetime.fromisoformat(told)
+            risk_at = promise_at - PROMISE_MARGIN
+            ready_before_contact = ready_at is not None and ready_at <= contacted
+            if promise_at > contacted and not ready_before_contact and now >= risk_at and \
+                    (ready_at is None or ready_at > risk_at):
+                at = max(risk_at, contacted)
+                departed = d.seen(EventType.PATIENT_DEPARTED)
+                stage = ("occupant_not_departed" if departed is None or departed > at else
+                         "cleaning_in_progress" if d.seen(EventType.CLEANING_STARTED) else "cleaning_pending")
+                out.cmd(m.admission_id, f"promise_at_risk:{m.bed_id}", EventType.PROMISE_AT_RISK, at, bed_id=m.bed_id,
+                        promise_at=promise_at.isoformat())
+                _raise(out, m.admission_id, key9, at, ex9, "promise_at_risk", stage, p,
+                       admission_id=m.admission_id, bed_id=m.bed_id, discharge_id=d.id,
+                       context={"contacted": True, "promise_at": promise_at.strftime("%H:%M"),
+                                "departed": stage != "occupant_not_departed",
+                                "cleaning_started": d.seen(EventType.CLEANING_STARTED) is not None,
+                                "isolation_discharge": d.isolation})
         if ready_at is not None and any(k.endswith(f"exception:{key9}") for k in s.admission_commands(m.admission_id)):
             _resolve(out, m.admission_id, key9, ready_at, ex9)
         # E10 호출 정체: 확정, 병상 준비, 수속 뒤 20분이 지나도 병동 준비가 없음

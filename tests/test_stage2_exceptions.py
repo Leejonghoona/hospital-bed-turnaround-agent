@@ -50,7 +50,8 @@ def test_e2_stalled_steps_remind_the_step_owner():
     assert {"billing_review", "medication"} <= steps
     _brain(gw).step(at(10, 10))
     tasks = {(t.payload.get("kind"), t.payload.get("assignee")) for t in _types(store, EventType.HUMAN_TASK_CREATED)}
-    assert ("step_nudge:billing_review", "billing") in tasks and ("step_nudge:medication", "pharmacy") in tasks
+    # 심사는 심사 담당, 퇴원약은 약제부 (2단계 현장 검수 H3에서 역할을 나눔)
+    assert ("step_nudge:billing_review", "discharge_review") in tasks and ("step_nudge:medication", "pharmacy") in tasks
 
 
 def test_e6_discharge_cancelled_before_contact_rematches():
@@ -111,7 +112,9 @@ def test_e9_promise_at_risk_re_requests_cleaning():
     evs = _dc([_adm_at(at(15)), ev("D1", "patient_departed", EventType.PATIENT_DEPARTED, at(12), bed_id=BED)])
     store, gw = make(evs, policy=FIELD)
     gw.submit(prop(store=store, discharge_id="D1"), at(9))
-    store.append(ev("A1", "patient_contacted", EventType.PATIENT_CONTACTED, at(9, 30), "human"))
+    # 약속은 연락 때 안내한 시각 (2단계 현장 검수 H4)
+    store.append(ev("A1", "patient_contacted", EventType.PATIENT_CONTACTED, at(9, 30), "human",
+                    promised_at=at(15).isoformat()))
     _saga(store).step(at(14, 5))
     assert _types(store, EventType.PROMISE_AT_RISK) and _raised(store, "promise_at_risk")
     _brain(gw).step(at(14, 10))

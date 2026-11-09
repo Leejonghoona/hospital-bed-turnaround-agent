@@ -97,11 +97,23 @@ def load_operations(path: Path = DEFAULT_OPERATIONS) -> Operations:
     return Operations(cal, raw["roles"], raw["escalation"], raw.get("task_sla_min", {}))
 
 
-def _role(task: Event) -> str:
+# 정책에서 쓰는 다른 이름 → 운영 역할 (상위 담당 이름으로 올린 작업은 그 줄로 간다)
+_ALIASES = {"admission_office": "bed_manager", "admission_lead": "bed_manager", "nursing_supervisor": "ward",
+            "billing": "cashier"}
+
+
+def _role(task: Event, ops: "Operations | None" = None) -> str:
+    """작업의 논리 역할. 모르는 역할은 원무로 몰래 바꾸지 않고 실패한다 (2단계 현장 검수 H3)."""
     if task.type is EventType.CASE_ROUTED_REVIEW:
         return "bed_manager"
     a = task.payload.get("assignee") or "bed_manager"
-    return a if a in ("ward", "ipc", "bed_manager", "environment_vendor") else "bed_manager"
+    a = _ALIASES.get(a, a)
+    known = set(ops.roles) if ops is not None else {"ward", "ipc", "bed_manager", "environment_vendor"}
+    if a not in known:
+        if ops is None:
+            return "bed_manager"
+        raise ValueError(f"운영 설정에 없는 역할: {a} (작업 {task.event_id})")
+    return a
 
 
 _TASK_TYPES = (EventType.HUMAN_TASK_CREATED, EventType.CASE_ROUTED_REVIEW)
@@ -110,11 +122,39 @@ _REVIEW_CLOSERS = (EventType.MANAGER_APPROVED, EventType.MATCH_COMMITTED, EventT
                    EventType.ADMISSION_CANCELLED)
 
 
+# 참고 알림: 사람이 "완료"를 누르는 일이 아니다. 마감·올림·인계 대상이 아니고 조건이 풀리면 사라진다 (현장 검수 H2)
+NOTICE_KINDS = ("order_nudge", "step_nudge", "call_up_reminder", "next_ready_share", "cleaning_reminder_notice")
+
+
+def is_notice(task: Event) -> bool:
+    k = str(task.payload.get("kind") or "")
+    return task.payload.get("notice") is True or any(k == n or k.startswith(n + ":") for n in NOTICE_KINDS)
+
+
 def _closed_at(events: list[Event]) -> dict[str, datetime]:
     out = {e.payload.get("task_id"): e.observed_at for e in events if e.type is EventType.HUMAN_TASK_DONE}
-    for rv in (e for e in events if e.type is EventType.CASE_ROUTED_REVIEW):
+    # 예외에 딸린 작업은 그 예외가 조건이 풀려 닫히면 함께 닫힌다
+    cleared = {e.payload.get("exception_id"): e.observed_at for e in events if e.type is EventType.EXCEPTION_RESOLVED
+               and e.payload.get("how") == "condition_cleared"}
+    for t in events:
+        if t.type is EventType.HUMAN_TASK_CREATED and t.payload.get("exception_id") in cleared:
+            out.setdefault(t.event_id, max(cleared[t.payload["exception_id"]], t.observed_at))
+    reviews = [e for e in events if e.type is EventType.CASE_ROUTED_REVIEW]
+    for rv in reviews:
         t = min((e.observed_at for e in events if e.type in _REVIEW_CLOSERS and e.case_id == rv.case_id
                  and e.observed_at >= rv.observed_at), default=None)
+        # 사례마다 열린 검토는 하나다 (2단계 현장 검수 M2·H5). 같은 사유로 다시 올라온 검토는 앞 검토의 연속이라
+        # 바로 닫고(앞 검토가 마감·올림을 맡는다), 사유가 바뀐 새 검토가 열리면 앞 검토는 대체되어 닫힌다
+        prev = [r for r in reviews if r.case_id == rv.case_id and (r.seq or 0) < (rv.seq or 0)
+                and not any(e.type in _REVIEW_CLOSERS and e.case_id == rv.case_id
+                            and r.observed_at <= e.observed_at <= rv.observed_at for e in events)]
+        if prev and sorted(prev[-1].payload.get("reasons") or []) == sorted(rv.payload.get("reasons") or []):
+            t = rv.observed_at
+        later = min((r.observed_at for r in reviews if r.case_id == rv.case_id and (r.seq or 0) > (rv.seq or 0)
+                     and sorted(r.payload.get("reasons") or []) != sorted(rv.payload.get("reasons") or [])),
+                    default=None)
+        if later is not None and (t is None or later < t):
+            t = later
         if t is not None:
             out.setdefault(rv.event_id, t)
     return out
@@ -148,7 +188,9 @@ class WorklistRunner:
         done_at = _closed_at(events)
         for t in (e for e in events if e.type in _TASK_TYPES):
             closed = done_at.get(t.event_id)
-            role = _role(t)
+            if is_notice(t):
+                continue  # 참고 알림은 올리지도 인계하지도 않는다
+            role = _role(t, self.ops)
             due = self.ops.due(t)
             if now >= due and not (closed and closed <= due):
                 self._cmd(known, t, "escalated", EventType.TASK_ESCALATED, due, role=role,

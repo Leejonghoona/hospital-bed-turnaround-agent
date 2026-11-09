@@ -154,7 +154,7 @@ ta:act_contact_patient a ta:ActionType ; ta:autonomyKey "contact_patient" ; ta:l
 ta:act_approve_safety_exception a ta:ActionType ; ta:autonomyKey "approve_safety_exception" ; ta:locked true ; ta:by ta:ipc .
 ta:act_escalate a ta:ActionType ; ta:autonomyKey "escalate" ; ta:gatewayMethod "submit_action" .
 ta:act_rematch_now a ta:ActionType ; ta:autonomyKey "rematch_now" ; ta:gatewayMethod "submit_action" .
-ta:act_propose_rematch a ta:ActionType ; ta:autonomyKey "propose_rematch" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
+ta:act_propose_rematch a ta:ActionType ; ta:autonomyKey "propose_rematch" ; ta:gatewayMethod "submit_action" ; ta:locked true ; ta:by ta:bed_manager .
 ta:act_wait_for_ipc a ta:ActionType ; ta:autonomyKey "wait_for_ipc" ; ta:gatewayMethod "submit_action" .
 ta:act_propose_surveillance_hold a ta:ActionType ; ta:autonomyKey "propose_surveillance_hold" ; ta:gatewayMethod "submit_action" ; ta:by ta:ipc .
 ta:act_remind_owner a ta:ActionType ; ta:autonomyKey "remind_owner" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
@@ -169,9 +169,9 @@ ta:act_wait_for_next_ready a ta:ActionType ; ta:autonomyKey "wait_for_next_ready
 ta:act_wait_for_bed a ta:ActionType ; ta:autonomyKey "wait_for_bed" ; ta:gatewayMethod "submit_action" .
 ta:act_replan_now a ta:ActionType ; ta:autonomyKey "replan_now" ; ta:gatewayMethod "submit_action" ;
     rdfs:comment "정정된 값으로 다시 찾기. 안전을 푸는 정정은 확인 전 거부" .
-ta:act_request_recontact a ta:ActionType ; ta:autonomyKey "request_recontact" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
+ta:act_request_recontact a ta:ActionType ; ta:autonomyKey "request_recontact" ; ta:gatewayMethod "submit_action" ; ta:locked true ; ta:by ta:bed_manager .
 ta:act_remind_ward a ta:ActionType ; ta:autonomyKey "remind_ward" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
-ta:act_request_postpone_contact a ta:ActionType ; ta:autonomyKey "request_postpone_contact" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
+ta:act_request_postpone_contact a ta:ActionType ; ta:autonomyKey "request_postpone_contact" ; ta:gatewayMethod "submit_action" ; ta:locked true ; ta:by ta:bed_manager .
 
 # ---------------- 사건 순서 (같은 사례 안에서 앞 사건은 뒤 사건보다 늦지 않다) ----------------
 # 매핑 에이전트가 이름이 애매한 시각 열(예: "퇴원일시")을 순서로 가려낸다.

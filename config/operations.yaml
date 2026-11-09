@@ -12,11 +12,19 @@ roles:                       # 논리 역할 → 시간대별 실제 담당
   ipc: {office: ipc, off_hours: id_oncall}                          # 야간 감염내과 당직 (MA-01)
   ward: {shift: charge_nurse}                                        # 근무조 책임간호사
   environment_vendor: {office: environment_vendor, off_hours: environment_vendor}
+  # 퇴원 당일 단계 담당 (2단계 현장 검수 H3). 심사는 병원에 따라 원무 심사 또는 적정진료팀(인천성모 안내),
+  # 수납은 원무 창구, 퇴원약은 약제부(조제·복약상담실). 근무 시간·야간 담당은 설계 가정
+  discharge_review: {office: discharge_review, off_hours: night_admin}
+  cashier: {office: cashier, off_hours: night_admin}
+  pharmacy: {office: inpatient_pharmacy, off_hours: pharmacy_oncall}
 escalation:                  # 마감 초과 시 상위 담당 (설계 가정)
   ward: nursing_supervisor
   bed_manager: admission_lead
   ipc: ipc_lead
   environment_vendor: environment_lead
+  discharge_review: discharge_review_lead
+  cashier: admission_lead
+  pharmacy: pharmacy_lead
 task_sla_min:                # 작업 종류별 마감 (분). payload의 due가 있으면 그 값이 우선
   review: 60                 # 담당 검토 큐 (CASE_ROUTED_REVIEW)
   rx_missing: 30

@@ -135,8 +135,11 @@ class ExceptionBrain:
         except (LLMError, KeyError, TypeError, ValueError):
             return self.fallback(base)
 
-    def fallback(self, base: dict) -> ActionChoice:
-        return ActionChoice(**{**base, "action": "escalate", "params": {"role": "bed_manager"},
+    def fallback(self, base: dict, rejected: tuple[str, str] | None = None) -> ActionChoice:
+        params = {"role": "bed_manager"}
+        if rejected:  # 근거 카드에 거부된 행동과 사유를 남긴다 (2단계 안전 검수 M7)
+            params.update(rejected_action=rejected[0], rejected_reason=rejected[1])
+        return ActionChoice(**{**base, "action": "escalate", "params": params,
                                "rationale": "대체 경로: 사람에게 올림", "mode": "fallback"})
 
     def step(self, now: datetime) -> list:
@@ -146,16 +149,21 @@ class ExceptionBrain:
         for e in events:  # 마지막으로 잡은 다시 볼 시각
             if e.type is EventType.RECHECK_SCHEDULED:
                 waiting[e.payload.get("exception_id")] = datetime.fromisoformat(e.payload["at"])
+        decided = {e.payload.get("exception_id") for e in events
+                   if e.type in (EventType.ACTION_APPROVED, EventType.ACTION_REJECTED) and e.payload.get("actor")}
+        pending = {e.payload.get("exception_id") for e in events if e.type is EventType.ACTION_APPROVAL_REQUESTED}
         for ex in self.open_exceptions(events):
             if waiting.get(ex.payload["exception_id"], now) > now:
                 continue  # 기다리기로 한 예외는 다시 볼 시각까지 건너뛴다
+            if ex.payload["exception_id"] in pending - decided:
+                continue  # 사람 승인을 기다리는 예외는 다시 고르지 않는다 (2단계 안전 검수 M6)
             choice = self.choose(ex, events, now)
             d = self.gw.submit_action(choice, now)
             if d.status == "rejected" and d.reasons != ["stale_basis"] and choice.mode != "fallback":
                 events = self.gw.store.read()
                 d = self.gw.submit_action(self.fallback(choice.model_dump(include={
-                    "exception_id", "trigger", "case", "basis_seq"}) | {"basis_seq": max((e.seq or 0) for e in events)}),
-                    now)
+                    "exception_id", "trigger", "case", "basis_seq"}) | {"basis_seq": max((e.seq or 0) for e in events)},
+                    rejected=(choice.action, (d.reasons or ["?"])[0])), now)
             out.append(d)
             events = self.gw.store.read()
         return out

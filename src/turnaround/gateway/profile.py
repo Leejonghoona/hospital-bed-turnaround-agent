@@ -12,7 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # 사람만 하는 행동: 정책으로 자동화할 수 없다 (책임 순간, DECISIONS "U8 확장").
 # 공식 확정(official_commit)은 정책 자율 단계로 둔다 (DECISIONS 2026-11-09 "공식 확정을 책임 순간에서 뺀다")
-LOCKED_HUMAN_ACTIONS = frozenset({"contact_patient", "approve_safety_exception"})
+# 추천안 승인·재연락·연락 보류는 사람 승인이 정의인 행동이라 함께 잠근다 (2단계 안전 검수 H5)
+LOCKED_HUMAN_ACTIONS = frozenset({"contact_patient", "approve_safety_exception", "propose_rematch",
+                                  "request_recontact", "request_postpone_contact"})
 # 단계 잠금: 환자 연락·확정·입실 뒤에는 매칭을 스스로 바꾸지 않는다(목표 함수 2항, 안전 검토 1.3).
 # 허용 목록에서 빼고(머리에게 보이지 않음) 게이트웨이도 거부한다. 병원 설정으로 풀 수 없다.
 # 근거: Haiku 5.5 예외 판단 측정(2026-11-09)에서 금지 20건 중 14건이 이 단계의 자동 재매칭이었다
@@ -79,7 +81,8 @@ class HospitalProfile(_Frozen):
     # 예외 판단 머리가 사람에게 올릴 수 있는 역할. 외주 미화·그 책임자는 기본에서 뺀다(DECISIONS 2026-11-09):
     # 청소 지연은 책임간호사·원무에게 올리고 그들이 지금처럼 미화에 연락한다. 직영 환경관리 담당은 병원 설정으로 추가
     escalation_roles: list[str] = Field(default_factory=lambda: [
-        "bed_manager", "ipc", "ward", "admission_office", "billing", "pharmacy", "admission_lead",
+        "bed_manager", "ipc", "ward", "admission_office", "billing", "cashier", "discharge_review", "pharmacy",
+        "admission_lead",
         "nursing_supervisor"])
     assignment: Assignment = Field(default_factory=Assignment)
     ward_confirmation: WardConfirmation = Field(default_factory=WardConfirmation)

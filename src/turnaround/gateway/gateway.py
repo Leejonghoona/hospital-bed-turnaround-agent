@@ -28,6 +28,15 @@ from turnaround.sim.models import Bed, Patient, IsolationType, Room, RoomType
 from .policy import Policy
 
 # 판단 정보가 바뀌었다고 보는 이벤트
+# 알림·재요청 행동: 실행해도 예외를 닫지 않고 다시 본다. 같은 행동은 한 번만(정책 max_attempts로 바꿀 수 있음).
+# 청소 지연(E4)은 1차·2차가 따로 오르므로 재요청으로 닫는다 (2단계 안전 검수 H6)
+NOTIFY_ACTIONS = frozenset({"remind_owner", "remind_ward", "re_request_cleaning", "request_bed_prep_first", "share_eta",
+                            "offer_lounge"})
+NOTIFY_RESOLVES = frozenset({"cleaning_overdue"})
+NOTIFY_RECHECK = timedelta(minutes=30)  # 알림 뒤 다시 볼 때까지 (설계 가정)
+MAX_WAITS = 3  # 같은 예외에서 연속 기다림 상한 (설계 가정, 정답 세트 W-01 "연속 기다림은 침묵 실패")
+# 매칭을 푸는 효과가 있는 행동: 입실 뒤에는 무엇이든 거부
+REMATCH_EFFECT_ACTIONS = frozenset({"rematch_now", "replan_now", "propose_rematch"})
 _MATERIAL = {EventType.ISOLATION_ORDER_ADDED, EventType.DISCHARGE_CANCELLED, EventType.ADMISSION_CANCELLED,
              EventType.PATIENT_INFO_UPDATED, EventType.PATIENT_INFO_CORRECTED, EventType.CORRECTION_CONFIRMED,
              EventType.ISOLATION_RELEASED}
@@ -312,36 +321,85 @@ class Gateway:
         fallback_ok = choice.mode == "fallback" and choice.action == "escalate"
         if not fallback_ok and (rule is None or choice.action not in rule.allowed):
             return reject("not_allowed")
-        from .profile import AUTO_REMATCH_ACTIONS, STAGE_LOCKED_ACTIONS
         contacted = bool((raised.payload.get("context") or {}).get("contacted")) or any(
             e.type is EventType.PATIENT_CONTACTED and e.case_id == (raised.payload.get("admission_id") or choice.case)
             for e in events)
-        if choice.action in STAGE_LOCKED_ACTIONS.get(raised.payload.get("stage") or "", frozenset()) or \
-                (contacted and choice.action in AUTO_REMATCH_ACTIONS):
-            return reject("stage_locked")  # 연락·확정·입실 뒤 자동 재매칭 금지 (머리가 골라도 막는다)
+        if (why := self._stage_lock(choice.action, raised, events)) is not None:
+            return reject(why)  # 연락·확정·입실 뒤 자동 재매칭 금지 (머리가 골라도 막는다)
         if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage"), contacted):
             return reject("not_allowed")
         if any((e.seq or 0) > choice.basis_seq and e.case_id == choice.case and e.type in self._ACTION_MATERIAL
                for e in events):
             return reject("stale_basis")  # 재확인 1: 고른 뒤 판단 정보가 바뀜 → 예외를 열어 두고 다시 고른다
+        if not fallback_ok and (why := self._repeat_limit(choice, raised, events, now)) is not None:
+            return reject(why)  # 마감 뒤 기다림·같은 알림 반복은 받지 않는다 → 머리가 대체 경로로 사람에게 올린다
         if choice.action == "escalate" and \
                 choice.params.get("role", "bed_manager") not in self.policy.hospital_profile.escalation_roles:
             return reject("bad_params")
         if (why := self._action_precheck(choice, raised, events)) is not None:
-            return reject(why)  # 안전·상태 검사 (예: 종말소독 전 침상 정리, 연락한 매칭 자동 재매칭)
+            return reject(why)  # 안전·상태 검사 (예: 종말소독 전 침상 정리, 퇴실 전 청소 재요청)
         autonomy = "auto" if fallback_ok else self.policy.autonomy.get(choice.action, "human")
         if autonomy == "human":
             self._emit(choice.case, f"{exid}:approval:{choice.action}", EventType.ACTION_APPROVAL_REQUESTED, now,
                        **base, autonomy=autonomy)
             return Decision("awaiting_approval", "action", autonomy)
         self._execute_action(choice, raised, now)
-        self._emit(choice.case, f"{exid}:executed", EventType.ACTION_EXECUTED, now, **base, autonomy=autonomy)
+        self._emit(choice.case, f"{exid}:executed:{attempt + 1}", EventType.ACTION_EXECUTED, now, **base,
+                   autonomy=autonomy)
         if autonomy == "post_report":
             self._emit(choice.case, f"{exid}:reported", EventType.ACTION_REPORTED, now, **base, to_role="bed_manager")
-        if not choice.action.startswith("wait"):
+        if choice.action in NOTIFY_ACTIONS and choice.trigger not in NOTIFY_RESOLVES:
+            # 알림·재요청은 예외를 닫지 않는다. 다시 볼 시각을 잡고, 조건이 풀리면 사가가 닫는다 (2단계 안전 검수 H6)
+            self._emit(choice.case, f"{exid}:recheck:n{attempt + 1}", EventType.RECHECK_SCHEDULED, now,
+                       exception_id=exid, at=(now + NOTIFY_RECHECK).isoformat(), after=choice.action)
+        elif not choice.action.startswith("wait"):
             self._emit(choice.case, f"{exid}:resolved", EventType.EXCEPTION_RESOLVED, now, exception_id=exid,
                        how=choice.action)
         return Decision("executed", "action", autonomy)
+
+    def _targets(self, raised: Event) -> set[str]:
+        """이 예외의 행동이 건드리는 입원 사례."""
+        ctx = raised.payload.get("context") or {}
+        out = set(ctx.get("waiting_admissions") or [])
+        if raised.payload.get("admission_id"):
+            out.add(raised.payload["admission_id"])
+        return out
+
+    def _stage_lock(self, action: str, raised: Event, events: list[Event]) -> str | None:
+        """단계 잠금을 예외의 단계 이름이 아니라 대상 입원의 현재 사실(연락·확정·입실)로 판정한다 (2단계 안전 검수 H1)."""
+        from .profile import AUTO_REMATCH_ACTIONS, STAGE_LOCKED_ACTIONS
+        if action in STAGE_LOCKED_ACTIONS.get(raised.payload.get("stage") or "", frozenset()):
+            return "stage_locked"
+        matches = fold(events).matches
+        facts = set()
+        for c in self._targets(raised):
+            m = matches.get(c)
+            if m is not None:
+                facts |= set(m.facts)
+            facts |= {e.type for e in events if e.case_id == c and e.type in (
+                EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED, EventType.PATIENT_ARRIVED)}
+        if action in AUTO_REMATCH_ACTIONS and facts & {EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
+                                                       EventType.PATIENT_ARRIVED}:
+            return "stage_locked"
+        if action in REMATCH_EFFECT_ACTIONS and EventType.PATIENT_ARRIVED in facts:
+            return "stage_locked"  # 입실한 환자의 매칭은 어떤 행동으로도 풀지 않는다
+        return None
+
+    def _repeat_limit(self, choice, raised: Event, events: list[Event], now: datetime) -> str | None:
+        exid = choice.exception_id
+        deadline = datetime.fromisoformat(raised.payload["deadline"])
+        if choice.action.startswith("wait") and now >= deadline:
+            return "deadline_passed"
+        done = [e.payload.get("action") for e in events if e.type is EventType.ACTION_EXECUTED
+                and e.payload.get("exception_id") == exid]
+        rule = self.policy.exception_actions.get(choice.trigger)
+        limits = rule.max_attempts if rule else {}
+        if choice.action.startswith("wait"):
+            if sum(1 for a in done if str(a).startswith("wait")) >= limits.get(choice.action, MAX_WAITS):
+                return "max_attempts"
+        elif choice.action in NOTIFY_ACTIONS and done.count(choice.action) >= limits.get(choice.action, 1):
+            return "max_attempts"  # 같은 알림을 되풀이하지 않는다(정답 세트 XD-042·045·200·203)
+        return None
 
     def approve_action(self, exception_id: str, actor: str, now: datetime) -> Decision:
         """사람 승인이 필요한 행동(propose_rematch 등)을 승인하고 실행한다."""
@@ -355,6 +413,9 @@ class Gateway:
         if any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exception_id for e in events):
             return Decision("superseded", "action")
         action = req.payload["action"]
+        roles = set(self.policy.hospital_profile.escalation_roles) | set(self.policy.manual_override.roles)
+        if actor not in roles:
+            return Decision("rejected", "action", None, ["approver_role"])
         prop = next((e for e in events if e.type is EventType.ACTION_PROPOSED
                      and e.payload.get("exception_id") == exception_id and e.payload.get("action") == action), None)
         from turnaround.agent.brain import ActionChoice
@@ -363,18 +424,51 @@ class Gateway:
                               rationale=(prop.payload.get("rationale") if prop else "") or "",
                               basis_seq=max((e.seq or 0) for e in events), mode="approved")
         base = dict(exception_id=exception_id, action=action)
+        # 승인 직전 재확인 (CLAUDE.md 4번, 2단계 안전 검수 H4): 단계 잠금·선행 검사를 다시 돌린다
+        why = self._stage_lock(action, raised, events) or self._action_precheck(choice, raised, events)
+        if why is not None:
+            self._emit(raised.case_id, f"{exception_id}:approval_rejected:{action}", EventType.ACTION_REJECTED, now,
+                       **base, reasons=[why], actor=actor)
+            self._emit(raised.case_id, f"{exception_id}:task:approval_rejected", EventType.HUMAN_TASK_CREATED, now,
+                       kind="approval_rejected", assignee="bed_manager", exception_id=exception_id, action=action,
+                       reason=why, bed_id=raised.payload.get("bed_id"))
+            self._emit(raised.case_id, f"{exception_id}:resolved", EventType.EXCEPTION_RESOLVED, now,
+                       exception_id=exception_id, how="approval_rejected")
+            return Decision("rejected", "action", None, [why])
         self._emit(raised.case_id, f"{exception_id}:approved:{action}", EventType.ACTION_APPROVED, now, "human",
                    **base, actor=actor)
         self._execute_action(choice, raised, now)
-        self._emit(raised.case_id, f"{exception_id}:executed", EventType.ACTION_EXECUTED, now, **base, autonomy="human")
+        self._emit(raised.case_id, f"{exception_id}:executed:approved", EventType.ACTION_EXECUTED, now, **base,
+                   autonomy="human")
         self._emit(raised.case_id, f"{exception_id}:resolved", EventType.EXCEPTION_RESOLVED, now,
                    exception_id=exception_id, how=action)
         return Decision("executed", "action", "human")
 
+    def _exception_discharge(self, raised: Event, events: list[Event]):
+        ds = fold(events).discharges
+        return ds.get(raised.payload.get("discharge_id") or "") or ds.get(raised.case_id)
+
+    def _room_terminal_pending(self, bed_id: str | None, events: list[Event]) -> bool:
+        """같은 병실(다인실 옆 침상 포함)에 종말소독 전 격리 퇴실이 있는가 (2단계 안전 검수 M4, 병실 단위 판정)."""
+        room = self.room_of.get(bed_id or "")
+        beds = [b for b, r in self.room_of.items() if r == room] if room else [bed_id]
+        return any(self._isolation_discharge_pending(b, events) for b in beds if b)
+
     def _action_precheck(self, choice, raised: Event, events: list[Event]) -> str | None:
         ctx = raised.payload.get("context") or {}
-        if choice.action == "request_bed_prep_first" and self._isolation_discharge_pending(raised.payload.get("bed_id"),
-                                                                                              events):
+        d = self._exception_discharge(raised, events)
+        if choice.action == "offer_lounge" and d is not None and (d.isolation or any(
+                e.case_id == d.id and e.payload.get("mobility_aid") is True for e in events)):
+            return "lounge_unsafe"  # 격리·이동 보조 퇴실 환자는 공용 라운지 제외 (설계 개정 3.2·Q9, 2단계 안전 검수 H2)
+        if choice.action in ("re_request_cleaning", "request_bed_prep_first") and d is not None \
+                and EventType.PATIENT_DEPARTED not in d.facts:
+            return "not_departed"  # 환자가 있는 병실에 청소·침상 정리를 보내지 않는다 (2단계 검수 H3·현장 H1)
+        if choice.action == "re_request_cleaning" and not any(
+                e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == (d.id if d else raised.case_id)
+                and not e.payload.get("reminder") for e in events):
+            return "no_request_to_remind"  # 재요청은 이미 나간 요청이 있을 때만
+        if choice.action == "request_bed_prep_first" and self._room_terminal_pending(raised.payload.get("bed_id"),
+                                                                                    events):
             return "terminal_cleaning_pending"  # 격리 퇴실 병실은 종말소독 완료 전 침상 정리 금지 (H34)
         if choice.action == "replan_now" and ctx.get("correction_direction") == "loosen" \
                 and not ctx.get("correction_confirmed"):
@@ -406,12 +500,21 @@ class Gateway:
             # 함께 할 행동: 근거(예외·사유)를 붙인 작업 (가만히 기다리지 않는다, 자동 행동은 사유를 알린다)
             self._emit(case, f"{exid}:companion:{kind}", EventType.HUMAN_TASK_CREATED, now, kind=kind,
                        assignee=role, reason=f"{choice.trigger}:{choice.action}", bed_id=raised.payload.get("bed_id"),
+                       exception_id=exid,
                        rationale=choice.rationale, context=raised.payload.get("context"))
         if choice.action == "escalate":
+            card = dict(raised.payload.get("context") or {})
+            card.update({k: choice.params[k] for k in ("rejected_action", "rejected_reason") if choice.params.get(k)})
+            card["deadline"] = raised.payload.get("deadline")
+            also = []
+            p, _ = self._admission(raised.payload.get("admission_id") or case, self._events())
+            if raised.payload.get("trigger") == "late_isolation" or (p is not None and p.isolation_order and
+                                                                      IsolationType.AIRBORNE in p.precautions):
+                also.append("ipc")  # 격리 사안은 감염관리실도 받는다 (2단계 안전 검수 M7)
             self._emit(case, f"{exid}:task:escalate", EventType.HUMAN_TASK_CREATED, now, reason="brain_escalate",
                        kind="brain_escalate", assignee=choice.params.get("role", "bed_manager"),
-                       trigger=choice.trigger, bed_id=raised.payload.get("bed_id"),
-                       card=raised.payload.get("context"))  # 근거 카드 (예: 오늘 퇴원 예정 병상과 단계)
+                       trigger=choice.trigger, bed_id=raised.payload.get("bed_id"), exception_id=exid,
+                       card=card, also_notify=also)  # 근거 카드 (거부된 행동·사유·마감 포함)
         elif choice.action in ("rematch_now", "propose_rematch") and choice.trigger == "cleaning_overdue":
             self._release_waiting(exid, raised, now, "cleaning_overdue")
         elif choice.action in ("rematch_now", "propose_rematch") and choice.trigger in ("ward_objection",
@@ -423,10 +526,12 @@ class Gateway:
                 self._emit(case, f"{exid}:replan", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
         elif choice.action == "request_recontact":
             self._emit(case, f"{exid}:task:recontact", EventType.HUMAN_TASK_CREATED, now, kind="recontact",
-                       assignee="bed_manager", reason=choice.trigger, bed_id=raised.payload.get("bed_id"))
+                       assignee="bed_manager", reason=choice.trigger, bed_id=raised.payload.get("bed_id"),
+                       exception_id=exid, context=raised.payload.get("context"))
         elif choice.action == "remind_ward":
             self._emit(case, f"{exid}:task:call_up", EventType.HUMAN_TASK_CREATED, now, kind="call_up_reminder",
-                       assignee="ward", reason=choice.trigger, bed_id=raised.payload.get("bed_id"))
+                       assignee="ward", reason=choice.trigger, bed_id=raised.payload.get("bed_id"), exception_id=exid,
+                       notice=True)
         elif choice.action in ("rematch_now", "propose_rematch"):
             # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
             self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
@@ -437,8 +542,9 @@ class Gateway:
             owner = {"physician": "ward"}.get(ctx.get("step_owner", "physician"), ctx.get("step_owner", "ward"))
             kind = "order_nudge" if step == "discharge_order" else f"step_nudge:{step}"
             self._emit(case, f"{exid}:task:{kind}", EventType.HUMAN_TASK_CREATED, now, reason="sequence_stalled",
-                       kind=kind, assignee=owner, bed_id=raised.payload.get("bed_id"), step=step,
-                       next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
+                       kind=kind, assignee=owner, bed_id=raised.payload.get("bed_id"), step=step, exception_id=exid,
+                       notice=True, next_admission_waiting=bool(ctx.get("next_admission_waiting")),
+                       rationale=choice.rationale)
         elif choice.action == "offer_lounge":
             ctx = raised.payload.get("context") or {}
             self._emit(case, f"{exid}:lounge_offered", EventType.LOUNGE_OFFERED, now, bed_id=raised.payload.get("bed_id"),
@@ -455,9 +561,13 @@ class Gateway:
             keep = {k: v for k, v in (last[-1].payload if last else {}).items()
                     if k in ("bed_id", "cleaning_type", "aerosol_wait_min", "sporicidal")}
             keep.setdefault("bed_id", raised.payload.get("bed_id"))
-            keep.setdefault("cleaning_type", (raised.payload.get("context") or {}).get("cleaning_type", "general"))
+            d = fold(evs).discharges.get(case)
+            # 등급은 격리 여부로 다시 계산한다(앞 요청이 일반이어도 격리 퇴실이면 종말소독, 하향 없음. 안전 검수 H3)
+            if (d is not None and d.isolation) or any(e.payload.get("cleaning_type") == "terminal" for e in last):
+                keep["cleaning_type"] = "terminal"
+            keep.setdefault("cleaning_type", "general")
             self._emit(case, f"{exid}:re_request", EventType.CLEANING_REQUEST_ISSUED, now, **keep, reminder=True,
-                       reason="cleaning_overdue")  # 같은 등급 그대로 (하향 없음)
+                       reason=choice.trigger)
         elif choice.action == "request_bed_prep_first":
             self._emit(case, f"{exid}:bed_prep", EventType.BED_PREP_REQUESTED, now, bed_id=raised.payload.get("bed_id"),
                        reason="cleaning_overdue")
@@ -466,7 +576,7 @@ class Gateway:
                        reason=choice.trigger, context=raised.payload.get("context"))
         elif choice.action == "request_postpone_contact":
             self._emit(case, f"{exid}:task:postpone", EventType.HUMAN_TASK_CREATED, now, kind="postpone_contact",
-                       assignee="bed_manager", reason=choice.trigger)
+                       assignee="bed_manager", reason=choice.trigger, exception_id=exid)
         elif choice.action.startswith("wait"):
             until = min(datetime.fromisoformat(raised.payload["deadline"]),
                         now + timedelta(minutes=self.policy.brain.max_wait_min))
@@ -568,9 +678,10 @@ class Gateway:
         self._emit(prop.case, f"gw:{prop.proposal_id}:review{suffix}", EventType.CASE_ROUTED_REVIEW, now,
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id, reasons=reasons, alternatives=prop.alternatives)
 
-    def _task(self, case: str, pid: str, kind: str, now: datetime, bed: str | None = None) -> None:
+    def _task(self, case: str, pid: str, kind: str, now: datetime, bed: str | None = None,
+              assignee: str = "bed_manager") -> None:
         self._emit(case, f"gw:{pid}:task:{kind}", EventType.HUMAN_TASK_CREATED, now, bed_id=bed, kind=kind,
-                   proposal_id=pid)
+                   proposal_id=pid, assignee=assignee)
 
     def _check_proposal(self, prop: Proposal, patient: Patient | None, payload: dict, events, now) -> Decision:
         if patient is None:
@@ -609,7 +720,10 @@ class Gateway:
                 self._task(prop.case, prop.proposal_id, "data_fix", now)
             room = self.room_by_id[self.room_of[prop.bed_id]]
             if ("single_room_preference" in reasons or "grade_upgrade" in reasons) and room.room_type is not RoomType.MULTI:
-                self._task(prop.case, prop.proposal_id, "fee_consent", now, prop.bed_id)  # LP-22
+                # 차액 동의는 환자·병실 등급마다 한 번 받는 서명이다 (LP-22, 2단계 현장 검수 H5)
+                self._emit(prop.case, f"gw:{prop.case}:task:fee_consent:{room.room_type.value}",
+                           EventType.HUMAN_TASK_CREATED, now, bed_id=prop.bed_id, kind="fee_consent",
+                           proposal_id=prop.proposal_id, room_grade=room.room_type.value, assignee="bed_manager")
             return Decision("awaiting_review", "proposal", "review", reasons)
         if self._agent_commits():
             # 검토 사유 없는 평범한 사례: 확정 직전 재확인을 거쳐 에이전트가 확정하고 통보한다 (DECISIONS 2026-11-09)
