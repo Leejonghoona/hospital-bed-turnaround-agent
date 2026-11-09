@@ -77,3 +77,15 @@ def test_c05_fails_when_saga_command_ids_are_not_deterministic(monkeypatch):
         return orig(self, case, f"{key}:{self.now.isoformat()}", *a, **k)
     monkeypatch.setattr(machine._Out, "cmd", cmd)
     assert not runners.RUNNERS["C05"](load_scenario(DEV / "C05.yaml")).passed
+
+
+def test_ward_acceptance_check_mutant_is_caught_by_holdout_h13(monkeypatch):
+    """G4: 회귀 세트가 못 잡던 "병동 수용 회신 확인" 장치를 홀드아웃 H13이 잡는다."""
+    from pathlib import Path
+    from turnaround.evaluation.runners_gateway import HOLDOUT_RUNNERS
+    from turnaround.evaluation.scenario import load_scenario
+    from turnaround.gateway.gateway import Gateway
+    s = load_scenario(Path(__file__).resolve().parents[1] / "evals" / "scenarios" / "holdout" / "H13.yaml")
+    assert HOLDOUT_RUNNERS["H13"](s).passed
+    monkeypatch.setattr(Gateway, "_ward_accepted", lambda self, pid, events: True)
+    assert not HOLDOUT_RUNNERS["H13"](s).passed

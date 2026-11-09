@@ -1,0 +1,35 @@
+id: H13
+category: gateway
+title: 병동 수용 회신 전 확정 시도
+tags:
+- ward_acceptance
+- commit_recheck
+design_ref: 'GW 확정 직전 재확인: 병동 수용 회신이 없으면 확정하지 않는다 (RESULTS 4단계 "회귀 세트가 잡지 못한 장치")'
+situation: P1에게 W72-R04-B1 매칭안이 나와 담당 승인까지 끝났고 병동에 수용 여부를 물었다. 병동 회신이 오기 전 09:30에 원무가
+  확정을 누른다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 실행기 고정 데이터
+gold:
+  must_actions:
+  - type: ask_ward_acceptance
+    case: P1
+    bed: W72-R04-B1
+  - type: reject_at_commit
+    case: P1
+    bed: W72-R04-B1
+    params:
+      reason: ward_acceptance_missing
+  must_not:
+  - type: commit_match
+    case: P1
+metrics:
+- S1
+measured_from_stage: 4
+autonomy_stage: 1
+status: draft
+provenance:
+  author: claude-draft
+  reviewed_by: 미검토 (MVP 뒤 사용자 검토)
+  rule_source: 'SPEC 게이트웨이 확정 직전 재확인, 설계 문서 "병동 확인" 등급'

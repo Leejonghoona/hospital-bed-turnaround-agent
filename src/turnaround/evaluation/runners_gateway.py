@@ -555,8 +555,19 @@ def run_h12(s):
     return r.score(s)
 
 
+def run_h13(s):
+    """병동 수용 회신 전에 원무가 확정을 누른다 (GW 확정 직전 재확인: 병동 회신 필수)."""
+    r = _GwRun(P, census=_fill_except("W72-R04-B1"))
+    r.feed([_adm_event("FX-P1", gender="F", dept="일반외과")])
+    r.agent_cycle(at(9), ward=False, commit=False, rounds=1)  # 담당 승인까지, 병동 회신 없음
+    ev = r.store.read()
+    pid = next(e.payload["proposal_id"] for e in ev if e.type is EventType.PROPOSAL_RECEIVED)
+    r.gw.commit(pid, r.gw.location_version("W72-R04-B1"), at(9, 30))
+    return r.score(s)
+
+
 HOLDOUT_RUNNERS: dict[str, Callable[[Scenario], ScoreResult]] = {
     "H01": run_h01, "H02": run_h02, "H03": run_h03, "H04": run_h04, "H05": run_h05,
     "H06": run_h06, "H07": run_h07, "H08": run_h08, "H09": run_h09, "H10": run_h10,
-    "H11": run_h11, "H12": run_h12,
+    "H11": run_h11, "H12": run_h12, "H13": run_h13,
 }
