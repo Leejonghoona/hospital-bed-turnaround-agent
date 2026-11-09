@@ -1,7 +1,7 @@
 """5단계 최종 재측정: M1(일반 경로 처리율)과 M3(자율권 곡선)를 최종 코드로 다시 잰다. 합성 데이터 기준 추정.
 
 실행: python scripts/measure_final.py --part m1|m3 [--seeds 0 20] [--days 60]
-결과: evals/results/final/m1.json, m3_seed<N>.json
+결과: --out 폴더(기본 evals/results/tmp)의 m1.json, m3_seed<N>.json. 기록 갱신은 --out evals/results/final
 """
 
 from __future__ import annotations
@@ -65,7 +65,8 @@ if __name__ == "__main__":
     ap.add_argument("--part", choices=["m1", "m3"], required=True)
     ap.add_argument("--seeds", nargs=2, type=int, default=[0, 20])
     ap.add_argument("--days", type=int, default=60)
-    ap.add_argument("--out", default=str(OUT), help="결과 폴더 (기본은 기록된 결과 폴더. 비교만 하려면 다른 폴더를 준다)")
+    ap.add_argument("--out", default=str(ROOT / "evals/results/tmp"),
+                    help="결과 폴더. 기본은 임시 폴더(evals/results/tmp, 커밋 안 함). 기록을 갱신할 때만 evals/results/final 을 준다")
     a = ap.parse_args()
     OUT = Path(a.out)
     OUT.mkdir(parents=True, exist_ok=True)

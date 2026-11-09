@@ -20,12 +20,12 @@ from turnaround.sim.reactive import ReactiveEffects
 from turnaround.ui.demo import build_demo
 
 
-def run(seeds, day, occupancy, reactive, profile):
+def run(seeds, day, occupancy, reactive, profile, scale=1.0):
     pol = load_policy(profile=profile, allow_legacy=profile == "legacy") if profile else load_policy()
-    agg, raised, safety, entry = Counter(), Counter(), Counter(), []
+    agg, raised, safety, entry, by_seed = Counter(), Counter(), Counter(), [], {}
     for seed in seeds:
         st = build_demo(seed=seed, day=day, until=time(23, 45), via_fhir=False, policy=pol,
-                        config=GeneratorConfig.realistic(), reactive=ReactiveEffects() if reactive else None,
+                        config=GeneratorConfig.realistic(), reactive=ReactiveEffects().scaled(scale) if reactive else None,
                         past_admissions=False, occupancy=occupancy)
         ev = st.store.read()
         f = day_flow(st.h, ev, day)
@@ -37,6 +37,7 @@ def run(seeds, day, occupancy, reactive, profile):
                    into_discharge_bed=sum(1 for a in day_adm if commits.get(a) in dbeds), arrived=f["arrived"])
         if f["entry_wait_mean_min"] is not None:
             entry.append(f["entry_wait_mean_min"])
+        by_seed[str(seed)] = f["entry_wait_mean_min"]  # 시드 키로도 남긴다(짝 비교, 2회차 방법론 검토)
         s = executed_safety(st.gw, ev)
         for k in ("S1", "S2", "S3", "S4"):
             safety[k] += s[k]["violations"]
@@ -44,7 +45,7 @@ def run(seeds, day, occupancy, reactive, profile):
         raised.update(e.payload["trigger"] for e in ev if e.type is EventType.EXCEPTION_RAISED)
     from turnaround.evaluation.provenance import stamp
     return {"provenance": stamp(pol), "seeds": [seeds[0], seeds[-1]], "day": day, "occupancy": occupancy, "reactive": reactive,
-            "profile": profile, **agg, "entry_wait_mean_by_seed": entry, "safety": dict(safety),
+            "profile": profile, "effect_scale": scale, **agg, "entry_wait_mean_by_seed": entry, "entry_wait_by_seed": by_seed, "safety": dict(safety),
             "exceptions": dict(raised)}
 
 
@@ -55,9 +56,10 @@ if __name__ == "__main__":
     ap.add_argument("--occupancy", default="full")
     ap.add_argument("--reactive", default="on")
     ap.add_argument("--profile", default="field_default")
+    ap.add_argument("--scale", type=float, default=1.0, help="행동 효과 크기 배수 (민감도: 0.5, 1.5)")
     ap.add_argument("--out", default=None, help="결과를 이 파일에도 쓴다 (예: evals/results/final/cycle_50_on.json)")
     a = ap.parse_args()
-    text = json.dumps(run(list(range(*a.seeds)), a.day, a.occupancy, a.reactive == "on", a.profile), ensure_ascii=False)
+    text = json.dumps(run(list(range(*a.seeds)), a.day, a.occupancy, a.reactive == "on", a.profile, a.scale), ensure_ascii=False)
     if a.out:
         from pathlib import Path
         Path(a.out).write_text(text, encoding="utf-8")
