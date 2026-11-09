@@ -1,4 +1,19 @@
 {
+ "provenance": {
+  "commit": "62fd869",
+  "dirty": true,
+  "source_dirty": false,
+  "source_diff_sha": null,
+  "at": "2026-11-09T19:09:37+00:00",
+  "python": "3.13.18",
+  "packages": {
+   "pydantic": "2.13.5",
+   "rdflib": "7.6.0",
+   "pyshacl": "0.40.2",
+   "streamlit": "1.67.0"
+  },
+  "policy_fingerprint": "e247cccfe018"
+ },
  "seed": 2,
  "days": 60,
  "curve": [

@@ -1,8 +1,10 @@
 {
  "provenance": {
-  "commit": "642ff80",
+  "commit": "62fd869",
   "dirty": true,
-  "at": "2026-11-09T17:46:12+00:00",
+  "source_dirty": false,
+  "source_diff_sha": null,
+  "at": "2026-11-09T19:05:41+00:00",
   "python": "3.13.18",
   "packages": {
    "pydantic": "2.13.5",
