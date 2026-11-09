@@ -1,0 +1,150 @@
+@prefix ta:   <urn:turnaround:> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# 핵심 온톨로지 선언 (로드맵 07 M6, docs/검토/온톨로지_검토.md).
+# 목적 문제: 병상 하나의 회전(퇴원 확정 → 퇴실 → 병상 준비 → 다음 환자 입실)의 지연과 안전 위반을 줄이고
+# 사람은 책임질 순간에만 개입하게 한다. 이 파일은 그 결정에 필요한 것만 선언한다.
+# 핵심은 고정이다. 병원은 하위 개념·코드 대응·매핑만 더한다(병원 확장). 안전 제약은 shapes.ttl, 개념 계층은 concepts.ttl.
+# 각 선언은 코드와 일치해야 한다(tests/test_m6_ontology.py가 검사).
+
+# ---------------- 메타 ----------------
+ta:ObjectType  a rdfs:Class ; rdfs:label "객체 종류" .
+ta:EventKind   a rdfs:Class ; rdfs:label "사건 종류" ; rdfs:comment "객체의 상태를 바꾸는, 시각을 가진 사실. 저장소의 이벤트 한 건" .
+ta:ActionType  a rdfs:Class ; rdfs:label "행동 종류" ; rdfs:comment "객체를 바꾸는 정해진 동작. 게이트웨이가 검사·실행한다" .
+ta:Role        a rdfs:Class ; rdfs:label "역할" ; rdfs:comment "사람이 아니라 업무상 역할" .
+ta:Layer       a rdfs:Class ; rdfs:label "의미 계층" .
+ta:EvidenceTier a rdfs:Class ; rdfs:label "근거 등급" .
+
+ta:L0 a ta:Layer ; rdfs:label "물리" ; ta:hospitalMay "하위 개념 추가" .
+ta:L1 a ta:Layer ; rdfs:label "역할" ; ta:hospitalMay "역할 추가" .
+ta:L2 a ta:Layer ; rdfs:label "안전 속성" ; ta:hospitalMay "고위험 조건 목록만" .
+ta:L3 a ta:Layer ; rdfs:label "과정" ; ta:hospitalMay "단계 켜고 끄기" .
+ta:L4 a ta:Layer ; rdfs:label "결정·행동" ; ta:hospitalMay "자율 단계 값만, 잠금은 불가" .
+ta:L5 a ta:Layer ; rdfs:label "정책·근거" ; ta:hospitalMay "값만, 법령 하한은 고정" .
+
+ta:law a ta:EvidenceTier ; ta:rank 1 ; rdfs:label "법령" .
+ta:guideline a ta:EvidenceTier ; ta:rank 2 ; rdfs:label "정부 지침" .
+ta:hospital_rule a ta:EvidenceTier ; ta:rank 3 ; rdfs:label "병원 규정" .
+ta:field_practice a ta:EvidenceTier ; ta:rank 4 ; rdfs:label "현장 관행" .
+ta:design_assumption a ta:EvidenceTier ; ta:rank 5 ; rdfs:label "설계 가정" .
+
+# ---------------- 객체 종류 (ta:codeModel = 코드의 모델 이름) ----------------
+ta:Ward a ta:ObjectType ; ta:layer ta:L0 ; ta:codeModel "Ward" ; rdfs:label "병동" .
+ta:Room a ta:ObjectType ; ta:layer ta:L0 ; ta:codeModel "Room" .
+ta:Bed  a ta:ObjectType ; ta:layer ta:L0 ; ta:codeModel "Bed" .
+ta:Patient a ta:ObjectType ; ta:layer ta:L2 ; ta:codeModel "Patient" ; rdfs:comment "합성 환자. 이름은 LLM 입력에 넣지 않는다" .
+ta:DischargeCase a ta:ObjectType ; ta:layer ta:L3 ; ta:codeModel "DischargeCase" ; rdfs:label "퇴원 사례" ;
+    rdfs:comment "병상 하나를 비우는 퇴원(사망·급변 전동 포함). 퇴원 결정부터 병상 준비 완료까지" .
+ta:AdmissionRequest a ta:ObjectType ; ta:layer ta:L3 ; ta:codeModel "AdmissionRequest" ; rdfs:label "입원 요청" .
+ta:Match a ta:ObjectType ; ta:layer ta:L3 ; ta:codeModel "MatchCase" ; rdfs:label "입원-병상 매칭" ;
+    rdfs:comment "사전 매칭 → 연락 → 확정 → 입실. 연락 뒤에는 에이전트가 스스로 바꾸지 않는다" .
+ta:HumanTask a ta:ObjectType ; ta:layer ta:L4 ; ta:codeEvent "human_task_created" ; rdfs:label "사람 작업" .
+ta:Exception a ta:ObjectType ; ta:layer ta:L4 ; ta:codeEvent "exception_raised" ; rdfs:label "예외" ;
+    rdfs:comment "사가가 감지하고 머리가 행동을 고르는 상황" .
+
+# ---------------- 속성 (도메인, 정의) ----------------
+ta:roomType a rdf:Property ; rdfs:domain ta:Room ; ta:codeField "room_type" ; rdfs:comment "음압·1인실·다인실 (concepts.ttl 계층)" .
+ta:capacity a rdf:Property ; rdfs:domain ta:Room ; ta:codeField "capacity" .
+ta:gender a rdf:Property ; rdfs:domain ta:Patient ; ta:codeField "gender" ; rdfs:comment "남녀 병실 구별의 기준 (의료법 시행규칙 제35조의2, 법령)" .
+ta:department a rdf:Property ; rdfs:domain ta:Patient ; ta:codeField "department" .
+ta:precautions a rdf:Property ; rdfs:domain ta:Patient ; ta:codeField "precautions" ; rdfs:comment "전파경로 주의(접촉·비말·공기). 격리 오더로만 정한다. 양성 결과는 오더가 아니다" .
+ta:organism a rdf:Property ; rdfs:domain ta:Patient ; ta:codeField "organism" .
+ta:airChanges a rdf:Property ; rdfs:domain ta:Room ; ta:codeField "air_changes_per_hour" ; rdfs:comment "환기 대기 계산 (표준예방지침 부록 3)" .
+ta:requestedAt a rdf:Property ; rdfs:domain ta:AdmissionRequest ; ta:codeField "requested_at" ; rdfs:comment "입원 예정(수속) 시각" .
+ta:stage a rdf:Property ; rdfs:comment "객체의 현재 단계" .
+
+# ---------------- 관계 ----------------
+ta:inRoom a rdf:Property ; rdfs:domain ta:Bed ; rdfs:range ta:Room ; ta:codeField "room_id" .
+ta:inWard a rdf:Property ; rdfs:domain ta:Room ; rdfs:range ta:Ward ; ta:codeField "ward_id" .
+ta:vacates a rdf:Property ; rdfs:domain ta:DischargeCase ; rdfs:range ta:Bed ; ta:codeField "bed_id" .
+ta:matchedTo a rdf:Property ; rdfs:domain ta:Match ; rdfs:range ta:Bed .
+ta:forAdmission a rdf:Property ; rdfs:domain ta:Match ; rdfs:range ta:AdmissionRequest .
+ta:assignedTo a rdf:Property ; rdfs:domain ta:Patient ; rdfs:range ta:Bed .
+ta:responsible a rdf:Property ; rdfs:range ta:Role ; rdfs:comment "그 일을 풀 수 있는 역할" .
+
+# ---------------- 역할 (L1) ----------------
+ta:bed_manager a ta:Role ; rdfs:label "원무 배정 담당" .
+ta:ward a ta:Role ; rdfs:label "병동 책임간호사" .
+ta:ipc a ta:Role ; rdfs:label "감염관리실" .
+ta:pharmacy a ta:Role ; rdfs:label "약제부" .
+ta:billing a ta:Role ; rdfs:label "원무 수납" .
+ta:physician a ta:Role ; rdfs:label "주치의" .
+ta:housekeeping a ta:Role ; rdfs:label "미화(직영·외주)" ; rdfs:comment "시스템이 직접 지시하지 않는다. 지연은 병동·원무에 올린다" .
+ta:admission_office a ta:Role ; rdfs:label "입원 수속" .
+
+# ---------------- 지연 사유 → 풀 수 있는 역할 (CQ3) ----------------
+ta:delay_guardian ta:reasonCode "guardian" ; ta:responsible ta:ward .
+ta:delay_billing ta:reasonCode "billing" ; ta:responsible ta:billing .
+ta:delay_medication ta:reasonCode "medication" ; ta:responsible ta:pharmacy .
+ta:delay_rx_revised ta:reasonCode "rx_revised" ; ta:responsible ta:physician .
+ta:delay_transport ta:reasonCode "transport" ; ta:responsible ta:ward .
+
+# ---------------- 사건 종류 (L3). ta:key = 매핑의 사건 이름, ta:eventType = 저장소 이벤트 타입 ----------------
+# ta:carries = 그 사건이 실어 오는 속성. ta:source = 원천. 정의(rdfs:comment)는 병원 매핑에서 "어느 열이 이 사건인가"의 기준이다.
+ta:ev_discharge_decided a ta:EventKind ; ta:key "discharge_decided" ; ta:eventType "discharge_decided" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "patient", "bed_id", "day", "discharge_type" ; rdfs:comment "주치의가 퇴원을 정한 시각(보통 전날)" .
+ta:ev_discharge_registered a ta:EventKind ; ta:key "discharge_registered" ; ta:eventType "discharge_registered" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id" ; rdfs:comment "퇴원 예정이 HIS에 등록된 시각(퇴원 예고)" .
+ta:ev_guardian_eta_set a ta:EventKind ; ta:key "guardian_eta_set" ; ta:eventType "guardian_eta_set" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "eta" ; rdfs:comment "병동이 입력한 보호자 도착 예정" .
+ta:ev_order_confirmed a ta:EventKind ; ta:key "order_confirmed" ; ta:eventType "order_confirmed" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "퇴원 당일 퇴원 오더 확정 시각" .
+ta:ev_rx_issued a ta:EventKind ; ta:key "rx_issued" ; ta:eventType "discharge_rx_issued" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "퇴원약 처방 발행" .
+ta:ev_rx_revised a ta:EventKind ; ta:key "rx_revised" ; ta:eventType "discharge_rx_revised" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "reason" ; rdfs:comment "퇴원약 처방 수정" .
+ta:ev_rx_dispensed a ta:EventKind ; ta:key "rx_dispensed" ; ta:eventType "discharge_rx_dispensed" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "약제부 조제 완료" .
+ta:ev_medication_ready a ta:EventKind ; ta:key "medication_ready" ; ta:eventType "medication_ready" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "퇴원약이 병동에 도착" .
+ta:ev_education_done a ta:EventKind ; ta:key "education_done" ; ta:eventType "education_done" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; rdfs:comment "퇴원 교육 완료" .
+ta:ev_billing_done a ta:EventKind ; ta:key "billing_done" ; ta:eventType "billing_done" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "진료비 심사와 수납이 끝난 시각. 퇴실 시각이 아니다(병원 자료의 '퇴원시각'이 이것일 수 있다)" .
+ta:ev_guardian_eta_updated a ta:EventKind ; ta:key "guardian_eta_updated" ; ta:eventType "guardian_eta_updated" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "eta" ; rdfs:comment "보호자 도착 예정 변경" .
+ta:ev_guardian_arrived a ta:EventKind ; ta:key "guardian_arrived" ; ta:eventType "guardian_arrived" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; rdfs:comment "보호자 도착" .
+ta:ev_patient_departed a ta:EventKind ; ta:key "patient_departed" ; ta:eventType "patient_departed" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id" ; rdfs:comment "환자가 병상을 떠난 시각(퇴실). 병상 회전의 기준점" .
+ta:ev_cleaning_requested a ta:EventKind ; ta:key "cleaning_requested" ; ta:eventType "cleaning_requested" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id", "cleaning_type", "aerosol_wait_min", "sporicidal" ; rdfs:comment "병동이 청소를 요청한 시각(기존 방식)" .
+ta:ev_cleaning_started a ta:EventKind ; ta:key "cleaning_started" ; ta:eventType "cleaning_started" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id" .
+ta:ev_cleaning_done a ta:EventKind ; ta:key "cleaning_done" ; ta:eventType "cleaning_done" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id", "cleaning_type" ; rdfs:comment "청소 완료 신호" .
+ta:ev_bed_ready a ta:EventKind ; ta:key "bed_ready" ; ta:eventType "bed_ready" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id" ; rdfs:comment "침상 정리까지 끝나 입실 가능" .
+ta:ev_admission_requested a ta:EventKind ; ta:key "admission_requested" ; ta:eventType "admission_requested" ; ta:source "his" ;
+    ta:of ta:AdmissionRequest ; ta:carries "patient", "day", "requested_at", "preferred_ward_id", "from_icu", "wants_single_room" ;
+    rdfs:comment "입원 예약(대기 등록)" .
+ta:ev_admission_cancelled a ta:EventKind ; ta:key "admission_cancelled" ; ta:eventType "admission_cancelled" ; ta:source "his" ;
+    ta:of ta:AdmissionRequest .
+ta:ev_death_confirmed a ta:EventKind ; ta:key "death_confirmed" ; ta:eventType "death_confirmed" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "patient", "bed_id" ; rdfs:comment "병동 내 사망 확인. 병상은 안치실 이송 때 빈다" .
+ta:ev_body_transferred a ta:EventKind ; ta:key "body_transferred" ; ta:eventType "body_transferred" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id" .
+ta:ev_eol_transfer a ta:EventKind ; ta:key "eol_transfer" ; ta:eventType "end_of_life_room_transfer" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "patient", "bed_id" ; rdfs:comment "임종실 전실(퇴원 결정 없이 병상이 빔)" .
+ta:ev_unplanned_transfer_out a ta:EventKind ; ta:key "unplanned_transfer_out" ; ta:eventType "unplanned_transfer_out" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id", "destination" ; rdfs:comment "퇴원 예정 환자의 급변 전동(중환자실)" .
+
+# ---------------- 행동 종류 (L4). ta:autonomyKey = 정책 autonomy 키, ta:gatewayMethod = 실행 메서드 ----------------
+ta:act_submit a ta:ActionType ; ta:gatewayMethod "submit" ; rdfs:comment "매칭 제안. 확인 등급은 정책 review_reasons" .
+ta:act_commit a ta:ActionType ; ta:gatewayMethod "commit" ; ta:autonomyKey "official_commit" ; rdfs:comment "공식 확정. 자율 단계는 병원 설정·자율권 승격" .
+ta:act_manual_override a ta:ActionType ; ta:gatewayMethod "manual_override" ; ta:by ta:bed_manager ; rdfs:comment "사람의 직접 수정. 막지 않되 안전 예외 등급을 검사" .
+ta:act_request_cleaning a ta:ActionType ; ta:gatewayMethod "request_cleaning" .
+ta:act_ward_objection a ta:ActionType ; ta:gatewayMethod "ward_objection" ; ta:by ta:ward .
+ta:act_approve_action a ta:ActionType ; ta:gatewayMethod "approve_action" ; ta:by ta:bed_manager .
+ta:act_contact_patient a ta:ActionType ; ta:autonomyKey "contact_patient" ; ta:locked true ; ta:by ta:bed_manager ; rdfs:comment "환자 연락. 사람만(코드 잠금)" .
+ta:act_approve_safety_exception a ta:ActionType ; ta:autonomyKey "approve_safety_exception" ; ta:locked true ; ta:by ta:ipc .
+ta:act_escalate a ta:ActionType ; ta:autonomyKey "escalate" ; ta:gatewayMethod "submit_action" .
+ta:act_rematch_now a ta:ActionType ; ta:autonomyKey "rematch_now" ; ta:gatewayMethod "submit_action" .
+ta:act_propose_rematch a ta:ActionType ; ta:autonomyKey "propose_rematch" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
+ta:act_wait_for_ipc a ta:ActionType ; ta:autonomyKey "wait_for_ipc" ; ta:gatewayMethod "submit_action" .
+ta:act_propose_surveillance_hold a ta:ActionType ; ta:autonomyKey "propose_surveillance_hold" ; ta:gatewayMethod "submit_action" ; ta:by ta:ipc .
+ta:act_nudge_order a ta:ActionType ; ta:autonomyKey "nudge_order" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
+ta:act_offer_lounge a ta:ActionType ; ta:autonomyKey "offer_lounge" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
+ta:act_wait_for_guardian a ta:ActionType ; ta:autonomyKey "wait_for_guardian" ; ta:gatewayMethod "submit_action" .
