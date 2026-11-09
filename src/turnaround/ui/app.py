@@ -18,6 +18,7 @@ from turnaround.ui.scenes import SCENES, SceneRun
 
 st.set_page_config(page_title="병실관리AI", page_icon="🛏️", layout="wide", initial_sidebar_state="expanded")
 st.html(T.CSS)
+st.html(T.LANG_SCRIPT, unsafe_allow_javascript=True)
 
 ROLE_KO = {"audit": "결정 기록", "admission": "원무 · 병상 배정", "ward": "병동 · 책임간호사", "ipc": "감염관리실", "manager": "관리자",
            "onboarding": "새 병원 온보딩", "vendor": "청소 협력업체"}
@@ -270,18 +271,21 @@ def show_ipc(d: dict, sv=None) -> None:
     for a in aps:
         c1, c2 = st.columns([6, 1], vertical_alignment="center")
         rec = (f"<br><span class='wl-note'>지금 기준 옮길 병상: {T.e(' · '.join(a['recommend']))}</span>" if a.get("recommend") else "")
-        c1.html(T.card(f"{a['who']} · 병상 결정: {a['action_ko']}", f"{T.e(a['situation'])}<br><b>{T.e(a['effect'])}</b>{rec}",
+        none = bool(a.get("recommend")) and a["recommend"][0].startswith("배정 기준에 맞는 빈 병상 없음")
+        title = "병상 결정: 지금 맞는 병상 없음 · 다시 찾을지, 지금 병상에서 격리 조치할지" if none else f"병상 결정: {a['action_ko']}"
+        c1.html(T.card(f"{a['who']} · {title}", f"{T.e(a['situation'])}<br><b>{T.e(a['effect'])}</b>{rec}",
                        [T.chip("격리", "red"), T.chip("감염관리실 승인", "blue")],
                        [T.chip(f, "gray") for f in a["facts"]] + [T.chip(f"마감 {a['deadline']}", "red" if a["overdue"] else "amber")],
                        "urgent"))
         if sv is not None:
             role = d.get("holder_role") or "ipc"
-            if c2.button("승인", key=f"ipc-ap-{a['exception_id']}", type=_btn_type(), use_container_width=True,
+            if c2.button("다시 찾기" if none else "승인", key=f"ipc-ap-{a['exception_id']}", type=_btn_type(), use_container_width=True,
                          help=f"{a['who']} 병상 결정 승인"):
                 dec = sv.gw.approve_action(a["exception_id"], role, sv.now)
                 st.toast("다시 확인한 뒤 " + ("실행했습니다" if dec.status == "executed" else "거부했습니다"))
                 st.rerun()
-            if c2.button("거절", key=f"ipc-dc-{a['exception_id']}", use_container_width=True, help=f"{a['who']} 병상 결정 거절"):
+            if c2.button("지금 병상 유지" if none else "거절", key=f"ipc-dc-{a['exception_id']}", use_container_width=True,
+                         help=f"{a['who']} 병상 결정 거절"):
                 reason_dialog(sv, "decline", a["exception_id"], f"{a['who']}: '{a['action_ko']}'을 거절합니다.", actor=role)
     for a in todo:
         c1, c2 = st.columns([6, 1], vertical_alignment="center")

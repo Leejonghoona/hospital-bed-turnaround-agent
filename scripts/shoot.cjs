@@ -25,9 +25,18 @@ async function idle(page) {
       await page.getByText(`${i}/${n} 단계`).waitFor({ timeout: 180000 });  // 그 단계가 끝나 진행 표시가 바뀔 때까지
       await idle(page);
       const f = `${out}/scene_${sid}_${i}.png`;
+      // Streamlit은 안쪽 영역이 스크롤되므로 뷰포트를 내용 높이만큼 늘려 전체를 찍는다 (3회차 검토: 아래가 잘림)
+      const h = await page.evaluate(() => {
+        const m = document.querySelector('[data-testid="stMain"]') || document.querySelector('section.main');
+        return Math.ceil(Math.max(m ? m.scrollHeight : 0, document.body.scrollHeight));
+      });
+      await page.setViewportSize({ width: 1440, height: Math.min(Math.max(1600, h + 40), 9000) });
+      await idle(page);
       await page.screenshot({ path: f, fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 1600 });
+      const lang = await page.evaluate(() => document.documentElement.lang);
       const text = await page.innerText('body');
-      console.log(JSON.stringify({ file: f, step: i, ok: text.includes('화면') && !text.includes('Traceback') }));
+      console.log(JSON.stringify({ file: f, step: i, ok: text.includes('화면') && !text.includes('Traceback') && lang === 'ko', lang }));
     }
   }
   await b.close();

@@ -253,7 +253,8 @@ def _c2(run):
 def _c3(run):
     n = run.session.import_code_master({k: dict(v) for k, v in _gold().codes.items()})
     m = _answer_until(run, None)
-    return f"병원 코드표를 한 번에 넣어 코드 질문 {n}개를 해결했다(남은 {m}개는 직접 답). 질문 끝"
+    return (f"병원 코드표를 한 번에 넣었다. 코드표에서 새 코드 값이 드러나 코드 질문이 늘었고, 그중 {n}개를 코드표로 해결했다"
+            f"(남은 {m}개는 직접 답). 질문 끝")
 
 
 def _c4(run):

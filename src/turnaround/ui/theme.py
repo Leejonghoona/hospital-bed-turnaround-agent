@@ -20,6 +20,9 @@ import os as _os
 _FONT = "" if _os.environ.get("TURNAROUND_OFFLINE") == "1" else \
     '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">'
 
+# 페이지 언어(KWCAG 5.3.1, WCAG 3.1.1). st.html은 기본으로 스크립트를 막으므로 따로 허용해 넣는다 (3회차 접근성 검토)
+LANG_SCRIPT = '<script>document.documentElement.lang = "ko";</script>'
+
 CSS = """
 %(font_link)s
 <style>
@@ -101,7 +104,6 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-table th { text-align:left; color:%(mute)s; font-weight:700; padding:10px 12px; border-bottom:1px solid %(line)s; background:#FAFBFC; }
 .wl-table td { padding:10px 12px; border-bottom:1px solid %(line)s; color:%(ink)s; }
 </style>
-<script>try{(window.parent||window).document.documentElement.lang="ko"}catch(e){}</script>
 """ % {**TOKENS, "font_link": _FONT}
 
 
