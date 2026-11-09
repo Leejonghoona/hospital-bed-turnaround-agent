@@ -129,3 +129,12 @@ def test_s2_counts_neighbor_bed_commit_before_terminal_cleaning():
     store, gw = make(evs, policy=load_policy())
     s = executed_safety(gw, store.read())
     assert s["S2"]["violations"] >= 1 and "commit_in_room_before_disinfection" in s["S2"]["codes"]
+
+
+@pytest.mark.parametrize("text", [".", " ", "--", "ㅇ"])
+def test_reason_entry_needs_a_real_reason(text):
+    from test_gateway import Gender, census_patient
+    census = {"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)}
+    store, gw = make([adm(gender="M", organism="VRE")], census=census)
+    d = _mo(gw, "A1", "W71-R03-B2", at(12), reason_text=text)
+    assert d.status == "refused" and d.tier == "reason_entry"

@@ -1033,7 +1033,8 @@ class Gateway:
             tier = self._safety_tier(violations, patient) if violations else None
             if violations:
                 approved = self._safety_exception_recorded(case, bed_id, safety_exception_by, actor, events)
-                ok = (tier == "preapproval" and approved) or (tier == "reason_entry" and (reason_text or approved))
+                real_reason = len("".join(ch for ch in (reason_text or "") if ch.isalnum())) >= 2  # "." 같은 빈 사유는 받지 않는다
+                ok = (tier == "preapproval" and approved) or (tier == "reason_entry" and (real_reason or approved))
                 if not ok:
                     d = Decision("refused", "override", tier, violations)
                     self._audit(f"gw:{oid}:override", case, now, "override", oid, d, actor=actor, role=role,
