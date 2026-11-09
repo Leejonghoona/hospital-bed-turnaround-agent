@@ -42,6 +42,8 @@ class EventStore:
             self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
+        # 추가만 하는 기록이라 한 번 읽은 이벤트는 바뀌지 않는다. 해석한 이벤트를 순번 순서로 기억하고 새 행만 읽는다
+        self._cache: list[Event] = []
 
     def close(self) -> None:
         self._conn.close()
@@ -73,6 +75,20 @@ class EventStore:
     def read(self, case_id: str | None = None, as_of: datetime | None = None,
              after_seq: int | None = None) -> list[Event]:
         """as_of를 주면 그 시각까지 인지된 이벤트만 돌려준다(미래 정보 차단)."""
+        last = self._cache[-1].seq if self._cache else 0
+        self._cache += self._read_db(after_seq=last)
+        out = self._cache
+        if after_seq is not None:
+            out = [e for e in out if e.seq > after_seq]
+        if case_id is not None:
+            out = [e for e in out if e.case_id == case_id]
+        if as_of is not None:
+            cut = datetime.fromisoformat(_ts(as_of))
+            out = [e for e in out if e.observed_at <= cut]
+        return list(out)
+
+    def _read_db(self, case_id: str | None = None, as_of: datetime | None = None,
+                 after_seq: int | None = None) -> list[Event]:
         sql, args = "SELECT seq, event_id, case_id, type, occurred_at, observed_at, source, payload FROM events", []
         cond = []
         if case_id is not None:

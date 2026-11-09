@@ -31,11 +31,13 @@ class DemoState:
     agent: PlanningAgent
     now: datetime
     fhir_entries: int = 0
+    feed: object = None  # 반응형 재생 공급기 (있을 때만)
     log: list[str] = field(default_factory=list)
 
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
-               policy=None, step_min: int = 15, mode: str = "explain", config=None) -> DemoState:
+               policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None) -> DemoState:
+    """reactive(ReactiveEffects)를 주면 에이전트 행동이 그 뒤 퇴원 시각을 바꾸는 반응형 재생 (로드맵 07 M2)."""
     h = generate(seed=seed, config=config)
     events = hospital_to_events(h, seed=seed)
     entries = 0
@@ -55,8 +57,15 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     end = datetime.combine(base.date(), until)
     i = 0
     st = DemoState(h, store, gw, agent, end, entries)
+    feed = None
+    if reactive is not None:
+        from turnaround.sim.reactive import ReactiveReplay
+        feed = st.feed = ReactiveReplay(h, seed, reactive)
     while t <= end:
-        while i < len(events) and events[i].observed_at <= t:
+        if feed is not None:
+            feed.react(store, t)
+            feed.deliver(store, t)
+        while feed is None and i < len(events) and events[i].observed_at <= t:
             store.append(events[i])
             i += 1
         saga.step(t)

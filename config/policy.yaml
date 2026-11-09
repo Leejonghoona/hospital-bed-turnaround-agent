@@ -63,6 +63,12 @@ exception_actions:           # 예외(사가 감지) → 머리가 고를 수 �
   late_isolation:
     allowed: [rematch_now, wait_for_ipc, escalate, propose_surveillance_hold]
     fallback: escalate
+  discharge_order_late:      # E2 퇴원 당일 정책 시각까지 처방 없음 (로드맵 07 M2). 오더는 사람(주치의)이 낸다
+    allowed: [nudge_order, escalate]
+    fallback: escalate
+  guardian_after_ready:      # E3 준비 완료 뒤 보호자가 한참 뒤 도착. 라운지 이동은 환자·보호자 동의로 병동이 한다
+    allowed: [offer_lounge, wait_for_guardian, escalate]
+    fallback: escalate
 autonomy:                    # 행동별 자율 단계 auto | post_report | human. 환자 연락·안전 예외 승인은 코드로 human 고정
   contact_patient: human
   official_commit: human     # legacy. auto면 검토 사유 없는 사례를 에이전트가 확정하고 병동·원무에 통보 (DECISIONS 2026-11-09)
@@ -71,6 +77,9 @@ autonomy:                    # 행동별 자율 단계 auto | post_report | huma
   rematch_now: auto          # 제안만 자동. 확정은 기존 확인 등급
   wait_for_ipc: post_report
   propose_surveillance_hold: human   # 감염관리실 승인
+  nudge_order: auto          # 병동·주치의에게 근거(다음 입원 대기)를 붙인 알림. 오더는 사람이 낸다
+  offer_lounge: auto         # 병동에 라운지 제안. 이동은 환자 동의로 병동이 한다
+  wait_for_guardian: post_report
 brain:
   enabled: false             # 예외 판단 머리. false면 지금 동작(사람에게 올림)
 provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. law > guideline > hospital_rule > field_practice > design_assumption

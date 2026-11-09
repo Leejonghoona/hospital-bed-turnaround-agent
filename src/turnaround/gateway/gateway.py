@@ -340,11 +340,24 @@ class Gateway:
         elif choice.action == "rematch_now":
             # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
             self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
+        elif choice.action == "nudge_order":
+            # 오더는 주치의가 낸다. 시스템은 근거(이 병상을 기다리는 입원)를 붙여 병동에 알린다 (사유·근거 통지 원칙)
+            ctx = raised.payload.get("context") or {}
+            self._emit(case, f"{exid}:task:order_nudge", EventType.HUMAN_TASK_CREATED, now, reason="discharge_order_late",
+                       kind="order_nudge", assignee="ward", bed_id=raised.payload.get("bed_id"),
+                       next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
+        elif choice.action == "offer_lounge":
+            ctx = raised.payload.get("context") or {}
+            self._emit(case, f"{exid}:lounge_offered", EventType.LOUNGE_OFFERED, now, bed_id=raised.payload.get("bed_id"),
+                       to="ward", guardian_wait_min=ctx.get("guardian_wait_min"),
+                       next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
         elif choice.action.startswith("wait"):
             until = min(datetime.fromisoformat(raised.payload["deadline"]),
                         now + timedelta(minutes=self.policy.brain.max_wait_min))
-            self._emit(case, f"{exid}:recheck", EventType.RECHECK_SCHEDULED, now, exception_id=exid,
-                       at=until.isoformat())
+            n = sum(1 for e in self._events() if e.type is EventType.RECHECK_SCHEDULED
+                    and e.payload.get("exception_id") == exid)
+            self._emit(case, f"{exid}:recheck:{n + 1}", EventType.RECHECK_SCHEDULED, now, exception_id=exid,
+                       at=max(until, now + timedelta(minutes=15)).isoformat())
 
     # ---------- 기록 ----------
 

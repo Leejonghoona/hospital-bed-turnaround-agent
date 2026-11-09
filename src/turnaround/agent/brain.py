@@ -55,6 +55,7 @@ class ExceptionBrain:
         return {"exception": {"trigger": ex.payload["trigger"], "stage": ex.payload.get("stage"),
                               "elapsed_min": int((now - ex.observed_at).total_seconds() // 60),
                               "deadline_in_min": int((deadline - now).total_seconds() // 60), "attempts": attempts},
+                "case_state": dict(ex.payload.get("context") or {}),
                 "allowed_actions": [{"id": a, "autonomy": self.policy.autonomy.get(a, "human")} for a in allowed]}
 
     def choose(self, ex: Event, events: list[Event], now: datetime) -> ActionChoice:
@@ -78,8 +79,10 @@ class ExceptionBrain:
     def step(self, now: datetime) -> list:
         out = []
         events = self.gw.store.read()
-        waiting = {e.payload.get("exception_id"): datetime.fromisoformat(e.payload["at"]) for e in events
-                   if e.type is EventType.RECHECK_SCHEDULED}
+        waiting: dict = {}
+        for e in events:  # 마지막으로 잡은 다시 볼 시각
+            if e.type is EventType.RECHECK_SCHEDULED:
+                waiting[e.payload.get("exception_id")] = datetime.fromisoformat(e.payload["at"])
         for ex in self.open_exceptions(events):
             if waiting.get(ex.payload["exception_id"], now) > now:
                 continue  # 기다리기로 한 예외는 다시 볼 시각까지 건너뛴다

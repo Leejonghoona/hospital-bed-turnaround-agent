@@ -105,6 +105,14 @@ def _fake_exception_action(ctx: dict) -> dict:
     if ex.get("stage") in ("after_contact", "after_commit", "after_arrival"):
         # 목표 함수 2항: 연락·확정·입실 뒤에는 매칭을 스스로 바꾸지 않는다 (트리거와 상관없이)
         return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "연락 뒤: 사람에게"}
+    trig, st = ex.get("trigger"), ctx.get("case_state") or {}
+    if trig == "discharge_order_late" and "nudge_order" in allowed:
+        return {"action": "nudge_order", "params": {}, "rationale": "처방 없음: 병동·주치의에게 재촉"}
+    if trig == "guardian_after_ready":
+        if st.get("next_admission_waiting") and "offer_lounge" in allowed:
+            return {"action": "offer_lounge", "params": {}, "rationale": "다음 입원 대기: 라운지 제안으로 병상 먼저 비움"}
+        if "wait_for_guardian" in allowed:
+            return {"action": "wait_for_guardian", "params": {}, "rationale": "기다리는 입원 없음: 보호자 도착까지 둠"}
     if "rematch_now" in allowed:
         return {"action": "rematch_now", "params": {}, "rationale": "연락 전: 규칙 모드로 다시 찾음"}
     return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게"}

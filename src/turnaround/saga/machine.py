@@ -43,6 +43,9 @@ class SagaPolicy(BaseModel):
     bed_room: dict[str, tuple[str, str | None]] = {}
     exceptions_enabled: bool = False  # 예외 판단 머리가 켜져 있을 때만 EXCEPTION_RAISED를 낸다
     exception_deadline: timedelta = timedelta(minutes=120)
+    # 퇴원 병목 (로드맵 07 M2): 환자 준비가 끝났는데 보호자 도착 예정이 이만큼 넘게 남으면 라운지 판단을 올린다
+    lounge_enabled: bool = False
+    guardian_lounge_margin: timedelta = timedelta(minutes=30)  # 설계 가정
 
     @classmethod
     def for_layout(cls, rooms, beds, **kw) -> "SagaPolicy":
@@ -58,7 +61,7 @@ class SagaPolicy(BaseModel):
         vals = dict(rx_expected_by=time(h, m), isolation_risk_conditions=tuple(hp.isolation.risk_conditions),
                     isolation_alert_to=tuple(hp.isolation.alert_to),
                     isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min),
-                    exceptions_enabled=policy.brain.enabled,
+                    exceptions_enabled=policy.brain.enabled, lounge_enabled=hp.guardian.lounge_enabled,
                     exception_deadline=timedelta(minutes=policy.brain.max_wait_min))
         vals.update(kw)
         return cls.for_layout(rooms, beds, **vals) if rooms is not None else cls(**vals)
@@ -108,6 +111,7 @@ class DischargeCase:
     discharge_type: str = "normal"  # normal | death(임종실 전실·사망) | ama(자의 퇴원) | transfer_out(급변 전동)
     hold: bool = False  # 급변 전동 때 병상을 잡아 둠 (풀릴 때까지 다른 환자 배정 불가)
     cleaning_dones: list[datetime] = field(default_factory=list)  # 청소 완료 신호 시각들 (종말소독 상향 뒤 판정용)
+    guardian_eta: datetime | None = None  # 마지막으로 알려진 보호자 도착 예정
 
     def seen(self, t: EventType) -> datetime | None:
         return self.facts.get(t)
@@ -284,6 +288,8 @@ def fold(events: Iterable[Event]) -> SagaState:
             d.isolation = True
         if ev.type is EventType.GUARDIAN_ETA_UPDATED:
             d.eta_updates.append((ev.event_id.split(":", 1)[1], ev.observed_at))
+        if ev.type in (EventType.GUARDIAN_ETA_SET, EventType.GUARDIAN_ETA_UPDATED) and ev.payload.get("eta"):
+            d.guardian_eta = datetime.fromisoformat(ev.payload["eta"])
         if ev.type is EventType.DISCHARGE_RX_REVISED:
             d.rx_revisions.append((ev.event_id.split(":", 1)[1], ev.observed_at, ev.payload.get("reason")))
         if ev.source == "saga":
@@ -368,6 +374,11 @@ def _release_matches_on_hold(d: DischargeCase, s: SagaState, now: datetime, out:
                     admission_id=m.admission_id)
 
 
+def _bed_awaited(s: SagaState, bed: str | None) -> bool:
+    """이 병상에 매칭·확정된 다음 환자가 있는가."""
+    return any(m.active and m.bed_id == bed for m in s.matches.values())
+
+
 def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, p: SagaPolicy) -> None:
     decided = d.seen(EventType.DISCHARGE_DECIDED)
     if decided is None:
@@ -410,8 +421,39 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
             rx_due = datetime.combine(d.discharge_date, p.rx_expected_by)
             if now >= rx_due and not any(by(t, rx_due) for t in (
                     EventType.DISCHARGE_RX_ISSUED, EventType.MEDICATION_READY, EventType.PATIENT_DEPARTED)):
-                out.cmd(d.id, "rx_missing", EventType.HUMAN_TASK_CREATED, rx_due, bed_id=bed, kind="rx_missing",
-                        assignee="ward")
+                if p.exceptions_enabled:  # 무엇을 할지(재촉, 올림)는 머리가 고른다 (로드맵 07 M2)
+                    out.cmd(d.id, "exception:order_late", EventType.EXCEPTION_RAISED, rx_due,
+                            exception_id=f"E2:{d.id}", trigger="discharge_order_late", bed_id=bed,
+                            stage="before_departure", deadline=(rx_due + p.exception_deadline).isoformat(),
+                            context={"next_admission_waiting": _bed_awaited(s, bed)})
+                else:
+                    out.cmd(d.id, "rx_missing", EventType.HUMAN_TASK_CREATED, rx_due, bed_id=bed, kind="rx_missing",
+                            assignee="ward")
+
+        # 감지 조건이 풀리면 예외를 닫는다 (머리가 더 고르지 않게)
+        if any(k.endswith("exception:order_late") for k in d.commands):
+            cleared = next((d.seen(t) for t in (EventType.DISCHARGE_RX_ISSUED, EventType.MEDICATION_READY,
+                                                EventType.PATIENT_DEPARTED) if d.seen(t)), None)
+            if cleared is not None:
+                out.cmd(d.id, "exception_resolved:order_late", EventType.EXCEPTION_RESOLVED, cleared,
+                        exception_id=f"E2:{d.id}", how="condition_cleared")
+        if any(k.endswith("exception:guardian_after_ready") for k in d.commands):
+            cleared = d.seen(EventType.GUARDIAN_ARRIVED) or d.seen(EventType.PATIENT_DEPARTED)
+            if cleared is not None:
+                out.cmd(d.id, "exception_resolved:guardian", EventType.EXCEPTION_RESOLVED, cleared,
+                        exception_id=f"E3:{d.id}", how="condition_cleared")
+
+        # 준비는 끝났는데 보호자가 한참 뒤에 온다: 라운지로 병상을 먼저 비울지 머리가 고른다 (로드맵 07 M2)
+        ready_parts = [d.seen(EventType.BILLING_DONE), d.seen(EventType.EDUCATION_DONE)]
+        if p.exceptions_enabled and p.lounge_enabled and all(ready_parts) and d.guardian_eta is not None:
+            ready = max(ready_parts)
+            if now >= ready and d.guardian_eta > ready + p.guardian_lounge_margin and \
+                    not by(EventType.GUARDIAN_ARRIVED, ready) and not by(EventType.PATIENT_DEPARTED, ready):
+                out.cmd(d.id, "exception:guardian_after_ready", EventType.EXCEPTION_RAISED, ready,
+                        exception_id=f"E3:{d.id}", trigger="guardian_after_ready", bed_id=bed,
+                        stage="before_departure", deadline=d.guardian_eta.isoformat(),
+                        context={"next_admission_waiting": _bed_awaited(s, bed),
+                                 "guardian_wait_min": int((d.guardian_eta - ready).total_seconds() // 60)})
 
         # 처방 수정은 지연 사유로 기록
         for key, seen_at, why in d.rx_revisions:
