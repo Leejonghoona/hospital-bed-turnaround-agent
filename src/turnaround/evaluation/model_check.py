@@ -536,7 +536,7 @@ _GOOD = ("gold", "acceptable")
 def exception_v2(llm: LLM, limit: int | None = None, reps_n: int = 30) -> dict:
     from turnaround.agent.brain import SYSTEM as BRAIN_SYSTEM
     from .eval_sets import load
-    items = load("exception_decisions_v2")[:limit]
+    items = load("exception_decisions_v2_1")[:limit]
     auto = {"auto", "post_report"}
 
     def ask(it):
