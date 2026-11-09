@@ -59,10 +59,18 @@ extraction:                  # 메모 추출 스키마 (U3 상대 날짜, U5 메
   max_day_offset: 7
 hospital_profile:            # 병원 프로필 (설계 개정 6절). 기본값은 지금 동작, 현장값은 config/profiles/field_default.yaml
   id: legacy
+exception_actions:           # 예외(사가 감지) → 머리가 고를 수 있는 행동 (설계 개정 4.2). 안전을 푸는 행동은 넣지 않는다
+  late_isolation:
+    allowed: [rematch_now, wait_for_ipc, escalate, propose_surveillance_hold]
+    fallback: escalate
 autonomy:                    # 행동별 자율 단계 auto | post_report | human. 환자 연락·공식 확정·안전 예외 승인은 코드로 human 고정
   contact_patient: human
   official_commit: human
   approve_safety_exception: human
+  escalate: auto             # 올리는 것 자체는 자동 (사람이 받는다)
+  rematch_now: auto          # 제안만 자동. 확정은 기존 확인 등급
+  wait_for_ipc: post_report
+  propose_surveillance_hold: human   # 감염관리실 승인
 brain:
   enabled: false             # 예외 판단 머리. false면 지금 동작(사람에게 올림)
 provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. law > guideline > hospital_rule > field_practice > design_assumption
@@ -71,6 +79,7 @@ provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. l
   hospital_profile.ward_confirmation: {tier: field_practice, cite: "서울고법 2013누25193(원무 배정·병동 이의), 간호사 블로그·영상. 이의 기간은 설계 가정"}
   hospital_profile.cleaning: {tier: hospital_rule, cite: "해운대백 과업지시서 13:30 침상 정리, 동아대 감염관리실 영상(미화 표면). 다인실 침상 단위는 설계 가정"}
   hospital_profile.discharge_sequence: {tier: hospital_rule, cite: "아산 퇴원 절차(심사→연락→수납→약), 인천성모 QI 단계 소요, 퇴실 11시 규정 병원 안내"}
+  exception_actions: {tier: design_assumption, cite: "설계 개정 4.2 예외 목록. 1차는 E1(늦은 격리 정보)만"}
   autonomy: {tier: design_assumption, cite: "DECISIONS U8 확장: 되돌릴 수 있는 행동만 자동, 책임 순간은 사람(코드 고정)"}
   autonomy_stage: {tier: design_assumption, cite: "설계 문서 자율화 단계. 1단계 HITL로 시작"}
   promoted_departments: {tier: design_assumption, cite: "자율화 2단계 승격은 운영 지표로 정한다"}

@@ -284,6 +284,68 @@ class Gateway:
                 found = (found or False) or not done
         return found
 
+    # ---------- 예외 행동 (U8 확장, 설계 개정 4.6) ----------
+
+    _ACTION_MATERIAL = _MATERIAL | {EventType.SCREENING_RESULT_REPORTED}
+    _ESCALATE_ROLES = {"bed_manager", "ipc", "ward", "environment_vendor"}
+
+    def submit_action(self, choice, now: datetime) -> Decision:
+        """머리가 고른 예외 행동을 검사하고 실행한다. 병상과 숫자는 다루지 않는다(병상은 규칙 모드가 고른다)."""
+        events = self._events()
+        exid = choice.exception_id
+        raised = next((e for e in events if e.type is EventType.EXCEPTION_RAISED
+                       and e.payload.get("exception_id") == exid), None)
+        resolved = any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exid for e in events)
+        attempt = sum(1 for e in events if e.type is EventType.ACTION_PROPOSED and e.payload.get("exception_id") == exid)
+        base = dict(exception_id=exid, action=choice.action)
+        self._emit(choice.case, f"{exid}:proposed:{attempt + 1}", EventType.ACTION_PROPOSED, now, "agent", **base,
+                   params=choice.params, rationale=choice.rationale, mode=choice.mode, basis_seq=choice.basis_seq)
+
+        def reject(reason: str) -> Decision:
+            self._emit(choice.case, f"{exid}:rejected:{attempt + 1}", EventType.ACTION_REJECTED, now, **base,
+                       reasons=[reason])
+            return Decision("rejected", "action", None, [reason])
+
+        if raised is None or resolved:
+            return reject("superseded")
+        rule = self.policy.exception_actions.get(choice.trigger)
+        fallback_ok = choice.mode == "fallback" and choice.action == "escalate"
+        if not fallback_ok and (rule is None or choice.action not in rule.allowed):
+            return reject("not_allowed")
+        if any((e.seq or 0) > choice.basis_seq and e.case_id == choice.case and e.type in self._ACTION_MATERIAL
+               for e in events):
+            return reject("stale_basis")  # 재확인 1: 고른 뒤 판단 정보가 바뀜 → 예외를 열어 두고 다시 고른다
+        if choice.action == "escalate" and choice.params.get("role", "bed_manager") not in self._ESCALATE_ROLES:
+            return reject("bad_params")
+        autonomy = "auto" if fallback_ok else self.policy.autonomy.get(choice.action, "human")
+        if autonomy == "human":
+            self._emit(choice.case, f"{exid}:approval:{choice.action}", EventType.ACTION_APPROVAL_REQUESTED, now,
+                       **base, autonomy=autonomy)
+            return Decision("awaiting_approval", "action", autonomy)
+        self._execute_action(choice, raised, now)
+        self._emit(choice.case, f"{exid}:executed", EventType.ACTION_EXECUTED, now, **base, autonomy=autonomy)
+        if autonomy == "post_report":
+            self._emit(choice.case, f"{exid}:reported", EventType.ACTION_REPORTED, now, **base, to_role="bed_manager")
+        if not choice.action.startswith("wait"):
+            self._emit(choice.case, f"{exid}:resolved", EventType.EXCEPTION_RESOLVED, now, exception_id=exid,
+                       how=choice.action)
+        return Decision("executed", "action", autonomy)
+
+    def _execute_action(self, choice, raised: Event, now: datetime) -> None:
+        exid, case = choice.exception_id, choice.case
+        if choice.action == "escalate":
+            self._emit(case, f"{exid}:task:escalate", EventType.HUMAN_TASK_CREATED, now, reason="brain_escalate",
+                       kind="brain_escalate", assignee=choice.params.get("role", "bed_manager"),
+                       trigger=choice.trigger, bed_id=raised.payload.get("bed_id"))
+        elif choice.action == "rematch_now":
+            # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
+            self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
+        elif choice.action.startswith("wait"):
+            until = min(datetime.fromisoformat(raised.payload["deadline"]),
+                        now + timedelta(minutes=self.policy.brain.max_wait_min))
+            self._emit(case, f"{exid}:recheck", EventType.RECHECK_SCHEDULED, now, exception_id=exid,
+                       at=until.isoformat())
+
     # ---------- 기록 ----------
 
     def _emit(self, case: str, key: str, etype: EventType, now: datetime, source: str = "gateway", /, **payload) -> bool:

@@ -75,6 +75,12 @@ def decide_late_isolation_admission(s, out, policy) -> None:
         if _bed_fits(policy.bed_room, m.bed_id, s.isolation_order_payload.get(m.admission_id, {})):
             continue
         case, bed = m.admission_id, m.bed_id
+        stage = ("after_commit" if EventType.MATCH_COMMITTED in m.facts
+                 else "after_contact" if EventType.PATIENT_CONTACTED in m.facts else "before_contact")
+        if policy.exceptions_enabled:  # 필수 행동 뒤 무엇을 할지는 예외 판단 머리가 고른다 (E1)
+            out.cmd(case, f"exception:E1:{bed}", EventType.EXCEPTION_RAISED, ordered, exception_id=f"E1:{case}:{bed}",
+                    trigger="late_isolation", admission_id=case, bed_id=bed, stage=stage,
+                    deadline=(ordered + policy.exception_deadline).isoformat())
         if EventType.MATCH_COMMITTED in m.facts:
             out.cmd(case, f"task:isolation_after_commit:{bed}", EventType.HUMAN_TASK_CREATED, ordered, bed_id=bed,
                     reason="isolation_order_after_commit", assignee="bed_manager")

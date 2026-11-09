@@ -41,6 +41,8 @@ class SagaPolicy(BaseModel):
     isolation_mismatch_after: timedelta = timedelta(minutes=60)  # 설계 가정
     # 병상 → (병실 종류, 코호트 균). 늦은 격리 오더에서 매칭된 병상이 여전히 맞는지 본다 (for_layout이 채움)
     bed_room: dict[str, tuple[str, str | None]] = {}
+    exceptions_enabled: bool = False  # 예외 판단 머리가 켜져 있을 때만 EXCEPTION_RAISED를 낸다
+    exception_deadline: timedelta = timedelta(minutes=120)
 
     @classmethod
     def for_layout(cls, rooms, beds, **kw) -> "SagaPolicy":
@@ -55,7 +57,9 @@ class SagaPolicy(BaseModel):
         h, m = (int(x) for x in hp.discharge_sequence.rx_due_at.split(":"))
         vals = dict(rx_expected_by=time(h, m), isolation_risk_conditions=tuple(hp.isolation.risk_conditions),
                     isolation_alert_to=tuple(hp.isolation.alert_to),
-                    isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min))
+                    isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min),
+                    exceptions_enabled=policy.brain.enabled,
+                    exception_deadline=timedelta(minutes=policy.brain.max_wait_min))
         vals.update(kw)
         return cls.for_layout(rooms, beds, **vals) if rooms is not None else cls(**vals)
 
