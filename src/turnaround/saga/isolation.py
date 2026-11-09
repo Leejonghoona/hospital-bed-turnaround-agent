@@ -89,3 +89,28 @@ def decide_late_isolation_admission(s, out, policy) -> None:
             _notify_ward_if_accepted(m, out, ordered, "isolation_order_added")
             out.cmd(case, f"rematch:isolation:{bed}", EventType.REMATCH_REQUESTED, ordered, target="admission",
                     admission_id=case)
+
+
+def decide_contact_trace(s, out, policy) -> None:
+    """입실한 환자에게 격리 오더가 오면 같은 다인실 동실자를 감염관리실에 올린다 (이름 없음, 결정은 사람)."""
+    for case, ordered in sorted(s.isolation_ordered.items()):
+        m = s.matches.get(case)
+        if m is None or EventType.PATIENT_ARRIVED not in m.facts or m.facts[EventType.PATIENT_ARRIVED] > ordered:
+            continue
+        room_type = policy.bed_room.get(m.bed_id, ("multi", None))[0]
+        if room_type != "multi":
+            continue
+        room = m.bed_id.rsplit("-", 1)[0]  # 합성 병상 ID 규칙: 병실ID-B번호
+        contacts = []
+        for o in s.matches.values():
+            arrived = o.facts.get(EventType.PATIENT_ARRIVED)
+            if o.admission_id != case and o.bed_id.rsplit("-", 1)[0] == room and arrived and arrived <= ordered:
+                contacts.append({"case": o.admission_id, "bed_id": o.bed_id})
+        for d in s.discharges.values():
+            if d.bed_id and d.bed_id.rsplit("-", 1)[0] == room and EventType.DISCHARGE_CANCELLED not in d.facts:
+                dep = d.seen(EventType.PATIENT_DEPARTED)
+                if dep is None or dep > m.facts[EventType.PATIENT_ARRIVED]:
+                    contacts.append({"case": d.id, "bed_id": d.bed_id})
+        out.cmd(case, f"contact_trace:{room}", EventType.CONTACT_TRACE_REQUESTED, ordered, index_case=case,
+                room_id=room, contacts=sorted(contacts, key=lambda c: c["bed_id"]), to="ipc",
+                window={"from": m.facts[EventType.PATIENT_ARRIVED].isoformat(), "to": ordered.isoformat()})

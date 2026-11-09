@@ -19,7 +19,7 @@ from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, vacancy_floor
 
-from .isolation import decide_isolation_info, decide_late_isolation_admission
+from .isolation import decide_contact_trace, decide_isolation_info, decide_late_isolation_admission
 
 
 class SagaPolicy(BaseModel):
@@ -171,7 +171,8 @@ class SagaState:
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
-                EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW, EventType.WARD_ACCEPTED}
+                EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW, EventType.WARD_ACCEPTED,
+                EventType.PATIENT_ARRIVED}
 
 
 _PIN_TRIGGERS = {EventType.ISOLATION_ORDER_ADDED, EventType.PATIENT_INFO_CORRECTED, EventType.ISOLATION_RELEASED}
@@ -316,6 +317,7 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
                     reason="pinned_placement_review", assignee=s.pins[t.case_id], trigger=t.type.value)
     decide_isolation_info(s, now, out, policy)
     decide_late_isolation_admission(s, out, policy)
+    decide_contact_trace(s, out, policy)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \
@@ -458,11 +460,27 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
             out.cmd(d.id, "recompute:cleaning_done", EventType.READY_TIME_RECOMPUTED, done,
                     bed_id=bed, reason="cleaning_done")
         # 빈 병상 전환: 격리 퇴실은 종말소독 요청 뒤의 완료 신호가 있어야 한다
+        late = d.isolation and not iso_at_departure
         if d.isolation:
             done = next((t for t in sorted(d.cleaning_dones) if t >= terminal_from), None)
+        vacant_key = "bed_vacant"
+        if late:
+            prev_vacant = d.seen(EventType.BED_MARKED_VACANT)
+            if prev_vacant is not None and prev_vacant <= iso_at:
+                # 격리 정보를 모를 때 낸 입실 가능을 되돌린다 (설계 개정 3.7 (다))
+                out.cmd(d.id, "bed_vacancy_revoked", EventType.BED_VACANCY_REVOKED, iso_at, bed_id=bed,
+                        reason="late_isolation")
+                vacant_key = "bed_vacant:after_terminal"
+            for m in sorted(s.matches.values(), key=lambda x: x.admission_id):
+                if m.bed_id == bed and m.active and EventType.MATCH_COMMITTED in m.facts \
+                        and EventType.PATIENT_ARRIVED not in m.facts:
+                    out.cmd(m.admission_id, f"task:late_iso_next:{bed}", EventType.HUMAN_TASK_CREATED, iso_at,
+                            bed_id=bed, reason="late_isolation_next_committed", assignee="bed_manager")
         if ready is not None:
             if done is not None or not d.isolation:
-                out.cmd(d.id, "bed_vacant", EventType.BED_MARKED_VACANT, max(ready, done or ready), bed_id=bed)
+                out.cmd(d.id, vacant_key, EventType.BED_MARKED_VACANT, max(ready, done or ready), bed_id=bed)
+            elif late:
+                pass  # 종말소독 상향 요청이 나가 있다. 지연은 청소 지연 타이머가 본다
             else:
                 out.cmd(d.id, "task:missing_cleaning_done", EventType.HUMAN_TASK_CREATED, ready,
                         bed_id=bed, reason="missing_cleaning_done")

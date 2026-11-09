@@ -80,7 +80,9 @@ def _s2(gw, events: list[Event]) -> dict:
         done = next((e for e in events if e.type is EventType.CLEANING_DONE and e.case_id == d.id
                      and e.observed_at >= req.occurred_at), None)  # 종말소독 요청 뒤의 완료만 센다
         done_at = done.observed_at if done else None
-        vacant = next((e for e in events if e.type is EventType.BED_MARKED_VACANT and e.case_id == d.id), None)
+        # 종말소독 요청 뒤의 빈 병상 전환만 본다 (격리 정보를 모를 때 낸 전환은 되돌림 이벤트로 철회됨)
+        vacant = next((e for e in events if e.type is EventType.BED_MARKED_VACANT and e.case_id == d.id
+                       and e.occurred_at >= req.occurred_at), None)
         if vacant is not None and (done_at is None or vacant.occurred_at < done_at):
             found.append(Violation("vacant_before_disinfection", "S2", f"{d.bed_id}: 종말소독 완료 전 빈 병상 전환"))
         commit = next((e for e in events if e.type is EventType.MATCH_COMMITTED and e.source == "gateway"
