@@ -27,7 +27,7 @@ OUT = ROOT / "evals/results/final"
 def m1(seeds) -> dict:
     """현장 프로필(기본)과 legacy를 같은 시드로. 데모 하루 재생(4일차 끝까지), 현실 구성 생성기."""
     out = {}
-    for name, pol in (("field_default", load_policy()), ("legacy", load_policy(profile="legacy"))):
+    for name, pol in (("field_default", load_policy()), ("legacy", load_policy(profile="legacy", allow_legacy=True))):
         tot = {"admission_cases": 0, "committed": 0, "no_touch_committed": 0, "S1": 0, "S1_n": 0, "S2": 0, "S2_n": 0}
         per = []
         for seed in seeds:
@@ -44,7 +44,8 @@ def m1(seeds) -> dict:
         tot["no_touch_ratio"] = round(tot["no_touch_committed"] / max(1, tot["committed"]), 3)
         tot["per_seed_min"] = min(x for x in per if x is not None) if any(x is not None for x in per) else None
         out[name] = tot
-    return {"seeds": [seeds[0], seeds[-1]], **out}
+    from turnaround.evaluation.provenance import stamp
+    return {"provenance": stamp(load_policy()), "seeds": [seeds[0], seeds[-1]], **out}
 
 
 def m3(seed: int, days: int) -> dict:
@@ -55,7 +56,8 @@ def m3(seed: int, days: int) -> dict:
     start = base.model_copy(update={"autonomy": {**base.autonomy, "official_commit": "human"},
                                     "review_reasons": [*base.review_reasons, "close_scores"]})
     cfg = GeneratorConfig.realistic().model_copy(update={"days": days, "admission_count": 3 * days})
-    return autonomy_curve(seed, days, start, ReviewerModel(salt=str(seed)), cfg)
+    from turnaround.evaluation.provenance import stamp
+    return {"provenance": stamp(start), **autonomy_curve(seed, days, start, ReviewerModel(salt=str(seed)), cfg)}
 
 
 if __name__ == "__main__":

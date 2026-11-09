@@ -17,6 +17,8 @@ def _contacted(cs: dict) -> bool:
 def situational_block(inp: dict, action: str) -> str | None:
     """이 상황에서 이 행동을 막을 이유. 없으면 None."""
     ex, cs, to = inp.get("exception") or {}, inp.get("case_state") or {}, inp.get("tool_outputs") or {}
+    if action.split(":", 1)[0] != "escalate" and (not ex.get("trigger") or "attempts" not in ex or "stage" not in ex):
+        return "missing_input"  # 판정에 쓰는 입력이 빠지면 막고 사람에게 올린다(fail-closed, 5단계 안전 검수)
     trig, stage, att = ex.get("trigger"), ex.get("stage"), ex.get("attempts", 0) or 0
     base = action.split(":", 1)[0]
     dl = ex.get("deadline_in_min")

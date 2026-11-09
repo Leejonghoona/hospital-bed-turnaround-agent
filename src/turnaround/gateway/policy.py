@@ -135,11 +135,18 @@ class Policy(BaseModel):
 DEFAULT_PROFILE = "field_default"  # 5단계 기본값 전환 (08 계획): 현장 프로필이 기본, 옛 동작은 profile="legacy"
 
 
-def load_policy(path: Path = DEFAULT_POLICY, profile: str | None = DEFAULT_PROFILE) -> Policy:
+class LegacyPolicyError(ValueError):
+    pass
+
+
+def load_policy(path: Path = DEFAULT_POLICY, profile: str | None = DEFAULT_PROFILE, allow_legacy: bool = False) -> Policy:
     """정책 파일을 읽는다. 기본은 현장 프로필(config/profiles/field_default.yaml)을 덮어쓴 정책이다.
-    profile="legacy"(또는 None)는 정책 파일 그대로(옛 판 회귀용)."""
+    profile="legacy"(또는 None)는 정책 파일 그대로인 옛 판이다. 옛 판은 청소 두 갈래를 몰라 최종 측정에서 S2 위반이
+    났으므로 회귀 비교 전용으로 봉인한다: allow_legacy=True를 명시해야 읽힌다 (5단계 안전 검수)."""
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if profile in (None, "legacy"):
+        if not allow_legacy:
+            raise LegacyPolicyError("옛 판(legacy) 정책은 회귀 비교 전용이다. allow_legacy=True를 명시해야 한다")
         return Policy.model_validate(raw)
     if profile is not None:
         # 이름이면 config/profiles/<이름>.yaml, 경로면 그 파일 (온보딩이 만든 초안 등, 로드맵 07 M4)

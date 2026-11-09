@@ -21,7 +21,7 @@ from turnaround.ui.demo import build_demo
 
 
 def run(seeds, day, occupancy, reactive, profile):
-    pol = load_policy(profile=profile) if profile else load_policy()
+    pol = load_policy(profile=profile, allow_legacy=profile == "legacy") if profile else load_policy()
     agg, raised, safety, entry = Counter(), Counter(), Counter(), []
     for seed in seeds:
         st = build_demo(seed=seed, day=day, until=time(23, 45), via_fhir=False, policy=pol,
@@ -42,7 +42,8 @@ def run(seeds, day, occupancy, reactive, profile):
             safety[k] += s[k]["violations"]
             safety[k + "_n"] += s[k]["denominator"]
         raised.update(e.payload["trigger"] for e in ev if e.type is EventType.EXCEPTION_RAISED)
-    return {"seeds": [seeds[0], seeds[-1]], "day": day, "occupancy": occupancy, "reactive": reactive,
+    from turnaround.evaluation.provenance import stamp
+    return {"provenance": stamp(pol), "seeds": [seeds[0], seeds[-1]], "day": day, "occupancy": occupancy, "reactive": reactive,
             "profile": profile, **agg, "entry_wait_mean_by_seed": entry, "safety": dict(safety),
             "exceptions": dict(raised)}
 

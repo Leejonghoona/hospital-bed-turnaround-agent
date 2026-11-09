@@ -1,0 +1,710 @@
+{
+ "seed": 2,
+ "days": 60,
+ "curve": [
+  {
+   "day": 1,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 2,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 3,
+   "admissions": 6,
+   "committed": 6,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 4,
+   "admissions": 6,
+   "committed": 6,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 5,
+   "admissions": 2,
+   "committed": 1,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 6,
+   "admissions": 5,
+   "committed": 4,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 7,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 8,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 9,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 10,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 11,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 12,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 13,
+   "admissions": 4,
+   "committed": 2,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 14,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 15,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 16,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 17,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 18,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 19,
+   "admissions": 3,
+   "committed": 0,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 20,
+   "admissions": 6,
+   "committed": 2,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 21,
+   "admissions": 10,
+   "committed": 10,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 22,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 23,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": []
+  },
+  {
+   "day": 24,
+   "admissions": 5,
+   "committed": 5,
+   "no_touch": 0,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores"
+   ]
+  },
+  {
+   "day": 25,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 26,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 27,
+   "admissions": 3,
+   "committed": 1,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 28,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 29,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 30,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 31,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 32,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 33,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 34,
+   "admissions": 6,
+   "committed": 6,
+   "no_touch": 6,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 35,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 4,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 36,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 37,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 38,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 39,
+   "admissions": 5,
+   "committed": 5,
+   "no_touch": 5,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 40,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 41,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 42,
+   "admissions": 4,
+   "committed": 4,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 43,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 44,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 45,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 46,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 47,
+   "admissions": 3,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 48,
+   "admissions": 1,
+   "committed": 1,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 49,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 50,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 51,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 52,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 53,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 54,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 55,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 56,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 3,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 57,
+   "admissions": 3,
+   "committed": 3,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 58,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 2,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  },
+  {
+   "day": 59,
+   "admissions": 2,
+   "committed": 2,
+   "no_touch": 1,
+   "S1": 0,
+   "S2": 0,
+   "auto_units": [
+    "close_scores",
+    "official_commit"
+   ]
+  }
+ ],
+ "log": [
+  {
+   "day": 23,
+   "unit": "close_scores",
+   "action": "promoted",
+   "evidence": {
+    "unit": "close_scores",
+    "mode": "human",
+    "human_n": 27,
+    "human_agreed": 27,
+    "agreement_lower95": 0.875,
+    "agent_n": 0,
+    "agent_recent_disagreements": 0,
+    "never": false,
+    "recommendation": "promote"
+   },
+   "replay_proof": [
+    {
+     "day": 22,
+     "S1": 0,
+     "S2": 0,
+     "no_touch_old": 0,
+     "no_touch_new": 0
+    },
+    {
+     "day": 23,
+     "S1": 0,
+     "S2": 0,
+     "no_touch_old": 0,
+     "no_touch_new": 0
+    }
+   ]
+  },
+  {
+   "day": 24,
+   "unit": "official_commit",
+   "action": "promoted",
+   "evidence": {
+    "unit": "official_commit",
+    "mode": "human",
+    "human_n": 37,
+    "human_agreed": 36,
+    "agreement_lower95": 0.862,
+    "agent_n": 0,
+    "agent_recent_disagreements": 0,
+    "never": false,
+    "recommendation": "promote"
+   },
+   "replay_proof": [
+    {
+     "day": 23,
+     "S1": 0,
+     "S2": 0,
+     "no_touch_old": 0,
+     "no_touch_new": 4
+    },
+    {
+     "day": 24,
+     "S1": 0,
+     "S2": 0,
+     "no_touch_old": 0,
+     "no_touch_new": 4
+    }
+   ]
+  }
+ ]
+}

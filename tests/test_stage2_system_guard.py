@@ -45,3 +45,18 @@ def test_gateway_uses_same_guard():
     brain(gw, _Script({"action": "wait", "params": {}, "rationale": "x"})).step(at(14, 10))
     rej = [e for e in types(store, T.ACTION_REJECTED) if e.payload["exception_id"].startswith("E9")]
     assert rej and rej[0].payload["reasons"] == ["promise_needs_action"]
+
+
+def test_guard_fails_closed_when_inputs_missing():
+    """판정 입력(trigger·attempts·stage)이 빠지면 막는다 (5단계 안전 검수)."""
+    assert situational_block({"exception": {"stage": "x", "attempts": 0}}, "wait") == "missing_input"
+    assert situational_block({"exception": {"trigger": "no_bed", "stage": "x"}}, "rematch_now") == "missing_input"
+    assert situational_block({}, "escalate") is None  # 올림은 언제나 된다
+
+
+def test_legacy_policy_is_sealed_for_regression_only():
+    from turnaround.gateway import load_policy
+    from turnaround.gateway.policy import LegacyPolicyError
+    with pytest.raises(LegacyPolicyError):
+        load_policy(profile="legacy")
+    assert load_policy(profile="legacy", allow_legacy=True).hospital_profile is not None

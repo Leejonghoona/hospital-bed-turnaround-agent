@@ -102,7 +102,7 @@ def test_isolation_bed_prep_requested_only_after_terminal_cleaning():
 
 
 def test_legacy_saga_unchanged_no_bed_prep():
-    pol = load_policy(profile="legacy")
+    pol = load_policy(profile="legacy", allow_legacy=True)
     store, gw = make(_discharge_events(), policy=pol)
     SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(10, 40))
     assert not [e for e in store.read() if e.type is EventType.BED_PREP_REQUESTED]
@@ -116,7 +116,7 @@ def test_same_day_morning_assignment_waits_for_the_day():
     assert tools.pending_admissions(store.read(), now=at(18)) == []  # 전날 저녁: 아직
     assert tools.pending_admissions(store.read(), now=at(7, 30, day=1)) == []  # 당일 08:00 전
     assert tools.pending_admissions(store.read(), now=at(8, day=1)) == ["A1"]
-    legacy = load_policy(profile="legacy")
+    legacy = load_policy(profile="legacy", allow_legacy=True)
     store2, gw2 = make([_adm_at(tomorrow)], policy=legacy)
     assert PlanningTools(gw2, H.wards).pending_admissions(store2.read(), now=at(18)) == ["A1"]
 
