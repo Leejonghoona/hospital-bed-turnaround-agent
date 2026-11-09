@@ -1,0 +1,28 @@
+{
+ "seeds": [
+  0,
+  19
+ ],
+ "field_default": {
+  "admission_cases": 304,
+  "committed": 203,
+  "no_touch_committed": 147,
+  "S1": 0,
+  "S1_n": 203,
+  "S2": 0,
+  "S2_n": 22,
+  "no_touch_ratio": 0.724,
+  "per_seed_min": 0.5
+ },
+ "legacy": {
+  "admission_cases": 304,
+  "committed": 273,
+  "no_touch_committed": 0,
+  "S1": 0,
+  "S1_n": 274,
+  "S2": 8,
+  "S2_n": 22,
+  "no_touch_ratio": 0.0,
+  "per_seed_min": 0.0
+ }
+}
