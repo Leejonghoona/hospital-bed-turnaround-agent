@@ -294,5 +294,18 @@ def test_death_and_ama_discharges_exist_once_each(seed):
     death = next(d for d in h.discharges if d.discharge_type == "death")
     assert not death.patient.isolation_order and death.registered_at is not None and not death.guardian_delayed
     evs = [e for e in hospital_to_events(h, seed=seed) if e.case_id == death.id]
-    assert evs[0].type is EventType.END_OF_LIFE_ROOM_TRANSFER
+    first = {EventType.END_OF_LIFE_ROOM_TRANSFER: "eol_room", EventType.DEATH_CONFIRMED: "ward"}
+    assert first[evs[0].type] == death.death_place  # 임종실 전실 또는 병동 내 사망 (SAG-10)
     assert not {EventType.DISCHARGE_DECIDED, EventType.BILLING_DONE, EventType.GUARDIAN_ARRIVED} & {e.type for e in evs}
+
+
+@pytest.mark.parametrize("seed", range(0, 20))
+def test_one_unplanned_transfer_out_per_hospital(seed):
+    """SAG-10: 퇴원 예정이던 환자 1명이 악화돼 중환자실로 급변 전동. 퇴실·수납 이벤트 없이 병상이 빈다."""
+    from turnaround.events import EventType, hospital_to_events
+    h = generate(seed=seed)
+    outs = [d for d in h.discharges if d.discharge_type == "transfer_out"]
+    assert len(outs) == 1 and not outs[0].patient.isolation_order
+    types = {e.type for e in hospital_to_events(h, seed=seed) if e.case_id == outs[0].id}
+    assert EventType.UNPLANNED_TRANSFER_OUT in types
+    assert not {EventType.PATIENT_DEPARTED, EventType.BILLING_DONE} & types

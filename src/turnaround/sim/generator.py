@@ -153,6 +153,11 @@ class _Gen:
         pool = sorted(set(range(n)) - iso_idx - unregistered - guardian_delayed)
         special = self.rx_rng.sample(pool, cfg.death_count + cfg.ama_count)
         dtype = {i: "death" for i in special[:cfg.death_count]} | {i: "ama" for i in special[cfg.death_count:]}
+        # 급변 전동과 사망 장소는 또 다른 난수열: 기존 합성 데이터의 다른 값은 바뀌지 않는다 (SAG-10)
+        ex_rng = random.Random(f"exit-{self.cfg.days}-{n}-{sorted(special)}")
+        rest = [i for i in pool if i not in dtype]
+        dtype |= {i: "transfer_out" for i in ex_rng.sample(rest, min(cfg.transfer_out_count, len(rest)))}
+        place = {i: ex_rng.choice(["eol_room", "ward"]) for i, k in dtype.items() if k == "death"}
 
         result = []
         for i, (day, bed, iso) in enumerate(plan):
@@ -210,7 +215,7 @@ class _Gen:
                 cleaning_type=cleaning_type, cleaning_delayed=i in cleaning_delayed,
                 cleaning_extra_delay_min=extra, durations_min=d,
                 aerosol_wait_min=wait, sporicidal=patient.organism == "CDIFF", rx_revision_reason=rx_reason,
-                discharge_type=dtype.get(i, "normal"),
+                discharge_type=dtype.get(i, "normal"), death_place=place.get(i),
                 actual=DischargeTimeline(
                     order_confirmed_at=order, medication_ready_at=med, education_done_at=edu,
                     billing_done_at=billing, guardian_arrived_at=guardian_arrived, departed_at=departed,

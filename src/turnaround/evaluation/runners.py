@@ -94,7 +94,7 @@ def run_c01(s: Scenario) -> ScoreResult:
         events = hospital_to_events(h, seed=seed)
         day0 = sorted((d for d in h.discharges if d.day == 0), key=lambda d: d.id)
         dep = {e.case_id: e.observed_at for e in events if e.type is EventType.PATIENT_DEPARTED}
-        gap = [d for d in day0 if kill < dep[d.id] <= restart]
+        gap = [d for d in day0 if d.id in dep and kill < dep[d.id] <= restart]  # 사망·급변 전동은 퇴실 이벤트가 없다
         in_progress = all(d.actual.bed_ready_at > restart for d in day0)
         if gap and in_progress:
             break

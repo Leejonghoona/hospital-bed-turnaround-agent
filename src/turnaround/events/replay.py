@@ -54,9 +54,25 @@ class _Builder:
     def discharge(self, d: Discharge) -> None:
         t, c, bed = d.actual, d.id, d.bed_id
         if d.discharge_type == "death":
-            # 임종실 전실: 퇴원 결정 없이 병상이 빈다. 이후는 병상 준비 흐름만 (SAG-9)
-            self.add(c, "eol_transfer", EventType.END_OF_LIFE_ROOM_TRANSFER, t.departed_at, bed_id=bed,
+            if d.death_place == "ward":
+                # 병동 내 사망: 확인 뒤 면회·사후 처치, 안치실 이송 때 병상이 빈다 (SAG-10). 60분은 합성 가정
+                self.add(c, "death_confirmed", EventType.DEATH_CONFIRMED, t.departed_at - 60 * _M, bed_id=bed,
+                         **_patient(d.patient))
+                self.add(c, "body_transferred", EventType.BODY_TRANSFERRED, t.departed_at, bed_id=bed)
+            else:
+                # 임종실 전실: 퇴원 결정 없이 병상이 빈다. 이후는 병상 준비 흐름만 (SAG-9)
+                self.add(c, "eol_transfer", EventType.END_OF_LIFE_ROOM_TRANSFER, t.departed_at, bed_id=bed,
+                         **_patient(d.patient))
+            self._cleaning(d)
+            return
+        if d.discharge_type == "transfer_out":
+            # 퇴원 예정이던 환자가 악화돼 중환자실로 급변 전동: 퇴원 결정·등록 뒤 퇴실 대신 전동 (SAG-10)
+            self.add(c, "discharge_decided", EventType.DISCHARGE_DECIDED, d.decided_at, bed_id=bed, day=d.day,
                      **_patient(d.patient))
+            if d.registered_at is not None:
+                self.add(c, "discharge_registered", EventType.DISCHARGE_REGISTERED, d.registered_at, bed_id=bed)
+            self.add(c, "unplanned_transfer_out", EventType.UNPLANNED_TRANSFER_OUT, t.departed_at, bed_id=bed,
+                     destination="icu")
             self._cleaning(d)
             return
         extra = {"discharge_type": "ama"} if d.discharge_type == "ama" else {}
