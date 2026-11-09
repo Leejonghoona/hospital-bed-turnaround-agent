@@ -111,3 +111,17 @@ def test_brain_is_idempotent_and_input_has_no_names():
     brain.step(at(10, 15))
     assert len(_types(store, EventType.ACTION_EXECUTED)) == 1
     assert brain.records and "환자A1" not in brain.records[-1] and '"name"' not in brain.records[-1]
+
+
+def test_fake_table_never_rematches_after_contact_commit_or_arrival_for_any_trigger():
+    from turnaround.agent.llm import _fake_exception_action
+    for trig in ("late_isolation", "discharge_date_changed", "ward_objection"):
+        for stage in ("after_contact", "after_commit", "after_arrival"):
+            out = _fake_exception_action({"exception": {"trigger": trig, "stage": stage},
+                                          "allowed_actions": [{"id": "rematch_now"}, {"id": "escalate"}]})
+            assert out["action"] == "escalate", (trig, stage)
+
+
+def test_escalation_roles_include_operational_owners():
+    from turnaround.gateway.gateway import Gateway
+    assert {"environment_lead", "billing", "pharmacy", "admission_office"} <= Gateway._ESCALATE_ROLES

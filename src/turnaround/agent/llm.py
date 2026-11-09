@@ -102,8 +102,9 @@ def _fake_exception_action(ctx: dict) -> dict:
     """가짜 LLM의 예외 행동 결정표 (설계 개정 4.5). 같은 입력에 같은 출력. 실제 모델 평가의 비교선."""
     ex = ctx.get("exception", {})
     allowed = [a["id"] for a in ctx.get("allowed_actions", [])]
-    if ex.get("trigger") == "late_isolation" and ex.get("stage") in ("after_contact", "after_commit"):
-        return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "연락 뒤 안전 사안: 사람에게"}
+    if ex.get("stage") in ("after_contact", "after_commit", "after_arrival"):
+        # 목표 함수 2항: 연락·확정·입실 뒤에는 매칭을 스스로 바꾸지 않는다 (트리거와 상관없이)
+        return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "연락 뒤: 사람에게"}
     if "rematch_now" in allowed:
         return {"action": "rematch_now", "params": {}, "rationale": "연락 전: 규칙 모드로 다시 찾음"}
     return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게"}

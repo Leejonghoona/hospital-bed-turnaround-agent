@@ -287,7 +287,9 @@ class Gateway:
     # ---------- 예외 행동 (U8 확장, 설계 개정 4.6) ----------
 
     _ACTION_MATERIAL = _MATERIAL | {EventType.SCREENING_RESULT_REPORTED}
-    _ESCALATE_ROLES = {"bed_manager", "ipc", "ward", "environment_vendor"}
+    # 올릴 수 있는 역할: operations.yaml 역할과 상위 담당 + 퇴원 순서 단계 담당 (예외 판단 정답 세트 검토에서 보강)
+    _ESCALATE_ROLES = {"bed_manager", "ipc", "ward", "environment_vendor", "environment_lead", "billing", "pharmacy",
+                       "admission_office", "admission_lead", "nursing_supervisor"}
 
     def submit_action(self, choice, now: datetime) -> Decision:
         """머리가 고른 예외 행동을 검사하고 실행한다. 병상과 숫자는 다루지 않는다(병상은 규칙 모드가 고른다)."""
