@@ -1,0 +1,172 @@
+{
+ "model": "openai:gpt-4.1-mini",
+ "date": "2026-11-09",
+ "rows": [
+  {
+   "seed": 1,
+   "fmt": "emr_a",
+   "llm": "ok",
+   "columns": {
+    "correct": 59,
+    "wrong": 1,
+    "asked": 8,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 12,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 12,
+    "asked_no_proposal": 2
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 27,
+   "followup_questions": 0,
+   "exact_after_answers": false,
+   "error": null,
+   "wrong_columns": [
+    [
+     "TB_DSCH",
+     "MORGUE_DT",
+     "t:death_confirmed",
+     "t:body_transferred"
+    ]
+   ],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_b",
+   "llm": "ok",
+   "columns": {
+    "correct": 61,
+    "wrong": 0,
+    "asked": 7,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 9,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 26,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_c",
+   "llm": "ok",
+   "columns": {
+    "correct": 30,
+    "wrong": 0,
+    "asked": 25,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 16,
+    "asked_no_proposal": 3
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 51,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_d",
+   "llm": "ok",
+   "columns": {
+    "correct": 62,
+    "wrong": 0,
+    "asked": 6,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 4,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 14,
+    "asked_no_proposal": 5
+   },
+   "format": {
+    "time_format": "asked",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 41,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_e",
+   "llm": "ok",
+   "columns": {
+    "correct": 30,
+    "wrong": 0,
+    "asked": 25,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 7,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "asked",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 44,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  }
+ ],
+ "usage": {
+  "calls": 18,
+  "input_tokens": 40983,
+  "output_tokens": 13606,
+  "latency_s": 112.16860012799998
+ }
+}

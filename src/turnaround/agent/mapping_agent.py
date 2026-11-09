@@ -231,6 +231,60 @@ def fake_propose(ctx: dict) -> dict:
     return out
 
 
+# ---------------- 실제 LLM ----------------
+
+LLM_SYSTEM = (
+    "너는 병원 전산 내보내기 표의 열과 코드값을 병상 사이클 온톨로지의 키에 대응시킨다. 원천 값은 보이지 않고 열 이름, "
+    "값 모양(time/int/text), 채움 비율, 종류가 적은 열의 코드값만 보인다. 모르면 빈 목록을 낸다(사람에게 묻는다). "
+    "JSON 하나만 출력한다: {\"columns\": {표: {열: [후보 키, 확신 높은 순, 최대 3개]}}, "
+    "\"values\": {표: {열: {코드값: [\"값어휘키:정규값\"]}}}, \"event_codes\": {사건코드: [사건 이름]}}. "
+    "후보 키는 vocabulary의 키만, 정규값은 value_vocabulary의 값만 쓴다. 사건 시각 열의 키는 't:사건이름'이다. "
+    "이름이 '퇴원일시'처럼 애매하면 가능한 사건을 모두 후보로 낸다(순서 검사는 시스템이 한다).")
+
+
+def vocabulary() -> dict[str, str]:
+    """LLM에 주는 온톨로지 어휘: 키 → 뜻 (core.ttl 사건 정의 포함)."""
+    from turnaround.ontology.core import event_kinds
+    desc = {"case": "사례 번호(입원·퇴원 건 하나)", "patient.patient_id": "환자 등록번호", "patient.name": "환자 이름",
+            "patient.gender": "환자 성별", "patient.age": "나이", "patient.department": "진료과",
+            "patient.precautions": "전파경로 격리 주의(여러 개면 구분자로)", "patient.organism": "원인균",
+            "patient.precaution_status": "격리 판정(확진·의심·선제)", "patient.isolation_ordered_by": "격리 지시자",
+            "patient.immunocompromised": "면역저하 여부", "patient.open_wound": "개방 창상 여부", "day": "합성 기간의 날 순번",
+            "discharge_decided.discharge_type": "퇴원 형태(자의 퇴원 표시)", "guardian_eta_set.eta": "보호자 도착 예정 시각",
+            "guardian_eta_updated.eta": "변경된 보호자 도착 예정 시각", "rx_revised.reason": "퇴원약 처방 수정 사유",
+            "cleaning_requested.cleaning_type": "요청한 청소 등급(일반·종말소독)",
+            "cleaning_requested.aerosol_wait_min": "환기 대기(분)", "cleaning_requested.sporicidal": "아포 소독 여부",
+            "cleaning_done.cleaning_type": "완료한 청소 등급", "unplanned_transfer_out.destination": "급변 전동 부서",
+            "admission_requested.requested_at": "입원 예정(수속) 시각", "admission_requested.preferred_ward_id": "희망 병동",
+            "admission_requested.from_icu": "중환자실에서 오는가", "admission_requested.wants_single_room": "1인실 희망",
+            "ward_name": "병동 이름", "specialty": "병동 성격", "departments": "병동 담당 진료과 목록",
+            "room_type": "병실 종류(음압·1인·다인)", "capacity": "병실 병상 수", "gender": "병실 성별 운영",
+            "air_changes_per_hour": "시간당 환기 횟수", "cohort_key": "코호트 균", "near_nurse_station": "간호사실 인접"}
+    for k, kind in event_kinds().items():
+        desc[f"t:{k}"] = f"사건 시각: {kind.definition or k}"
+    return desc
+
+
+def _sanitize(out: dict) -> dict:
+    """LLM 출력에서 어휘 밖 키·값을 버린다."""
+    from turnaround.ontology.core import event_kinds
+    keys, kinds = set(vocabulary()), set(event_kinds())
+    cols = {t: {c: [k for k in (v or []) if k in keys][:3] for c, v in (cs or {}).items()}
+            for t, cs in (out.get("columns") or {}).items() if isinstance(cs, dict)}
+    vals = {}
+    for t, cs in (out.get("values") or {}).items():
+        for c, codes in (cs or {}).items():
+            for code, cands in (codes or {}).items():
+                ok = [x for x in (cands or []) if isinstance(x, str) and ":" in x
+                      and x.split(":", 1)[1] in _VALID.get(x.split(":", 1)[0], set())]
+                if ok:
+                    vals.setdefault(t, {}).setdefault(c, {})[code] = ok
+    evs = {code: [k[2:] if k.startswith("t:") else k for k in (v or []) if isinstance(k, str)
+                  and (k[2:] if k.startswith("t:") else k) in kinds][:3]
+           for code, v in (out.get("event_codes") or {}).items()}
+    return {"columns": cols, "values": vals, "event_codes": evs}
+
+
 # ---------------- 결정적 해석 ----------------
 
 def _time_format(values: list[str]) -> str | None:
@@ -253,6 +307,36 @@ def _time_format(values: list[str]) -> str | None:
 def _order_rel() -> list[tuple[str, str]]:
     g = Graph().parse(data=_core_ttl(), format="turtle")
     return [(str(s).split(":ev_")[1], str(o).split(":ev_")[1]) for s, o in g.subject_objects(TA.notAfter)]
+
+
+def _order_pairs() -> list[tuple[str, str]]:
+    """정규 키 쌍 (앞, 뒤): 사건 순서(t:a ≤ t:b)와 사건-시각 값(t:a ≤ 값 키)."""
+    g = Graph().parse(data=_core_ttl(), format="turtle")
+    pairs = [(f"t:{a}", f"t:{b}") for a, b in _order_rel()]
+    pairs += [(f"t:{str(s).split(':ev_')[1]}", str(o)) for s, o in g.subject_objects(TA.notAfterValue)]
+    return pairs
+
+
+def _order_suspects(cmap: dict[str, str], rows: list[dict], fmt: str) -> dict[str, str]:
+    """매핑한 시각 열들이 선언된 순서를 어기면 그 열들을 돌려준다(열 → 이유). 바뀐 열·다른 뜻의 열을 잡는다."""
+    by_key = {k: c for c, k in cmap.items()}
+    bad: dict[str, str] = {}
+    for a, b in _order_pairs():
+        ca, cb = by_key.get(a), by_key.get(b)
+        if not ca or not cb:
+            continue
+        n = 0
+        for r in rows:
+            va, vb = r.get(ca), r.get(cb)
+            if va and vb:
+                try:
+                    if datetime.strptime(va, fmt) > datetime.strptime(vb, fmt):
+                        n += 1
+                except ValueError:
+                    break
+        if n:
+            bad[ca] = bad[cb] = f"{a} ≤ {b} 순서를 {n}건 어긴다"
+    return bad
 
 
 def _confirm_always() -> set[str]:
@@ -311,11 +395,23 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
     if llm is None or llm.name == "fake":
         cand = fake_propose(ctx)
     else:
-        try:
-            cand = llm.complete_json("propose_mapping", "병원 내보내기 열을 핵심 온톨로지 키에 대응시킨다. JSON만.",
-                                     json.dumps(ctx, ensure_ascii=False))
-        except Exception:  # noqa: BLE001 - 실패하면 사전으로
-            cand = fake_propose(ctx)
+        # 표마다(사건 코드는 따로) 나눠 부른다: 응답이 길면 상류 시간 제한에 걸린다
+        cand = {"columns": {}, "values": {}, "event_codes": {}}
+        parts = [{"tables": {t: info}} for t, info in ctx["tables"].items()]
+        if event_codes:
+            parts.append({"tables": {}, "event_codes": event_codes})
+        fails = []
+        for part in parts:
+            llm_ctx = {**part, "vocabulary": vocabulary(), "value_vocabulary": {k: sorted(v) for k, v in _VALID.items()}}
+            try:
+                got = _sanitize(llm.complete_json("propose_mapping", LLM_SYSTEM, json.dumps(llm_ctx, ensure_ascii=False)))
+            except Exception as e:  # noqa: BLE001 - 실패한 부분은 후보 없이(모두 질문으로). 사전으로 몰래 대신하지 않는다
+                fails.append(f"{type(e).__name__}: {str(e)[:80]}")
+                continue
+            for k in cand:
+                for kk, vv in got.get(k, {}).items():
+                    cand[k][kk] = vv
+        ev["llm"] = "ok" if not fails else f"partial_failed({len(fails)}/{len(parts)}): {fails[0]}"
     # 형식: 시각, 참거짓, 목록 구분자, 병상 ID
     all_times = [str(r[c]) for t in tables for r in tables[t] for c in r
                  if prof[t]["columns"][c]["shape"] == "time" and r[c]]
@@ -431,6 +527,32 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                     chosen[(t, c)] = None
                     qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", "이름으로도 사건 순서로도 어느 사건인지 가릴 수 없다",
                                        None, opts))
+        # 선언된 순서를 어기는 시각 열: 믿지 않고 묻는다 (바뀐 열, 시각 값과 사건 시각 혼동)
+        if fmt_known:
+            for c, why in _order_suspects(cmap, tables[t], time_fmt).items():
+                opts = list(cand["columns"].get(t, {}).get(c) or [])
+                cmap.pop(c, None)
+                chosen[(t, c)] = None
+                qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", f"사건 순서 검사 실패: {why}", None, opts))
+        # (b) 사건 기록 표가 있으면 사례 표의 사건 시각 열은 겹친다: 시각 값 속성일 수 있으니 묻는다
+        if log_cols:
+            for c, k in list(cmap.items()):
+                if k.startswith("t:"):
+                    cmap.pop(c)
+                    chosen[(t, c)] = None
+                    qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", "사건 기록 표가 따로 있는데 사건 시각으로 읽혔다(시각 값일 수 있다)",
+                                       None, list(cand["columns"].get(t, {}).get(c) or [])))
+        # 한 키에 열이 둘 이상이면 어느 쪽인지 모른다: 모두 묻는다 (결정적 검사, 2026-11-09 실제 모델 평가에서 추가)
+        dup = defaultdict(list)
+        for c, k in cmap.items():
+            dup[k].append(c)
+        for k, cs_ in dup.items():
+            if len(cs_) > 1:
+                for c in cs_:
+                    opts = list(cand["columns"].get(t, {}).get(c) or [])
+                    cmap.pop(c)
+                    chosen[(t, c)] = None
+                    qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", f"다른 열과 같은 키({k})로 읽혔다", None, opts))
         # 코드값
         for c, k in cmap.items():
             vkey = _CODE_KEYS.get(k)
@@ -454,6 +576,12 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                         continue
                     if not vals:
                         qs.append(Question(f"code:{k}:{part}", f"{k}={part}", "코드표에 없는 값이다(병원 코드표 필요)"))
+                        continue
+                    lexical = vals[0] == part or any(_norm(part) in toks for toks in _VALUE_LEX.get(vkey, {}).values())
+                    if llm is not None and llm.name != "fake" and not lexical:
+                        # 글자 근거가 없는 모델 추정(예: MD101 → 감염내과)은 받지 않고 제안으로 묻는다
+                        qs.append(Question(f"code:{k}:{part}", f"{k}={part}", "모델 추정이고 글자 근거가 없다(확인 필요)",
+                                           vals[0]))
                         continue
                     if vals[0] != part:
                         codes_out[k][part] = vals[0]
@@ -502,6 +630,25 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
             else:
                 qs.append(Question(f"evt:{code}", f"사건 코드 {code}", "사건 순서로도 가릴 수 없다", None,
                                    ["billing_done", "patient_departed"]))
+        # 두 코드가 같은 사건으로 읽혔거나 선언된 순서를 어기면 믿지 않고 묻는다 (실제 모델 평가에서 추가)
+        dup = defaultdict(list)
+        for code, k in emap.items():
+            dup[k].append(code)
+        suspects = {c for cs_ in dup.values() if len(cs_) > 1 for c in cs_}
+        if fmt_known:
+            per = defaultdict(dict)
+            for row in tables[t]:
+                k = emap.get(row[kc])
+                if k and row[kc] not in suspects:
+                    per[row[cc]].setdefault(k, (datetime.strptime(row[tc], time_fmt), row[kc]))
+            for a, b in _order_rel():
+                for case, tk in per.items():
+                    if a in tk and b in tk and tk[a][0] > tk[b][0]:
+                        suspects |= {tk[a][1], tk[b][1]}
+        for code in sorted(suspects):
+            k = emap.pop(code)
+            qs.append(Question(f"evt:{code}", f"사건 코드 {code}", f"다른 코드와 겹치거나 순서를 어긴다({k})", None,
+                               list(cand["event_codes"].get(code) or [])))
         tmaps[t] = TableMap(kind="events", event_codes=emap, event_columns=(cc, kc, tc))
         for code, k in emap.items():
             chosen[(t, f"evt:{code}")] = k

@@ -132,3 +132,57 @@ def test_second_holdout_after_structure_question(seed):
     assert r["structure_questions"] == 1
     assert r["columns"]["wrong"] == 0 and r["codes"]["wrong"] == 0 and "wrong" not in r["format"].values()
     assert r["exact_after_answers"]
+
+
+class _ScriptLLM:
+    """실제 모델이 낸 실수를 흉내 내는 대본 LLM (2026-11-09 실제 모델 평가에서 나온 세 유형)."""
+    name = "script"
+
+    def __init__(self, base, edits):
+        self.base, self.edits = base, edits
+
+    def complete_json(self, task, system, user):
+        import json
+        from turnaround.agent.mapping_agent import fake_propose
+        ctx = json.loads(user)
+        out = fake_propose({"tables": ctx["tables"], "event_codes": ctx.get("event_codes", [])})
+        for t, c, keys in self.edits.get("columns", []):
+            if t in out["columns"] and c in out["columns"][t]:
+                out["columns"][t][c] = keys
+        for t, c, code, vals in self.edits.get("values", []):
+            if t in ctx["tables"]:
+                out["values"].setdefault(t, {}).setdefault(c, {})[code] = vals
+        return out
+
+
+def test_swapped_time_columns_are_caught_by_order_check():
+    from turnaround.agent.mapping_agent import propose_mapping
+    h, ev = _canonical(1)
+    tables = export(h, ev, "emr_b")
+    llm = _ScriptLLM(None, {"columns": [("입원예약", "입원예정일시", ["t:admission_requested"]),
+                                        ("입원예약", "입원예약일시", ["admission_requested.requested_at"])]})
+    d = propose_mapping(tables, llm=llm)
+    ids = {q.id for q in d.questions}
+    assert "col:입원예약:입원예정일시" in ids and "col:입원예약:입원예약일시" in ids
+    assert d.columns[("입원예약", "입원예정일시")] is None
+
+
+def test_event_time_in_case_table_of_log_format_is_asked():
+    from turnaround.agent.mapping_agent import propose_mapping
+    h, ev = _canonical(1)
+    tables = export(h, ev, "emr_c")
+    llm = _ScriptLLM(None, {"columns": [("case_master", "grd_eta", ["t:guardian_eta_set"])]})
+    d = propose_mapping(tables, llm=llm)
+    assert d.columns[("case_master", "grd_eta")] is None
+    assert any(q.id == "col:case_master:grd_eta" for q in d.questions)
+
+
+def test_model_guess_without_lexical_evidence_becomes_a_question():
+    from turnaround.agent.mapping_agent import propose_mapping
+    h, ev = _canonical(1)
+    tables = export(h, ev, "emr_c")
+    code = next(r["dept_cd"] for r in tables["case_master"] if r.get("dept_cd"))
+    llm = _ScriptLLM(None, {"values": [("case_master", "dept_cd", code, ["department:감염내과"])]})
+    d = propose_mapping(tables, llm=llm)
+    q = [x for x in d.questions if x.id == f"code:patient.department:{code}"]
+    assert q and q[0].proposal == "감염내과" and code not in d.mapping.codes.get("patient.department", {})

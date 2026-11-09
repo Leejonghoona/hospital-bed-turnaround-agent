@@ -196,6 +196,7 @@ class _HttpLLM:
 @dataclass
 class OpenAILLM(_HttpLLM):
     base_url: str = "https://api.openai.com/v1"
+    reasoning_effort: str | None = None  # 추론 모델만 (low 등). 기본은 공급사 기본값
 
     def complete_json(self, task: str, system: str, user: str) -> dict:
         body = {"model": self.model, "messages": [{"role": "system", "content": system},
@@ -203,6 +204,8 @@ class OpenAILLM(_HttpLLM):
                 "response_format": {"type": "json_object"}}
         if not self.model.startswith(("gpt-5", "o1", "o3", "o4")):
             body["temperature"] = 0  # 반복 일관성. 추론 모델은 온도 설정을 받지 않는다
+        elif self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         res = self._post(f"{self.base_url}/chat/completions",
                          {"Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY', '')}"}, body)
         u = res.get("usage") or {}
@@ -216,7 +219,8 @@ class AnthropicLLM(_HttpLLM):
     base_url: str = "https://api.anthropic.com/v1"
 
     def body(self, system: str, user: str) -> dict:
-        body = {"model": self.model, "max_tokens": 1024, "system": system + "\nJSON 객체 하나만 출력한다.",
+        body = {"model": self.model, "max_tokens": 8192 if len(user) > 6000 else 1024,
+                "system": system + "\nJSON 객체 하나만 출력한다.",
                 "messages": [{"role": "user", "content": user}]}
         if re.match(r"claude-(3|[a-z]+-4)", self.model):
             body["temperature"] = 0  # 반복 일관성. Claude 5 계열은 temperature를 받지 않는다(HTTP 400)

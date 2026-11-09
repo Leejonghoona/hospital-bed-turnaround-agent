@@ -177,3 +177,8 @@ ta:ev_admission_requested ta:notAfter ta:ev_admission_cancelled .
 # 안전 속성(L2)과 병실 종류 코드표는 확신과 상관없이 사람이 확인한다.
 ta:mapping_confirm_always ta:codeKey "patient.precautions", "room_type", "patient.gender", "gender", "patient.organism",
     "cleaning_requested.cleaning_type", "cleaning_done.cleaning_type" .
+
+# 사건과 시각 값 속성 사이의 순서 (매핑 검사용. 시각 값은 그 값을 적은 사건보다 앞서지 않는다)
+ta:ev_admission_requested ta:notAfterValue "admission_requested.requested_at" .
+ta:ev_guardian_eta_set ta:notAfterValue "guardian_eta_set.eta" .
+ta:ev_guardian_eta_updated ta:notAfterValue "guardian_eta_updated.eta" .

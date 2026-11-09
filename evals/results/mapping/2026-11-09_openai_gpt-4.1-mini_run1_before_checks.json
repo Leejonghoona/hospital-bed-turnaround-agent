@@ -1,0 +1,216 @@
+{
+ "model": "openai:gpt-4.1-mini",
+ "date": "2026-11-09",
+ "rows": [
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 59,
+    "wrong": 1,
+    "asked": 8,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 11,
+    "wrong": 0,
+    "asked": 15,
+    "correct_proposal": 12,
+    "asked_no_proposal": 3
+   },
+   "questions": 28,
+   "followup_questions": 0,
+   "exact_after_answers": false,
+   "error": null,
+   "wrong_columns": [
+    [
+     "TB_DSCH",
+     "MORGUE_DT",
+     "t:death_confirmed",
+     "t:body_transferred"
+    ]
+   ],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 62,
+    "wrong": 2,
+    "asked": 4,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 9,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "questions": 23,
+   "followup_questions": 0,
+   "exact_after_answers": false,
+   "error": null,
+   "wrong_columns": [
+    [
+     "입원예약",
+     "입원예정일시",
+     "t:admission_requested",
+     "admission_requested.requested_at"
+    ],
+    [
+     "입원예약",
+     "입원예약일시",
+     "admission_requested.requested_at",
+     "t:admission_requested"
+    ]
+   ],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 31,
+    "wrong": 0,
+    "asked": 24,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 4,
+    "wrong": 3,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "questions": 45,
+   "followup_questions": 0,
+   "exact_after_answers": false,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": [
+    [
+     "patient.department",
+     "MD101",
+     "감염내과",
+     "호흡기내과"
+    ],
+    [
+     "patient.department",
+     "MD102",
+     "소아청소년과",
+     "소화기내과"
+    ],
+    [
+     "patient.department",
+     "MD103",
+     "소화기내과",
+     "감염내과"
+    ]
+   ]
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "asked",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 62,
+    "wrong": 0,
+    "asked": 6,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 9,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "questions": 31,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "asked",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 30,
+    "wrong": 3,
+    "asked": 22,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 7,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "questions": 41,
+   "followup_questions": 0,
+   "exact_after_answers": false,
+   "error": null,
+   "wrong_columns": [
+    [
+     "환자마스터",
+     "보호자예정시각",
+     "t:guardian_eta_set",
+     "guardian_eta_set.eta"
+    ],
+    [
+     "환자마스터",
+     "보호자예정시각변경",
+     "t:guardian_eta_updated",
+     "guardian_eta_updated.eta"
+    ],
+    [
+     "환자마스터",
+     "입원예정시각",
+     "t:admission_requested",
+     "admission_requested.requested_at"
+    ]
+   ],
+   "wrong_codes": []
+  }
+ ],
+ "usage": {
+  "calls": 18,
+  "input_tokens": 40983,
+  "output_tokens": 12769,
+  "latency_s": 118.94113548300015
+ }
+}
