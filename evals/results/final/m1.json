@@ -1,4 +1,17 @@
 {
+ "provenance": {
+  "commit": "642ff80",
+  "dirty": true,
+  "at": "2026-11-09T17:46:12+00:00",
+  "python": "3.13.18",
+  "packages": {
+   "pydantic": "2.13.5",
+   "rdflib": "7.6.0",
+   "pyshacl": "0.40.2",
+   "streamlit": "1.67.0"
+  },
+  "policy_fingerprint": "a5aa72afdb1d"
+ },
  "seeds": [
   0,
   19
