@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from turnaround.evaluation.baselines import no_agent_baseline
 from turnaround.evaluation.board import HEADER, append_results_row, run_board, scenario_set_hash
 
@@ -30,6 +32,7 @@ def test_scenario_set_hash_is_stable_and_content_sensitive(tmp_path):
     assert scenario_set_hash(tmp_path) != h1
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_board_marks_unimplemented_scenarios_and_reports_safety():
     r = run_board(DEV, seeds=range(0, 10), commit="test")
     assert r["split"] == "dev"
@@ -46,6 +49,7 @@ def test_board_marks_unimplemented_scenarios_and_reports_safety():
     json.dumps(r, ensure_ascii=False)  # 직렬화 가능
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_results_row_is_appended_under_scoreboard_header(tmp_path):
     md = tmp_path / "RESULTS.md"
     md.write_text("# 결과\n\n## 점수판 기록 v1 (옛 표)\n| a |\n", encoding="utf-8")
@@ -57,6 +61,7 @@ def test_results_row_is_appended_under_scoreboard_header(tmp_path):
     assert text.count("| abc1234 |") == 2
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_scoreboard_row_separates_executed_safety_from_generator_check(tmp_path, monkeypatch):
     """DECISIONS 2026-11-09: 실행 상태 안전과 생성기 자료 점검을 다른 열로 적는다."""
     from turnaround.evaluation import board

@@ -16,26 +16,31 @@ def demo():
     return build_demo(seed=42, until=time(10, 0))
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_demo_replays_through_fhir_adapter(demo):
     assert demo.fhir_entries > demo.store.last_seq() / 2 > 0
     assert len(bed_board(demo)) == 24
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_vendor_sees_only_bed_eta_type(demo):
     for row in vendor_view(build_demo(seed=42, until=time(14, 0))):
         assert set(row) == {"bed_id", "eta", "cleaning_type"}
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_review_cards_are_complete(demo):
     """H2: 근거(사유, 설명), 대안(최대 2개), 마감이 있다."""
     for c in review_queue(demo):
         assert c["reasons"] and c["rationale"] and c["due"] and len(c["alternatives"]) <= 2
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_ward_requests_have_bed(demo):
     assert all(r["bed"] for r in ward_requests(demo))
 
 
+@pytest.mark.slow  # 데모 하루 재생이라 오래 걸림
 def test_human_load_splits_judgement_and_accountable(demo):
     hl = human_load(demo.store.read())
     assert hl["admission_cases"] > 0 and hl["accountable_per_case"] >= 0
