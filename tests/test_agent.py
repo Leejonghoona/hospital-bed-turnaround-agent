@@ -269,3 +269,12 @@ def test_delay_codes_are_configurable():
     assert "test_wait" in build_system(sch, "discharge")
     assert sanitize_v3({"delay_reason": "test_wait"}, sch, "discharge") == {"delay_reason": "test_wait"}
     assert sanitize_v3({"delay_reason": "transport"}, sch, "discharge") == {}
+
+
+def test_claudesub_adapter_is_selected_and_refuses_api_key_billing(monkeypatch):
+    from turnaround.agent.llm import ClaudeSubLLM
+    llm = get_llm({"TURNAROUND_LLM": "claudesub", "TURNAROUND_LLM_MODEL": "claude-haiku-5-5"})
+    assert isinstance(llm, ClaudeSubLLM) and llm.name == "claudesub:claude-haiku-5-5"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")  # 키가 잡혀 있으면 API 과금이라 막는다
+    with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
+        llm.complete_json("extract", "s", "{}")

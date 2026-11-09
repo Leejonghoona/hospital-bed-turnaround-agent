@@ -1,7 +1,7 @@
 """교체 가능한 LLM 인터페이스 (AGT-1).
 
 기본은 API 키 없이 도는 결정적 가짜 LLM이다. 실제 모델은 환경 변수가 모두 있을 때만 붙는다.
-- TURNAROUND_LLM=openai | anthropic | xai | local
+- TURNAROUND_LLM=openai | anthropic | xai | local | claudesub(구독 계정 Claude Code, 개인 평가용)
 - TURNAROUND_LLM_MODEL=<모델 ID>
 - TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only  (외부 API에는 합성 데이터만 보낸다는 확인. 운영 정책은 deny)
 - OPENAI_API_KEY 또는 ANTHROPIC_API_KEY
@@ -214,12 +214,72 @@ class LocalLLM:
         return _first_json(res["choices"][0]["message"]["content"] or "")
 
 
+@dataclass
+class ClaudeSubLLM:
+    """구독(Pro·Max) 계정으로 로그인한 Claude Code를 claude-agent-sdk로 부른다 (개인 평가용, 대리 측정).
+
+    사용자가 약관에서 개인 평가 용도 허용을 확인함(2026-11-09). 한계: 온도를 고정할 수 없고,
+    지연에 Claude Code 기동 시간이 섞여 지연·비용 수치는 쓰지 않는다. 정확도 비교에만 쓴다.
+    `ANTHROPIC_API_KEY`가 잡혀 있으면 구독이 아니라 API로 과금되므로 실행하지 않는다.
+    """
+
+    model: str
+    name: str = ""
+    usage: Usage = field(default_factory=Usage)
+    api_equiv_usd: float = 0.0  # API 정가 환산(실제 청구 아님)
+
+    def __post_init__(self):
+        self.name = self.name or f"claudesub:{self.model}"
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            raise LLMError("ANTHROPIC_API_KEY가 잡혀 있어 구독 대신 API로 과금된다. 변수를 지우고 다시 실행")
+        import asyncio
+
+        try:
+            from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
+        except ImportError as e:  # 선택 의존성
+            raise LLMError("claude-agent-sdk가 없다: pip install claude-agent-sdk") from e
+
+        opts = ClaudeAgentOptions(model=self.model, system_prompt=system + "\nJSON 객체 하나만 출력한다.",
+                                  tools=[], max_turns=1, setting_sources=[], strict_mcp_config=True,
+                                  extra_args={"no-session-persistence": None})
+
+        async def run():
+            res = None
+            async for m in query(prompt=user, options=opts):
+                if isinstance(m, ResultMessage):
+                    res = m
+            return res
+
+        t0 = time.monotonic()
+        try:
+            res = asyncio.run(run())
+        except Exception as e:  # noqa: BLE001  SDK·CLI 오류는 모두 장애로 본다
+            raise LLMError(f"구독 경유 호출 실패: {e}") from e
+        self.usage.latency_s += time.monotonic() - t0
+        self.usage.calls += 1
+        if res is None or res.is_error:
+            msg = getattr(res, "subtype", "응답 없음")
+            if res is not None and any(w in str(res.result or "").lower() for w in ("limit", "quota")):
+                raise QuotaExceeded(f"구독 한도: {res.result}")
+            raise LLMError(f"구독 경유 오류: {msg}")
+        u = res.usage or {}
+        self.usage.input_tokens += sum(u.get(k, 0) or 0 for k in
+                                       ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+        self.usage.output_tokens += u.get("output_tokens", 0) or 0
+        self.api_equiv_usd += res.total_cost_usd or 0.0
+        return _first_json(res.result or "")
+
+
 def get_llm(env: dict | None = None) -> LLM:
     """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM."""
     env = os.environ if env is None else env
     kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
     if kind == "fake" or not model:
         return FakeLLM()
+    if kind == "claudesub":
+        return ClaudeSubLLM(model=model)  # 노트북의 Claude Code 구독 로그인. 합성 데이터만 보낸다
     if kind == "local":
         return LocalLLM(model_path=model)  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
     if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":

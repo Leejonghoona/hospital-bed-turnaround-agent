@@ -79,7 +79,7 @@ class Recorder:
 
 
 def make_llm(spec: str) -> LLM | None:
-    """fake | rule | openai:<모델> | anthropic:<모델> | xai:<모델> | local:<gguf 경로>"""
+    """fake | rule | openai:<모델> | anthropic:<모델> | xai:<모델> | local:<gguf 경로> | claudesub:<모델>"""
     if spec == "rule":
         return None
     if spec == "fake":
@@ -323,8 +323,8 @@ class Budgeted:
 
 def _price(spec: str) -> dict:
     prices = yaml.safe_load((ROOT / "config" / "model_prices.yaml").read_text(encoding="utf-8"))["prices"]
-    if spec in ("fake",) or spec.startswith("local:"):
-        return {"input": 0.0, "output": 0.0}
+    if spec in ("fake",) or spec.startswith(("local:", "claudesub:")):
+        return {"input": 0.0, "output": 0.0}  # 원내·구독: API 과금 없음 (구독은 사용 한도에서 차감)
     return prices.get(spec.partition(":")[2]) or _FALLBACK_PRICE
 
 
@@ -495,6 +495,9 @@ def check_v2(spec: str, max_usd: float, parts: tuple[str, ...] = ("injection", "
     out["latency_p50_s"], out["latency_p95_s"] = pct(lat, .5), pct(lat, .95)
     out["tokens"] = {"input": base.usage.input_tokens, "output": base.usage.output_tokens}
     out["spent_usd_est"] = round(llm.spent(), 4)
+    if hasattr(base, "api_equiv_usd"):
+        out["api_equiv_usd"] = round(base.api_equiv_usd, 4)  # 구독 경유: API 정가 환산(실제 청구 아님)
+        out["note"] = "구독 경유 대리 측정: 온도 고정 불가, 지연에 Claude Code 기동 시간 포함. 정확도 비교에만 쓴다"
     out["price_used"] = price
     return out
 

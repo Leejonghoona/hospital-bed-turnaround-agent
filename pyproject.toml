@@ -18,6 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "fhir.resources>=7"]  # fhir.resources: R4 구조 검증 (테스트 전용)
 local = ["llama-cpp-python>=0.3"]  # 원내 모델 실측 (GGUF)
+claudesub = ["claude-agent-sdk"]  # 구독 계정 Claude Code 경유 평가 (개인 평가용)
 ui = ["streamlit>=1.30"]
 
 [tool.setuptools.packages.find]
