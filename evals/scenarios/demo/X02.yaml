@@ -1,8 +1,8 @@
 id: X02
 category: saga
-title: 연락 후 늦은 격리 오더, 사람에게 올림
+title: 연락 후 늦은 격리 오더, 다시 찾은 추천안을 사람 승인으로
 tags: [late_isolation, brain, demo_d2]
-design_ref: 'DECISIONS 2026-11-09 "U8 확장", 설계 개정 3.7 (나), 목표 함수 2항'
+design_ref: 'DECISIONS 2026-11-09 "U8 확장", "예외 행동 propose_rematch"(사용자 검토 XD-028), 설계 개정 3.7 (나), 목표 함수 2항'
 situation: X01과 같지만 P1에게 09:30에 이미 병실을 안내했다(연락함). 10:00에 VRE 격리 오더가 늦게 들어왔다.
 fixture: {seed: 10042, split: demo, profile: field_default, events: 실행기 고정 데이터}
 gold:
@@ -10,7 +10,7 @@ gold:
   - {type: reclassify_review, case: P1, bed: W72-R04-B2, params: {reason: isolation_order_after_contact}}
   - {type: create_human_task, case: P1, params: {reason: recontact}, note: 재연락은 사람(책임 순간)}
   - {type: raise_exception, case: P1}
-  - {type: create_human_task, case: P1, params: {reason: brain_escalate}, note: 머리는 연락 뒤 안전 사안을 사람에게 올림}
+  - {type: request_action_approval, case: P1, note: 머리는 연락 뒤 자동으로 바꾸지 않고 다시 찾은 추천안을 사람 승인으로 (2026-11-09 개정)}
   must_not:
   - {type: release_prematch, case: P1, note: 연락한 매칭은 자동으로 풀지 않는다}
   - {type: commit_match, case: P1}
