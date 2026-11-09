@@ -69,11 +69,93 @@ _ROLE_WORDS = {"보호자", "환자", "간병인", "간호사", "선생", "기�
                "원무", "수납", "직원", "여사", "사모"}
 
 
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+_INTL_PHONE = re.compile(r"(?<!\d)\+?82[-\s.]?(?:\(0\))?0?1\d[-\s.]?\d{3,4}[-\s.]?\d{4}(?!\d)")
+# 진단 낱말·코드 (민감정보). 감염관리 낱말(VRE·CRE·결핵 등)은 격리 판단에 쓰는 업무 정보라 가리지 않는다 (설계 가정)
+_DIAGNOSIS = re.compile(r"(?<![A-Za-z0-9])(?:HIV|AIDS|B2[0-4]|F2[05]|F3[1-3])(?:\.\d{1,2})?(?![A-Za-z0-9])"
+                        r"|에이즈|조현병|정신분열(?:증|병)?|우울증|양극성|조울증", re.I)
+_ROLE_BEFORE = re.compile(r"(?<![가-힣])(?:보호자|환자|이름|성명)[은는이가]?(?:\s*[:：]\s*|\s+)([가-힣]+)")
+_ROLE_AFTER = re.compile(r"([가-힣]{2,4})(\s*[(（]\s*(?:보호자|환자|가족|배우자|아들|딸|본인|간병인)\s*[)）])")
+_PARTICLES = ("에게서", "에게", "께서", "한테", "이가", "이는", "이를", "은", "는", "이", "가", "을", "를", "의", "께",
+              "와", "과", "도", "에", "로", "만")
+# 역할어 뒤에 와도 이름이 아닌 업무 낱말 (앞부분이 이것이면 이름으로 보지 않는다, 설계 가정)
+_WORK_WORDS = ("연락", "도착", "지연", "동의", "확인", "요청", "대기", "출발", "퇴원", "입원", "이송", "상태", "정보", "없",
+               "미정", "부재", "상담", "면담", "설명", "교육", "수납", "정산", "배정", "이동", "준비", "식사", "보행", "거동",
+               "의식", "안정", "불안", "요구", "희망", "거부", "동반", "변경", "취소", "본인", "가족", "관련", "전화", "문의",
+               "방문", "귀가", "사망", "격리", "감염", "검사", "진료", "처방", "투약", "수술", "회진", "퇴실", "입실", "침상",
+               "병상", "병실", "청소", "이름", "성명", "보호자", "환자", "늦", "도움", "부축", "휠체어", "침대", "대신", "직접",
+               "모두", "아직", "현재", "오늘", "내일", "어제", "오전", "오후", "다시", "이미", "미도착", "통화", "응답", "연결",
+               "사정", "사유", "인계", "담당", "번호", "연락처", "주소", "메일", "이메일", "측", "쪽", "분", "용", "등록", "명단",
+               "목록", "수속", "카드", "안내", "도착함", "오심", "옴", "왔", "올", "와서", "전달", "통보", "서명", "신분", "나이",
+               "성별", "연령", "보험", "진단", "의뢰", "협진", "외출", "외박", "면회", "간병", "식이", "산소", "낙상", "욕창",
+               "통증", "발열", "혈압", "체온", "호흡", "투석", "정맥", "주사", "수액", "약", "중", "예정", "신규", "중증", "소아",
+               "고령", "해당", "다른", "같은", "기존", "응급", "외래", "재원", "전동", "일반", "내과", "외과", "병동", "모든", "간호",
+               "정오", "한시", "한낮", "조금", "한참", "이따", "이후", "이번", "이상", "이전", "오늘", "저녁", "점심", "아침", "새벽",
+               "내원", "검토", "비용", "차가", "기다", "곧바", "바로", "나중", "주말", "다음", "지금", "방금", "어려")
+
+
+# 역할어 뒤 이름은 성씨로 시작하는 3자(복성은 4자) 낱말만 본다. 업무 문장("보호자 정오쯤", "환자는 검토 없이")을
+# 가리지 않으려는 것이다. 2자 이름·드문 성씨는 놓친다(한계, 설계 가정)
+_SURNAMES = set("김이박최정강조윤장임한오서신권황안송류유전홍고문양손배백허남심노하곽성차주우구민나진지엄채원천방공현함"
+                "변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호")
+_DOUBLE_SURNAMES = ("남궁", "황보", "제갈", "선우", "독고", "사공", "서문")
+
+
+def _name_shape(name: str) -> bool:
+    return (len(name) == 3 and name[0] in _SURNAMES) or (len(name) == 4 and name[:2] in _DOUBLE_SURNAMES)
+
+
+def _strip_particle(tok: str) -> tuple[str, str]:
+    for p in _PARTICLES:
+        if tok.endswith(p) and 2 <= len(tok) - len(p) <= 4:
+            return tok[: -len(p)], p
+    return tok, ""
+
+
+def _work_word(tok: str) -> bool:
+    return tok in _ROLE_WORDS or any(tok.startswith(w) for w in _WORK_WORDS if len(w) > 1) or tok in _WORK_WORDS
+
+
+def _mask_honorific(m) -> str:
+    tok = m.group(1)
+    name, rest = _strip_particle(tok)
+    if tok in _ROLE_WORDS or name in _ROLE_WORDS or _work_word(tok) or _work_word(name):
+        return tok
+    return "○" * len(tok)
+
+
+def _mask_role_before(text: str) -> str:
+    out, pos = [], 0
+    i = 0
+    while True:
+        m = _ROLE_BEFORE.search(text, i)
+        if not m:
+            break
+        tok = m.group(1)
+        name, rest = _strip_particle(tok)
+        if _name_shape(name) and not _work_word(name) and not _work_word(tok):
+            out.append(text[pos:m.start(1)] + "○" * len(name) + rest)
+            pos = i = m.end(1)
+        else:
+            i = m.start(1)  # 역할어 다음 낱말이 다시 역할어일 수 있다("환자 이름 박영수")
+            if i <= m.start():
+                i = m.start() + 1
+    out.append(text[pos:])
+    return "".join(out)
+
+
 def redact_for_external(text: str) -> str:
-    """외부 모델로 보내는 자유 서술에서 전화번호·긴 번호(등록번호 등)·호칭 앞 이름을 가린다. 시각·지연 사유는 남긴다."""
+    """외부 모델로 보내는 자유 서술에서 이메일·전화번호(국제 번호 포함)·긴 번호(등록번호 등)·진단 낱말·이름(호칭 앞,
+    역할어 뒤, 괄호 역할어 앞)을 가린다. 시각·지연 사유·병실 종류·감염관리 낱말은 남긴다 (규칙은 설계 가정)."""
+    text = _EMAIL.sub("[이메일]", text)
+    text = _INTL_PHONE.sub("[전화]", text)
     text = _PHONE.sub("[전화]", text)
     text = _LONG_NO.sub("[번호]", text)
-    return _HONORIFIC_NAME.sub(lambda m: m.group(1) if m.group(1) in _ROLE_WORDS else "○" * len(m.group(1)), text)
+    text = _DIAGNOSIS.sub("[진단]", text)
+    text = _HONORIFIC_NAME.sub(_mask_honorific, text)
+    text = _ROLE_AFTER.sub(lambda m: (m.group(1) if _work_word(m.group(1)) else "○" * len(m.group(1))) + m.group(2),
+                           text)
+    return _mask_role_before(text)
 
 
 def _redact_obj(obj):
