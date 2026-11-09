@@ -132,9 +132,15 @@ class Policy(BaseModel):
         return self
 
 
-def load_policy(path: Path = DEFAULT_POLICY, profile: str | None = None) -> Policy:
-    """정책 파일을 읽는다. profile을 주면 config/profiles/<profile>.yaml을 덮어쓴다."""
+DEFAULT_PROFILE = "field_default"  # 5단계 기본값 전환 (08 계획): 현장 프로필이 기본, 옛 동작은 profile="legacy"
+
+
+def load_policy(path: Path = DEFAULT_POLICY, profile: str | None = DEFAULT_PROFILE) -> Policy:
+    """정책 파일을 읽는다. 기본은 현장 프로필(config/profiles/field_default.yaml)을 덮어쓴 정책이다.
+    profile="legacy"(또는 None)는 정책 파일 그대로(옛 판 회귀용)."""
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if profile in (None, "legacy"):
+        return Policy.model_validate(raw)
     if profile is not None:
         # 이름이면 config/profiles/<이름>.yaml, 경로면 그 파일 (온보딩이 만든 초안 등, 로드맵 07 M4)
         over = Path(profile) if str(profile).endswith((".yaml", ".yml")) else PROFILES_DIR / f"{profile}.yaml"

@@ -46,7 +46,7 @@ def census_patient(pid, name="재원환자", gender=Gender.FEMALE):
 def make(events=(), census=None, policy=None):
     store = EventStore(":memory:")
     store.extend(events)
-    gw = Gateway(store, H.rooms, H.beds, policy or load_policy(), census=census or {})
+    gw = Gateway(store, H.rooms, H.beds, policy or load_policy(profile="legacy"), census=census or {})
     return store, gw
 
 
@@ -62,7 +62,7 @@ def prop(pid="p1", case="A1", bed="W72-R04-B2", basis=None, store=None, **kw):
 # ---------- 정책 파일 ----------
 
 def test_policy_file_loads():
-    p = load_policy()
+    p = load_policy(profile="legacy")
     assert p.version.startswith("policy-")
     assert p.autonomy_stage == 1
     assert "isolation" in p.review_reasons
@@ -79,7 +79,7 @@ def test_plain_case_stage1_goes_to_manager_confirm_not_review():
 
 
 def test_promoted_type_stage2_asks_ward_directly():
-    pol = load_policy().model_copy(update={"autonomy_stage": 2, "promoted_departments": ["소화기내과"]})
+    pol = load_policy(profile="legacy").model_copy(update={"autonomy_stage": 2, "promoted_departments": ["소화기내과"]})
     store, gw = make([adm()], policy=pol)
     d = gw.submit(prop(store=store), at(9))
     assert d.status == "awaiting_ward"
@@ -126,7 +126,7 @@ def test_close_scores_is_not_a_review_reason_by_default_but_can_be_opted_in():
     store, gw = make([adm(gender="M")])
     d = gw.submit(prop(store=store, bed="W71-R03-B1", scores=scores, alternatives=["W72-R03-B2"]), at(9))
     assert d.status != "awaiting_review" and "close_scores" not in (d.reasons or [])
-    opt_in = load_policy().model_copy(update={"review_reasons": load_policy().review_reasons + ["close_scores"]})
+    opt_in = load_policy(profile="legacy").model_copy(update={"review_reasons": load_policy(profile="legacy").review_reasons + ["close_scores"]})
     store2, gw2 = make([adm(gender="M")], policy=opt_in)
     d2 = gw2.submit(prop(store=store2, bed="W71-R03-B1", scores=scores), at(9))
     assert "close_scores" in d2.reasons
@@ -573,7 +573,7 @@ def test_aerosol_wait_from_room_ach_and_hospital_rule_shows_guideline_delta():
     store, gw = make()
     assert gw.aerosol_wait("W71-R01-B1") == {"aerosol_wait_min": 35}  # 음압실 12회
     assert gw.aerosol_wait("W72-R01-B1") == {"aerosol_wait_min": 104}  # 일반 1인실 4회
-    pol = load_policy().model_copy(update={"ventilation": load_policy().ventilation.model_copy(
+    pol = load_policy(profile="legacy").model_copy(update={"ventilation": load_policy(profile="legacy").ventilation.model_copy(
         update={"hospital_wait_min": 60})})
     store, gw = make(policy=pol)
     w = gw.aerosol_wait("W72-R01-B1")
@@ -608,7 +608,7 @@ def test_bed_of_patient_who_died_on_ward_is_refused_until_body_transfer():
 
 def test_gateway_tb_wait_has_60_min_floor_even_with_shorter_hospital_rule():
     from turnaround.gateway import load_policy
-    pol = load_policy()
+    pol = load_policy(profile="legacy")
     pol = pol.model_copy(update={"ventilation": pol.ventilation.model_copy(update={"hospital_wait_min": 30})})
     store, gw = make(policy=pol)
     assert gw.aerosol_wait("W71-R01-B1")["aerosol_wait_min"] == 30

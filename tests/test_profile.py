@@ -11,12 +11,12 @@ from turnaround.gateway.policy import DEFAULT_POLICY, LOCKED_HUMAN_ACTIONS, load
 
 
 def test_default_policy_keeps_current_behaviour():
-    p = load_policy().hospital_profile
+    p = load_policy(profile="legacy").hospital_profile
     assert p.assignment.timing == "prematch_evening"
     assert p.ward_confirmation.mode == "reply"
     assert p.discharge_sequence.preset == "legacy"
     assert p.cleaning.split is False
-    assert load_policy().brain.enabled is False
+    assert load_policy(profile="legacy").brain.enabled is False
 
 
 def test_field_profile_overrides_to_field_values():
@@ -44,12 +44,12 @@ def test_responsibility_actions_cannot_be_made_automatic(tmp_path):
         load_policy(f)
     assert {"contact_patient", "approve_safety_exception"} <= LOCKED_HUMAN_ACTIONS
     assert "official_commit" not in LOCKED_HUMAN_ACTIONS
-    assert load_policy().autonomy["official_commit"] == "human"  # legacy 기본은 지금 동작
+    assert load_policy(profile="legacy").autonomy["official_commit"] == "human"  # legacy 기본은 지금 동작
     assert load_policy(profile="field_default").autonomy["official_commit"] == "auto"
 
 
 def test_profile_values_have_provenance():
-    p = load_policy()
+    p = load_policy(profile="legacy")
     for k in ("hospital_profile.assignment", "hospital_profile.ward_confirmation", "hospital_profile.cleaning",
               "hospital_profile.discharge_sequence", "autonomy"):
         assert k in p.provenance, k

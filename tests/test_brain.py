@@ -39,7 +39,7 @@ def test_exception_raised_once_under_field_profile_and_not_by_default():
     raised = _types(store, EventType.EXCEPTION_RAISED)
     assert len(raised) == 1 and raised[0].payload["trigger"] == "late_isolation"
     assert raised[0].payload["stage"] == "before_contact"
-    store2, _ = _setup(policy=load_policy())
+    store2, _ = _setup(policy=load_policy(profile="legacy"))
     assert not _types(store2, EventType.EXCEPTION_RAISED)
 
 
@@ -131,7 +131,7 @@ def test_fake_table_never_rematches_after_contact_commit_or_arrival_for_any_trig
 
 def test_escalation_roles_exclude_outsourced_housekeeping_by_default():
     """외주 미화와 그 책임자에게 직접 올리지 않는다. 청소 지연은 책임간호사·원무에게 (DECISIONS 2026-11-09)."""
-    roles = load_policy().hospital_profile.escalation_roles
+    roles = load_policy(profile="legacy").hospital_profile.escalation_roles
     assert {"ward", "bed_manager", "billing", "pharmacy", "admission_office"} <= set(roles)
     assert "environment_lead" not in roles and "environment_vendor" not in roles
     store, gw = _setup()

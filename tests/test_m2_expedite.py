@@ -102,7 +102,7 @@ def test_order_late_raises_exception_in_field_and_brain_nudges_with_impact():
 
 
 def test_order_late_is_still_a_plain_task_in_legacy():
-    pol = load_policy()
+    pol = load_policy(profile="legacy")
     store, gw = make(_dc_events(), policy=pol)
     SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(11, 5))
     assert not _types(store, EventType.EXCEPTION_RAISED)

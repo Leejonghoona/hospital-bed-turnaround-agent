@@ -78,9 +78,9 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
         events = bundle_to_events(bundle)
     events = sorted(events, key=lambda e: e.observed_at)
     store = EventStore(":memory:")
-    gw = Gateway(store, h.rooms, h.beds, policy or load_policy(), census=census)
-    saga = SagaRunner(store, SagaPolicy.for_layout(h.rooms, h.beds) if policy is None
-                      else SagaPolicy.from_policy(policy, h.rooms, h.beds))
+    policy = policy or load_policy()  # 기본은 현장 프로필 (5단계 기본값 전환)
+    gw = Gateway(store, h.rooms, h.beds, policy, census=census)
+    saga = SagaRunner(store, SagaPolicy.from_policy(policy, h.rooms, h.beds))
     agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM(), mode=mode)
     work = WorklistRunner(store, load_operations())
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())

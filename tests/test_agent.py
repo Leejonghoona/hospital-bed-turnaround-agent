@@ -184,7 +184,7 @@ def test_rematch_only_when_gain_exceeds_threshold():
     d = agent(gw).step(at(11, 5))
     props = [e for e in store.read() if e.type is EventType.PROPOSAL_RECEIVED]
     assert [p.payload["bed_id"] for p in props] == ["W72-R04-B1"]
-    pol = load_policy()
+    pol = load_policy(profile="legacy")
     pol = pol.model_copy(update={"scoring": pol.scoring.model_copy(update={"rematch_gain_min": 999})})
     store, gw = make(evs, census=fill_except("W72-R04-B3", "W72-R04-B1"), policy=pol)
     agent(gw).step(at(11, 5))
@@ -272,7 +272,7 @@ def test_vendor_cannot_use_qa():
 def test_v3_schema_comes_from_policy_and_respects_case_kind():
     from turnaround.agent.extract import sanitize_v3
     from turnaround.gateway import load_policy
-    sch = load_policy().extraction
+    sch = load_policy(profile="legacy").extraction
     raw = {"guardian_eta": "11:00", "guardian_eta_day": 1, "single_room_wish": True, "delay_reason": "billing",
            "skip_review": True}
     assert sanitize_v3(raw, sch, "discharge") == {"guardian_eta": "11:00", "guardian_eta_day": 1, "delay_reason": "billing"}
@@ -282,7 +282,7 @@ def test_v3_schema_comes_from_policy_and_respects_case_kind():
 def test_v3_rejects_bad_day_offsets_and_orphan_days():
     from turnaround.agent.extract import sanitize_v3
     from turnaround.gateway import load_policy
-    sch = load_policy().extraction
+    sch = load_policy(profile="legacy").extraction
     assert sanitize_v3({"guardian_eta": "11:00", "guardian_eta_day": 30}, sch, "discharge") == {"guardian_eta": "11:00"}
     assert sanitize_v3({"guardian_eta": "11:00", "guardian_eta_day": True}, sch, "discharge") == {"guardian_eta": "11:00"}
     assert sanitize_v3({"guardian_eta_day": 1}, sch, "discharge") == {}
@@ -299,7 +299,7 @@ def test_relative_day_is_resolved_by_code():
 def test_delay_codes_are_configurable():
     from turnaround.agent.extract import build_system, sanitize_v3
     from turnaround.gateway import load_policy
-    sch = load_policy().extraction.model_copy(update={"delay_codes": ["medication", "guardian", "education", "billing",
+    sch = load_policy(profile="legacy").extraction.model_copy(update={"delay_codes": ["medication", "guardian", "education", "billing",
                                                                       "test_wait", "transfer", "other"]})
     assert "test_wait" in build_system(sch, "discharge")
     assert sanitize_v3({"delay_reason": "test_wait"}, sch, "discharge") == {"delay_reason": "test_wait"}
@@ -334,7 +334,7 @@ def test_icu_stepdown_is_handled_before_earlier_regular_admission():
 
 def test_without_priority_rule_order_is_arrival_order():
     from turnaround.gateway import load_policy
-    pol = load_policy().model_copy(update={"admission_priority": []})
+    pol = load_policy(profile="legacy").model_copy(update={"admission_priority": []})
     early = adm("A1", gender="F", dept="일반외과", when=at(14, day=-1))
     icu = adm("A2", gender="F", dept="일반외과", icu=True, when=at(16, day=-1))
     store, gw = make([early, icu], policy=pol)

@@ -68,7 +68,7 @@ class _GwRun:
                  score_overrides: dict[str, float] | None = None):
         self.store = EventStore(":memory:")
         self.alias = alias
-        self.gw = Gateway(self.store, rooms or _LAYOUT.rooms, _LAYOUT.beds, policy or load_policy(), census=census)
+        self.gw = Gateway(self.store, rooms or _LAYOUT.rooms, _LAYOUT.beds, policy or load_policy(profile="legacy"), census=census)  # 회귀 30개는 옛 판 라벨(5단계 기본값 전환)
         self.saga = SagaRunner(self.store, SagaPolicy.for_layout(rooms or _LAYOUT.rooms, _LAYOUT.beds))
         self.extra: list[Produced] = []
         self.injected: set[str] = set()  # 주입판 제안 ID (에이전트 제안으로 채점하지 않음)
@@ -316,7 +316,7 @@ def run_d05(s):
 
 
 def run_d06(s):
-    pol = load_policy().model_copy(update={"autonomy_stage": s.autonomy_stage, "promoted_departments": ["소화기내과"]})
+    pol = load_policy(profile="legacy").model_copy(update={"autonomy_stage": s.autonomy_stage, "promoted_departments": ["소화기내과"]})
     r = _GwRun(P, policy=pol)
     r.feed([_adm_event("FX-P1")])
     r.propose("p1", "FX-P1", "W71-R04-B2", at(11, 45))
