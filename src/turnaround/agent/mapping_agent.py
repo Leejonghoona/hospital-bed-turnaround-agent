@@ -448,6 +448,40 @@ def _part_col(cols: list[str], toks) -> str | None:
     return next((c for c in cols if any(_norm(c) == tok + suf for tok in toks for suf in _PART_SUFFIX)), None)
 
 
+_CASE_HINT = ("case", "사례", "encounter", "내원", "visit", "adm_no")
+_CODE_HINT = ("evt", "event", "code", "cd", "코드", "사건", "이벤트")
+
+
+def _event_log_cols(rows: list[dict], info: dict) -> tuple[str, str, str] | None:
+    """사건 기록 표를 구조로 가린다 (2026-11-09, 열 수에 기대지 않음): 시각 열이 하나, 값이 반복되는 사례 키 열,
+    종류가 적은(40 이하) 코드 열이 있고, 한 사례 안에서 코드가 대개 겹치지 않는다. 작성자·단말 같은 덧붙은 열은
+    한 사례 안에서 반복되므로 코드 열로 뽑히지 않는다. (사례 열, 코드 열, 시각 열) 또는 None."""
+    cols, n = info["columns"], info["rows"]
+    times = [c for c, ci in cols.items() if ci["shape"] == "time"]
+    if len(times) != 1 or n < 2:
+        return None
+    others = [c for c, ci in cols.items() if c != times[0] and ci["distinct"] > 0 and ci["shape"] in ("text", "int")]
+
+    def hint(c, toks):
+        return any(_has(tok, _norm(c)) for tok in toks)
+
+    best = None
+    for case in others:
+        if cols[case]["distinct"] >= n:  # 사례 키는 반복된다(한 사례에 사건이 여럿)
+            continue
+        for code in others:
+            ci = cols[code]
+            if code == case or not ci["distinct"] <= 40 or (ci["distinct"] >= n and not hint(code, _CODE_HINT)):
+                continue
+            uniq = len({(r.get(case), r.get(code)) for r in rows}) / n
+            if uniq < 0.8:
+                continue
+            score = (hint(case, _CASE_HINT) + hint(code, _CODE_HINT), round(uniq, 3), -ci["distinct"])
+            if best is None or score > best[0]:
+                best = (score, case, code)
+    return (best[1], best[2], times[0]) if best else None
+
+
 def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft",
                     hints: dict | None = None, lexicon=None, data_class: str = "hospital", policy=None) -> MappingDraft:
     """hints: 사람이 앞선 질문에 답한 구조·형식 정보. {"layout": (표 이름, (병동 열, 병실 열, 병상 열)),
@@ -468,11 +502,9 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
     for t, info in prof.items():
         cols = info["columns"]
         times = [c for c, ci in cols.items() if ci["shape"] == "time"]
-        if len(times) == 1 and len(cols) <= 4:
-            code_col = next(c for c, ci in cols.items() if c not in times and 0 < ci["distinct"] <= 40
-                            and ci["shape"] == "text")
-            case_col = next(c for c in cols if c not in times and c != code_col)
-            kinds[t], log_cols[t] = "events", (case_col, code_col, times[0])
+        found = _event_log_cols(tables[t], info)
+        if found:
+            kinds[t], log_cols[t] = "events", found
         elif hints.get("layout") and t == hints["layout"][0]:
             kinds[t] = "layout"
         elif not times and all(_part_col(list(cols), toks) for toks in _PART_TOKS):

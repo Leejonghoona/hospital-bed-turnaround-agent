@@ -113,3 +113,44 @@ def test_guard_lives_in_llm_wrapper_and_ignores_internal_models():
     guard_external(_FakeExternalLLM(), "synthetic")
     assert redact_for_external("이영희 환자, 보호자 010 9876 5432") == "○○○ 환자, 보호자 [전화]"
     assert redact_for_external("보호자가 3시 도착") == "보호자가 3시 도착"
+
+
+# ---------------- 3. 사건 기록 표는 구조로 가린다 ----------------
+
+def _log_rows(extra: int):
+    rows = []
+    for i, case in enumerate(("C1", "C2", "C3")):
+        for j, code in enumerate(("DSCH_DEC", "BILL", "OUT")):
+            r = {"enc": case, "kind": code, "ts": f"2026-11-0{i + 1} {10 + j}:00", "user": f"u{i}"}
+            if extra >= 2:
+                r["term"] = f"T{i % 2}"
+            if extra >= 3:
+                r["dept"] = "IM"
+            rows.append(r)
+    return rows
+
+
+@pytest.mark.parametrize("extra", [2, 3])
+def test_event_log_with_author_and_terminal_columns_is_events(extra):
+    from turnaround.agent.mapping_agent import propose_mapping
+    rows = _log_rows(extra)
+    assert len(rows[0]) in (5, 6)
+    d = propose_mapping({"log": rows})
+    tm = d.mapping.tables["log"]
+    assert tm.kind == "events"
+    assert tuple(tm.event_columns) == ("enc", "kind", "ts")
+
+
+def test_reviewer_two_row_five_column_log_is_events():
+    from turnaround.agent.mapping_agent import propose_mapping
+    ev = [{"case": "C1", "code": "A", "ts": "2026-11-09 10:00", "user": "u1", "term": "x"},
+          {"case": "C1", "code": "B", "ts": "2026-11-09 11:00", "user": "u2", "term": "y"}]
+    tm = propose_mapping({"log": ev}).mapping.tables["log"]
+    assert tm.kind == "events" and tuple(tm.event_columns) == ("case", "code", "ts")
+
+
+def test_one_row_per_case_table_with_one_time_column_stays_cases():
+    from turnaround.agent.mapping_agent import propose_mapping
+    rows = [{"pt_no": f"P{i:02d}", "sex": "MF"[i % 2], "dept": ("GI", "OS", "PUL")[i % 3],
+             "plan": f"2026-11-09 {8 + i}:00"} for i in range(9)]
+    assert propose_mapping({"adm": rows}).mapping.tables["adm"].kind == "cases"
