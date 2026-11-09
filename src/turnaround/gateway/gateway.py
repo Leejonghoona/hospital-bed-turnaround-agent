@@ -74,6 +74,7 @@ class Gateway:
         self.room_by_id = {r.id: r for r in self.rooms}
         self.census = dict(census or {})  # 현재 재원 환자 (병상 ID → 환자)
         self.calendar = calendar or load_operations().calendar  # 사후 검토 기한 (운영 달력, SAG-8)
+        self._waived: dict[str, list[str]] = {}  # 제안별로 정책이 검토에서 뺀 사유 (통보 근거)
 
     # ---------- 이벤트에서 계산하는 상태 ----------
 
@@ -374,6 +375,12 @@ class Gateway:
     # ---------- 확인 등급 ----------
 
     def _review_reasons(self, prop: Proposal, patient: Patient, payload: dict, events: list[Event]) -> list[str]:
+        """정책이 담당 검토로 정한 사유만. 정책에서 뺀 사유(자율권 승격 등)는 통보 근거에 남긴다 (로드맵 07 M3)."""
+        r = self._all_review_reasons(prop, patient, payload, events)
+        self._waived[prop.proposal_id] = [x for x in r if x not in self.policy.review_reasons]
+        return [x for x in r if x in self.policy.review_reasons]
+
+    def _all_review_reasons(self, prop: Proposal, patient: Patient, payload: dict, events: list[Event]) -> list[str]:
         r: list[str] = []
         if patient.isolation_order:
             r.append("preemptive_isolation" if patient.precaution_status and patient.precaution_status.value == "preemptive"
@@ -404,7 +411,7 @@ class Gateway:
                     break
             if self._isolation_discharge_pending(prop.bed_id, events) is not None:
                 r.append("isolation_discharge_bed")
-        return [x for x in r if x in self.policy.review_reasons]
+        return r
 
     def _shacl(self, case: str, patient: Patient, bed_id: str, events: list[Event]) -> list[str]:
         occ = self._occupants(events, exclude_case=case)
@@ -633,6 +640,7 @@ class Gateway:
             # 에이전트 확정은 원무 배정 담당에게도 근거와 함께 사후 보고한다 (되돌릴 수 있게)
             to = ["ward", "bed_manager"] if by == "agent" else ["ward"]
             basis = {"score": prop.scores.get(prop.bed_id or ""), "rationale": prop.rationale, "review_reasons": [],
+                     "waived_reasons": self._waived.get(prop.proposal_id, []),
                      "alternatives": prop.alternatives[:2], "basis_seq": prop.basis_seq}
             self._emit(prop.case, f"gw:{prop.proposal_id}:ward_assignment_notified", EventType.WARD_ASSIGNMENT_NOTIFIED,
                        now, bed_id=prop.bed_id, proposal_id=prop.proposal_id, committed_by=by, notify_to=to,

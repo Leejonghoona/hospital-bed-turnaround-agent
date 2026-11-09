@@ -32,13 +32,17 @@ class DemoState:
     now: datetime
     fhir_entries: int = 0
     feed: object = None  # 반응형 재생 공급기 (있을 때만)
+    reviewer: object = None  # 사람 응답 모형 (없으면 늘 승인, 로드맵 07 M3)
     log: list[str] = field(default_factory=list)
 
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
-               policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None) -> DemoState:
+               policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None,
+               reviewer=None, past_admissions: bool = True) -> DemoState:
     """reactive(ReactiveEffects)를 주면 에이전트 행동이 그 뒤 퇴원 시각을 바꾸는 반응형 재생 (로드맵 07 M2)."""
     h = generate(seed=seed, config=config)
+    if not past_admissions:  # 지난 날의 입원은 이미 입실했다고 본다 (그날과 그 뒤 입원만 재생)
+        h = h.model_copy(update={"admissions": tuple(a for a in h.admissions if a.day >= day)})
     events = hospital_to_events(h, seed=seed)
     entries = 0
     if via_fhir:
@@ -57,6 +61,7 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     end = datetime.combine(base.date(), until)
     i = 0
     st = DemoState(h, store, gw, agent, end, entries)
+    st.reviewer = reviewer
     feed = None
     if reactive is not None:
         from turnaround.sim.reactive import ReactiveReplay
@@ -84,9 +89,13 @@ def _humans(st: DemoState, now: datetime) -> None:
     by = lambda t: {e.payload.get("proposal_id"): e for e in ev if e.type is t}  # noqa: E731
     approved, rejected = by(EventType.MANAGER_APPROVED), by(EventType.REJECTED_AT_PROPOSAL) | by(EventType.REJECTED_AT_COMMIT)
     reviews_left = 1 if _CAL.in_office(now) else 0  # 검토는 운영 시간에 15분에 1건
+    overridden = {e.case_id for e in ev if e.type is EventType.MANUAL_OVERRIDE_APPLIED}
+    rv = st.reviewer
     for t, wait in ((EventType.MANAGER_CONFIRM_REQUESTED, 10), (EventType.CASE_ROUTED_REVIEW, 30)):
         for pid, e in sorted(by(t).items(), key=lambda kv: kv[1].observed_at):
             if pid in approved or pid in rejected or e.observed_at + wait * _M > now:
+                continue
+            if e.case_id in overridden:
                 continue
             prop = st.gw._proposal(pid, ev)
             if prop is None or prop.bed_id is None:
@@ -95,8 +104,25 @@ def _humans(st: DemoState, now: datetime) -> None:
                 if reviews_left == 0:
                     continue
                 reviews_left -= 1
+            if rv is not None:  # 사람 응답 모형: 일부는 그대로 승인하지 않고 다른 병상으로 직접 수정
+                reasons = e.payload.get("reasons") or []
+                unit = "official_commit" if t is EventType.MANAGER_CONFIRM_REQUESTED else (
+                    reasons[0] if len(reasons) == 1 else None)
+                alt = next((b for b in prop.alternatives if b != prop.bed_id), None)
+                if alt and rv.overrides(pid, unit):
+                    d = st.gw.manual_override(prop.case, alt, "bed_manager", "bed_manager", "operational", now)
+                    if d.status == "applied":
+                        overridden.add(prop.case)
+                        continue
             st.gw.manager_approve(pid, now)
     ev = st.store.read()
+    if rv is not None:  # 에이전트 확정 뒤 병동 이의 (통보형)
+        objected = by(EventType.WARD_OBJECTION_RAISED)
+        for pid, e in by(EventType.WARD_ASSIGNMENT_NOTIFIED).items():
+            if e.payload.get("committed_by") == "agent" and pid not in objected and \
+                    e.observed_at + 10 * _M <= now and rv.objects(pid):
+                st.gw.ward_objection(pid, "ward_judgement", now)
+        ev = st.store.read()
     replied = by(EventType.WARD_ACCEPTED) | by(EventType.WARD_REJECTED)
     for pid, e in by(EventType.WARD_ACCEPTANCE_ASKED).items():
         if pid not in replied and e.observed_at + 20 * _M <= now:

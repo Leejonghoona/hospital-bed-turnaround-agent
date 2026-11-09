@@ -88,6 +88,18 @@ class ExceptionRule(_Frozen):
     max_attempts: dict[str, int] = Field(default_factory=dict)
 
 
+class PromotionRule(_Frozen):
+    """자율권 승격 기준 (로드맵 07 M3). 측정 전에 고정한다. 값은 설계 가정."""
+    min_cases: int = 25  # 그 유형만으로 검토된 사례 수
+    min_agreement_lower95: float = 0.85  # 사람이 제안을 그대로 승인한 비율의 윌슨 95% 하한
+    demote_window: int = 20  # 승격 뒤 최근 이 수의 에이전트 결정 중
+    demote_disagreements: int = 3  # 이의·직접 수정이 이만큼이면 자동으로 내린다 (안전을 조이는 쪽은 자동)
+    # 승격 대상이 아닌 유형: 안전(격리·동명이인·입력 누락), 환자 동의(차액·통합서비스), 병상 없음, 소아
+    never: list[str] = Field(default_factory=lambda: [
+        "isolation", "preemptive_isolation", "isolation_discharge_bed", "same_name_same_ward", "missing_input",
+        "single_room_preference", "integrated_care_consent_missing", "no_bed", "pediatric"])
+
+
 class Brain(_Frozen):
     enabled: bool = False  # False면 모든 예외가 결정적 대체(지금 동작)
     max_wait_min: int = 120

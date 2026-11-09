@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 DEFAULT_POLICY = Path(__file__).resolve().parents[3] / "config" / "policy.yaml"
 PROFILES_DIR = DEFAULT_POLICY.parent / "profiles"
 
-from .profile import LOCKED_HUMAN_ACTIONS, Autonomy, Brain, ExceptionRule, HospitalProfile, deep_merge  # noqa: E402
+from .profile import (LOCKED_HUMAN_ACTIONS, Autonomy, Brain, ExceptionRule, HospitalProfile,  # noqa: E402
+                      PromotionRule, deep_merge)
 
 
 class ManualOverridePolicy(BaseModel):
@@ -95,6 +96,7 @@ class Policy(BaseModel):
     exception_actions: dict[str, ExceptionRule] = Field(default_factory=dict)
     autonomy: dict[str, Autonomy] = Field(default_factory=dict)
     brain: Brain = Field(default_factory=Brain)
+    autonomy_promotion: PromotionRule = Field(default_factory=PromotionRule)
 
     @model_validator(mode="after")
     def _locked_human(self):
