@@ -190,3 +190,22 @@ def test_onboarding_session_uses_imported_code_master_as_allowed_departments():
     assert len(s.allowed_values()["department"]) == 7
     s.import_code_master({"patient.department": {"URO": "비뇨의학과"}})
     assert s.allowed_values()["department"] == {"비뇨의학과"}
+
+
+# ---------------- 5. 사전 출처 지문은 솔트를 쓴 HMAC ----------------
+
+def test_source_id_is_salted_hmac(monkeypatch):
+    import hashlib
+    import hmac
+
+    from turnaround.agent.lexicon import DEV_SALT, source_id
+    monkeypatch.delenv("TURNAROUND_LEXICON_SALT", raising=False)
+    plain = "src:" + hashlib.sha256("서울가상병원".encode()).hexdigest()[:10]
+    dev = source_id("서울가상병원")
+    assert dev != plain  # 솔트 없는 해시로 사전 대입이 되지 않는다
+    assert dev == "src:" + hmac.new(DEV_SALT.encode(), "서울가상병원".encode(), hashlib.sha256).hexdigest()[:10]
+    assert source_id("서울가상병원") == dev  # 결정적
+    monkeypatch.setenv("TURNAROUND_LEXICON_SALT", "합성-시험-솔트")
+    salted = source_id("서울가상병원")
+    assert salted.startswith("src:") and salted not in (dev, plain)
+    assert salted == "src:" + hmac.new("합성-시험-솔트".encode(), "서울가상병원".encode(), hashlib.sha256).hexdigest()[:10]

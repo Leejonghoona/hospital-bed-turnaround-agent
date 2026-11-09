@@ -98,10 +98,18 @@ class Lexicon(BaseModel):
 _NEVER_LEARN = {"patient.name", "patient.patient_id", "case"}  # 식별자 열은 배우지 않는다 (3단계 개인정보 검수)
 
 
+DEV_SALT = "turnaround-dev-lexicon-salt"  # 개발·시험용 고정 솔트. 운영은 TURNAROUND_LEXICON_SALT를 준다
+
+
 def source_id(hospital: str) -> str:
-    """출처 병원은 이름 대신 불투명한 지문으로만 남긴다 (3단계 개인정보 검수 A-3)."""
+    """출처 병원은 이름 대신 불투명한 지문으로만 남긴다 (3단계 개인정보 검수 A-3).
+    솔트 없는 해시는 병원 이름 목록으로 사전 대입하면 되찾히므로 HMAC-SHA256을 쓴다(2026-11-09 최고점 루프 1회차).
+    솔트는 환경 변수 TURNAROUND_LEXICON_SALT, 없으면 고정 개발용 솔트(경고 없이 동작)."""
     import hashlib
-    return "src:" + hashlib.sha256(hospital.encode()).hexdigest()[:10]
+    import hmac
+    import os
+    salt = os.environ.get("TURNAROUND_LEXICON_SALT") or DEV_SALT
+    return "src:" + hmac.new(salt.encode(), hospital.encode(), hashlib.sha256).hexdigest()[:10]
 
 
 def learn(session) -> Lexicon:
