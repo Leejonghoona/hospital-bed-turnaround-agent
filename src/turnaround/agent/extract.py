@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 
-from .llm import LLM, LLMError
+from .llm import LLM, LLMError, guard_external, redact_for_external
 
 DELAY_CODES = ("guardian", "billing", "medication", "transport")
 ALLOWED_FIELDS = {"guardian_eta": "HH:MM", "delay_reason": "|".join(DELAY_CODES), "mobility_aid": "bool",
@@ -106,21 +106,31 @@ def sanitize(raw: dict) -> dict:
 
 
 class Extractor:
-    def __init__(self, store: EventStore, llm: LLM, schema=None):
+    def __init__(self, store: EventStore, llm: LLM, schema=None, data_class: str = "hospital", policy=None):
         self.store, self.llm = store, llm
         self.schema = schema  # 주면 v3(설정 기반) 스키마, 없으면 v2
+        self.data_class, self.policy = data_class, policy  # 외부 모델 전송 관문 (llm.guard_external)
+
+    def _text(self, note: Event) -> str:
+        """외부 모델이면 관문(정책·데이터 분류)을 먼저 지나고, 이름·전화번호를 가린 메모만 보낸다."""
+        text = note.payload.get("text", "")
+        if getattr(self.llm, "external", False):
+            guard_external(self.llm, self.data_class, self.policy)
+            text = redact_for_external(text)
+        return text
 
     def extract(self, note: Event) -> dict:
+        text = self._text(note)
         if self.schema is not None:
             kind = note.payload.get("case_kind", "discharge")
-            user = json.dumps({"text": note.payload.get("text", ""), "case_kind": kind,
+            user = json.dumps({"text": text, "case_kind": kind,
                                "reference_time": note.observed_at.isoformat(timespec="minutes")}, ensure_ascii=False)
             try:
                 return sanitize_v3(self.llm.complete_json("extract", build_system(self.schema, kind), user),
                                    self.schema, kind)
             except LLMError:
                 return {}
-        user = json.dumps({"text": note.payload.get("text", ""),
+        user = json.dumps({"text": text,
                            "reference_time": note.observed_at.isoformat(timespec="minutes")}, ensure_ascii=False)
         try:
             fields = sanitize(self.llm.complete_json("extract", SYSTEM, user))

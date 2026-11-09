@@ -55,3 +55,61 @@ def test_ward_name_column_is_not_a_person_name_column():
     assert cols["WARD_NM"]["codes"] == ["71병동", "72병동"]
     assert cols["WARD_CD"]["codes"] == ["W71", "W72"]
     assert cols["YN"]["codes"] == ["아니오", "예"]
+
+
+# ---------------- 2. 자유 서술 추출도 외부 전송 관문을 지난다 ----------------
+
+class _FakeExternalLLM:
+    """외부 모델처럼 표시한 가짜(실제 호출 없음). 받은 입력을 기록한다."""
+    name = "openai:fake-external"
+    external = True
+
+    def __init__(self):
+        self.sent = []
+
+    def complete_json(self, task, system, user):
+        self.sent.append(user)
+        return {"guardian_eta": "14:00"}
+
+
+def _note_store(text):
+    from test_gateway import at, ev
+    from turnaround.events import EventStore, EventType
+    store = EventStore(":memory:")
+    store.append(ev("A1", "memo", EventType.FREE_TEXT_NOTE, at(8), "human", text=text))
+    return store
+
+
+def test_extract_refuses_hospital_data_to_external_llm_under_deny():
+    from test_gateway import at
+    from turnaround.agent import Extractor
+    llm = _FakeExternalLLM()
+    store = _note_store("보호자 김민수님 010-1234-5678 2시 도착")
+    with pytest.raises(PermissionError):
+        Extractor(store, llm).step(at(8, 1))  # 기본은 병원 데이터
+    assert not llm.sent
+
+
+def test_extract_sends_synthetic_data_with_names_and_phones_masked():
+    from test_gateway import at
+    from turnaround.agent import Extractor
+    from turnaround.events import EventType
+    llm = _FakeExternalLLM()
+    store = _note_store("보호자 김민수님 010-1234-5678 2시 도착, 등록번호 00012345")
+    Extractor(store, llm, data_class="synthetic").step(at(8, 1))
+    assert len(llm.sent) == 1
+    for raw in ("김민수", "010-1234-5678", "1234", "00012345"):
+        assert raw not in llm.sent[0]
+    assert "2시 도착" in json.loads(llm.sent[0])["text"]
+    out = [e for e in store.read() if e.type is EventType.FIELDS_EXTRACTED][0]
+    assert out.payload["fields"] == {"guardian_eta": "14:00"}
+
+
+def test_guard_lives_in_llm_wrapper_and_ignores_internal_models():
+    from turnaround.agent.llm import FakeLLM, guard_external, redact_for_external
+    guard_external(FakeLLM(), "hospital")  # 외부가 아니면 통과
+    with pytest.raises(PermissionError):
+        guard_external(_FakeExternalLLM(), "hospital")
+    guard_external(_FakeExternalLLM(), "synthetic")
+    assert redact_for_external("이영희 환자, 보호자 010 9876 5432") == "○○○ 환자, 보호자 [전화]"
+    assert redact_for_external("보호자가 3시 도착") == "보호자가 3시 도착"

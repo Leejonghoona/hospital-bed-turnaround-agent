@@ -155,14 +155,9 @@ def llm_profile(prof: dict) -> dict:
 
 
 def check_external(llm, data_class: str, policy=None) -> None:
-    """외부 모델 전송 관문 (3단계 개인정보 검수 A-2). 정책 external_llm이 deny이면 합성 데이터만 보낸다."""
-    if not getattr(llm, "external", False):
-        return
-    if policy is None:
-        from turnaround.gateway import load_policy
-        policy = load_policy()
-    if data_class != "synthetic" and policy.external_llm == "deny":
-        raise PermissionError("정책 external_llm=deny: 병원 데이터는 외부 모델로 보내지 않는다(원내 모델이나 가짜 LLM을 쓴다)")
+    """외부 모델 전송 관문 (3단계 개인정보 검수 A-2). 관문은 LLM 래퍼 한 곳(`llm.guard_external`)에 있다."""
+    from .llm import guard_external
+    guard_external(llm, data_class, policy)
 
 
 # ---------------- 가짜 LLM: 어휘 사전 ----------------

@@ -76,7 +76,7 @@ class _GwRun:
         self.llm = llm
         self.agent = PlanningAgent(self.gw, _LAYOUT.wards, llm=llm, mode=AGENT_CONFIG["mode"],
                                    score_overrides=score_overrides)
-        self.extractor = Extractor(self.store, llm)
+        self.extractor = Extractor(self.store, llm, data_class="synthetic")  # 회귀 시나리오는 합성 데이터
 
     def agent_cycle(self, now: datetime, approve=True, ward=True, commit=True, rounds: int = 3):
         """에이전트 한 주기와 사람 응답 흉내. 담당 승인 5분, 병동 회신 10분, 확정 15분 뒤."""

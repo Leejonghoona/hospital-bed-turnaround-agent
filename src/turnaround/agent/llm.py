@@ -46,6 +46,36 @@ class LLM(Protocol):
     def complete_json(self, task: str, system: str, user: str) -> dict: ...
 
 
+# ---------- 외부 전송 관문 (한 곳, 2026-11-09 최고점 루프 1회차) ----------
+
+def guard_external(llm, data_class: str, policy=None) -> None:
+    """외부 모델로 보내기 전에 꼭 지나는 관문. 정책 external_llm이 deny이면 합성 데이터만 보낸다.
+    외부가 아닌 모델(가짜 LLM, 원내 모델)은 그대로 통과한다. 매핑·자유 서술 추출이 모두 이 함수를 쓴다."""
+    if not getattr(llm, "external", False):
+        return
+    if policy is None:
+        from turnaround.gateway import load_policy
+        policy = load_policy()
+    if data_class != "synthetic" and policy.external_llm == "deny":
+        raise PermissionError("정책 external_llm=deny: 병원 데이터는 외부 모델로 보내지 않는다(원내 모델이나 가짜 LLM을 쓴다)")
+
+
+_PHONE = re.compile(r"(?<!\d)0\d{1,2}[-\s.]?\d{3,4}(?:[-\s.]?\d{4})?(?!\d)")
+_LONG_NO = re.compile(r"(?<!\d)\d{6,}(?!\d)")
+_HONORIFIC_NAME = re.compile(r"([가-힣]{2,4})(?=\s*(?:님|씨|환자|보호자분|어르신))")
+# 호칭 앞에 와도 사람 이름이 아닌 말 (설계 가정)
+_ROLE_WORDS = {"보호자", "환자", "간병인", "간호사", "선생", "기사", "기사님", "담당", "담당자", "교수", "의사", "주치의",
+               "어머", "아버", "어머니", "아버지", "따", "아드", "할머", "할아버", "할머니", "할아버지", "고객", "가족", "병동",
+               "원무", "수납", "직원", "여사", "사모"}
+
+
+def redact_for_external(text: str) -> str:
+    """외부 모델로 보내는 자유 서술에서 전화번호·긴 번호(등록번호 등)·호칭 앞 이름을 가린다. 시각·지연 사유는 남긴다."""
+    text = _PHONE.sub("[전화]", text)
+    text = _LONG_NO.sub("[번호]", text)
+    return _HONORIFIC_NAME.sub(lambda m: m.group(1) if m.group(1) in _ROLE_WORDS else "○" * len(m.group(1)), text)
+
+
 # ---------- 결정적 가짜 LLM ----------
 
 _TIME = re.compile(r"(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?")
