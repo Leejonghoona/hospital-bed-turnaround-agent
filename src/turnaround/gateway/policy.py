@@ -106,6 +106,14 @@ class Policy(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _no_bare_wait(self):
+        for trig, rule in self.exception_actions.items():
+            for a in rule.allowed:
+                if a.startswith("wait") and not rule.companions.get(a):
+                    raise ValueError(f"{trig}.{a}: 기다림에는 함께 할 행동(companions)이 있어야 한다")
+        return self
+
+    @model_validator(mode="after")
     def _locked(self):
         for code, tier in LOCKED_SAFETY_TIERS.items():
             got = self.manual_override.safety_tiers.get(code, tier)

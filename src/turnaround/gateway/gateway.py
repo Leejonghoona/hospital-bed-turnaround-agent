@@ -381,6 +381,12 @@ class Gateway:
                        to="ward", guardian_wait_min=ctx.get("guardian_wait_min"),
                        next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
         elif choice.action.startswith("wait"):
+            rule = self.policy.exception_actions.get(choice.trigger)
+            for kind, role in (rule.companions.get(choice.action, []) if rule else []):
+                # 기다리는 동안 함께 할 행동: 근거(예외·사유)를 붙인 작업 (가만히 기다리지 않는다)
+                self._emit(case, f"{exid}:companion:{kind}", EventType.HUMAN_TASK_CREATED, now, kind=kind,
+                           assignee=role, reason=f"{choice.trigger}:{choice.action}", bed_id=raised.payload.get("bed_id"),
+                           rationale=choice.rationale)
             until = min(datetime.fromisoformat(raised.payload["deadline"]),
                         now + timedelta(minutes=self.policy.brain.max_wait_min))
             n = sum(1 for e in self._events() if e.type is EventType.RECHECK_SCHEDULED

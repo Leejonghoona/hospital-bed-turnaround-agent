@@ -174,3 +174,37 @@ def test_exception_closes_when_condition_clears():
     assert res and res[0].payload["how"] == "condition_cleared"
     ExceptionBrain(gw, FakeLLM(), FIELD).step(at(11, 10))
     assert not _types(store, EventType.ACTION_PROPOSED)
+
+
+# ---- 기다림에는 늘 함께 할 행동 (현장 조사 예외3건_현장대응.md, 사용자 원칙 "가만히 기다리지 않는다") ----
+
+def test_every_wait_action_declares_companions():
+    import pytest
+    pol = load_policy(profile="field_default")
+    for trig, rule in pol.exception_actions.items():
+        for a in rule.allowed:
+            if a.startswith("wait"):
+                assert rule.companions.get(a), (trig, a)
+    bad = pol.model_dump()
+    bad["exception_actions"]["late_isolation"]["companions"] = {}
+    from turnaround.gateway.policy import Policy
+    with pytest.raises(ValueError, match="함께 할 행동"):
+        Policy.model_validate(bad)
+
+
+def test_wait_for_ipc_also_alerts_ward_and_reminds_ipc():
+    from test_brain import _Script, _setup
+    store, gw = _setup()
+    ExceptionBrain(gw, _Script({"action": "wait_for_ipc", "params": {}, "rationale": "x"}), FIELD).step(at(10, 10))
+    tasks = {(t.payload.get("kind"), t.payload.get("assignee")) for t in _types(store, EventType.HUMAN_TASK_CREATED)}
+    assert ("provisional_precautions_check", "ward") in tasks and ("ipc_reminder", "ipc") in tasks
+    assert _types(store, EventType.RECHECK_SCHEDULED)
+
+
+def test_wait_for_guardian_asks_ward_to_reconfirm_eta():
+    evs = _dc_events(order_at=at(8, 0), guardian_eta=at(13), ready=True)
+    store, gw = make(evs, policy=FIELD)
+    SagaRunner(store, SagaPolicy.from_policy(FIELD, H.rooms, H.beds)).step(at(10, 5))
+    ExceptionBrain(gw, FakeLLM(), FIELD).step(at(10, 10))
+    kinds = {t.payload.get("kind") for t in _types(store, EventType.HUMAN_TASK_CREATED)}
+    assert "guardian_eta_reconfirm" in kinds

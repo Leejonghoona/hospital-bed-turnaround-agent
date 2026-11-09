@@ -88,6 +88,8 @@ class ExceptionRule(_Frozen):
     allowed: list[str]
     fallback: str = "escalate"
     max_attempts: dict[str, int] = Field(default_factory=dict)
+    # 기다림 행동마다 함께 할 행동: [종류, 받는 역할]. 기다림만 하는 대응은 없다 (사용자 원칙, 현장 조사 예외3건)
+    companions: dict[str, list[tuple[str, str]]] = Field(default_factory=dict)
 
 
 class PromotionRule(_Frozen):
