@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import random
 import subprocess
 import sys
 import time
@@ -20,13 +21,20 @@ OUT = ROOT / "docs" / "검토" / "현장조사" / "유튜브_자막"
 BRANCH = "claude/gallant-keller-0lrkwf"
 
 
+class Blocked(Exception):
+    pass
+
+
 def fetch(vid: str) -> str | None:
     from youtube_transcript_api import YouTubeTranscriptApi
     api = YouTubeTranscriptApi()
     try:
         t = api.fetch(vid, languages=["ko", "en"])
-    except Exception as e:  # noqa: BLE001  자막 없음·비공개·차단은 모두 건너뛴다
-        print(f"  {vid}: 자막 없음 ({type(e).__name__})")
+    except Exception as e:  # noqa: BLE001  자막 없음·비공개는 건너뛰고, 차단은 위로 알린다
+        name = type(e).__name__
+        if name in ("IpBlocked", "RequestBlocked", "TooManyRequests"):
+            raise Blocked(name) from e
+        print(f"  {vid}: 자막 없음 ({name})")
         return None
     lines = [f"[{int(s.start // 60):02d}:{int(s.start % 60):02d}] {s.text}" for s in t]
     return f"https://www.youtube.com/watch?v={vid}\n" + "\n".join(lines) + "\n"
@@ -41,17 +49,27 @@ def main() -> int:
     git("pull", "-q", "origin", BRANCH, check=False)
     OUT.mkdir(parents=True, exist_ok=True)
     ids = [x.strip() for x in LIST.read_text(encoding="utf-8").splitlines() if x.strip()]
-    got = 0
+    got, blocked = 0, 0
     for i, vid in enumerate(ids, 1):
         f = OUT / f"{vid}.txt"
         if f.exists():
             continue
         print(f"[{i}/{len(ids)}] {vid}")
-        text = fetch(vid)
+        try:
+            text = fetch(vid)
+            blocked = 0
+        except Blocked as e:
+            blocked += 1
+            print(f"  유튜브가 잠시 막음 ({e}). {blocked}번째")
+            if blocked >= 3:
+                print("연속 3번 막혀서 멈춥니다. 몇 시간(가능하면 하루) 뒤 같은 파일을 다시 실행하세요. 받은 것은 저장됩니다.")
+                break
+            time.sleep(120)
+            continue
         if text:
             f.write_text(text, encoding="utf-8")
             got += 1
-        time.sleep(2)  # 천천히 받는다
+        time.sleep(random.uniform(15, 30))  # 차단을 피하려고 아주 천천히 받는다
     print(f"새로 받은 자막 {got}개, 전체 {len(list(OUT.glob('*.txt')))}개")
     if got:
         git("add", str(OUT.relative_to(ROOT)))
