@@ -371,7 +371,7 @@ def ipc_view(st) -> dict:
                          f"({REASON_KO.get(c.get('rejected_reason'), c.get('rejected_reason'))})")
         if c.get("agent_action"):
             parts.append(f"에이전트 제안: {ACTION_KO.get(c['agent_action'], c['agent_action'])}"
-                         + (" (원무 승인 대기)" if c["agent_action"] in ("propose_rematch", "request_recontact") else ""))
+                         + (" (감염관리실 승인 대기)" if c["agent_action"] == "propose_rematch" else " (원무 승인 대기)" if c["agent_action"] == "request_recontact" else ""))
         if c.get("deadline"):
             parts.append(f"마감 {str(c['deadline'])[11:16]}")
         return " · ".join(p for p in parts if p)

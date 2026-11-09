@@ -258,7 +258,7 @@ def show_ipc(d: dict, sv=None) -> None:
     _PRIMARY["used"] = False
     todo = [a for a in d["alerts"] if not a["checked"]]
     waiting = [t for t in d["terminal"] if t["status"] != "종말소독 완료"]
-    st.html(T.kpis([("확인할 통지", len(todo), "늦은 격리 등", "warn" if todo else ""),
+    st.html(T.kpis([("결정·확인할 일", len(todo) + len(d.get("approvals") or []), "병상 결정 승인 + 늦은 격리 통지", "warn" if todo else ""),
                     ("오늘 격리 오더", len(d["isolation_orders"]), "", ""),
                     ("빈 음압실", d["np_free"], "지금 바로 쓸 수 있는", "accent"),
                     ("종말소독 대기", len(waiting), "격리 퇴실 병상", "")]))

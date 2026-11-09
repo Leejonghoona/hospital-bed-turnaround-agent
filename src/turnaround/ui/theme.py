@@ -31,8 +31,8 @@ header[data-testid="stHeader"] { display: none; }
 section[data-testid="stSidebar"] { background: #fff; border-right: 1px solid %(line)s; }
 section[data-testid="stSidebar"] .block-container { padding-top: 24px !important; }
 div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
-.stButton > button { border-radius: 10px; font-weight: 700; border: 1px solid %(line)s; padding: 6px 14px; }
-.stButton > button[kind="primary"] { background: %(blue)s; border-color: %(blue)s; }
+.stButton button { border-radius: 10px; font-weight: 700; border: 1px solid %(line)s; padding: 6px 14px; }
+.stButton button[kind="primary"], button[data-testid="stBaseButton-primary"] { background: %(blue)s !important; border-color: %(blue)s !important; color:#fff !important; }
 .wl-top { display:flex; align-items:center; justify-content:space-between; background:#fff; border-bottom:1px solid %(line)s;
           margin: 0 -9999px 20px; padding: 14px 9999px; }
 .wl-brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:19px; color:%(ink)s; }
