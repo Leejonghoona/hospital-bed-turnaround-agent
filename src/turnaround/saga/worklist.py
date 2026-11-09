@@ -67,6 +67,7 @@ class Operations:
     roles: dict[str, dict[str, str]]
     escalation: dict[str, str]
     task_sla_min: dict[str, int] = field(default_factory=dict)
+    staff: dict[str, str] = field(default_factory=dict)  # 승인 권한자 ID → 역할 (설계 가정)
 
     def holder(self, role: str, dt: datetime) -> str:
         """논리 역할의 그 시각 실제 담당."""
@@ -94,7 +95,7 @@ def load_operations(path: Path = DEFAULT_OPERATIONS) -> Operations:
         holidays=frozenset(date.fromisoformat(str(x)) for x in c.get("holidays", [])),
         shift_starts=tuple(_t(c["nursing_shifts"][s]) for s in _SHIFTS),
         office_hours=tuple(_t(x) for x in c["office_hours"]))
-    return Operations(cal, raw["roles"], raw["escalation"], raw.get("task_sla_min", {}))
+    return Operations(cal, raw["roles"], raw["escalation"], raw.get("task_sla_min", {}), raw.get("staff") or {})
 
 
 # 정책에서 쓰는 다른 이름 → 운영 역할 (상위 담당 이름으로 올린 작업은 그 줄로 간다)

@@ -138,3 +138,97 @@ def test_reason_entry_needs_a_real_reason(text):
     store, gw = make([adm(gender="M", organism="VRE")], census=census)
     d = _mo(gw, "A1", "W71-R03-B2", at(12), reason_text=text)
     assert d.status == "refused" and d.tier == "reason_entry"
+
+
+# ---- 2회차: 늦은 격리의 병상 결정은 감염관리실 승인 ----
+
+def _late_iso_after_contact():
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ExceptionBrain
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=-1), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "patient_contacted", EventType.PATIENT_CONTACTED, at(9), "human"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(10), "his", precautions=["contact"], organism="VRE")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(10, 5))
+    ExceptionBrain(gw, FakeLLM(), pol).step(at(10, 10))
+    req = [e for e in store.read() if e.type is EventType.ACTION_APPROVAL_REQUESTED]
+    return store, gw, req
+
+
+def test_late_isolation_approval_belongs_to_ipc_not_admission():
+    store, gw, req = _late_iso_after_contact()
+    assert req, "연락 뒤 늦은 격리는 사람 승인 요청이 생겨야 한다"
+    exid = req[0].payload["exception_id"]
+    assert gw.approve_action(exid, "bed_manager", at(10, 20)).reasons == ["approver_role"]
+    assert gw.decline_action(exid, "bed_manager", "x", at(10, 20)).reasons == ["approver_role"]
+    assert gw.approve_action(exid, "ipc", at(10, 25)).status == "executed"
+
+
+def test_late_isolation_off_hours_on_call_can_decide():
+    store, gw, req = _late_iso_after_contact()
+    assert gw.approve_action(req[0].payload["exception_id"], "id_oncall", at(10, 25)).status == "executed"
+
+
+# ---- 2회차 안전 검토: 승인 진위·시한, 게이트웨이 독립 판정, 야간 감염관리 담당 ----
+
+def _cre_multi():
+    from test_gateway import Gender, census_patient
+    return make([adm(gender="M", organism="CRE")], census={"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)})
+
+
+def test_approver_must_be_registered_staff_with_that_role():
+    store, gw = _cre_multi()
+    assert gw.approve_safety_exception("A1", "W71-R03-B2", approver="아무개", role="ipc", now=at(17)).status == "refused"
+
+
+def test_safety_exception_approval_expires():
+    store, gw = _cre_multi()
+    assert gw.approve_safety_exception("A1", "W71-R03-B2", approver="ipc-1", role="ipc", now=at(9)).status == "recorded"
+    late = _mo(gw, "A1", "W71-R03-B2", at(18, day=4), reason_text="일반 병실이 없어 임시 배정",
+               safety_exception_by=("ipc-1", "ipc"))
+    assert late.status == "refused"
+    ok = _mo(gw, "A1", "W71-R03-B2", at(10), reason_text="일반 병실이 없어 임시 배정", safety_exception_by=("ipc-1", "ipc"))
+    assert ok.status == "applied"
+
+
+def test_gateway_blocks_situational_wait_without_a_registered_brain():
+    """머리가 등록되지 않은 경로에서도 게이트웨이가 스스로 입력을 계산해 막는다."""
+    from turnaround.agent.brain import ActionChoice
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=4), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(2, day=5), "his", precautions=["airborne"], organism="MTB")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(2, 5, day=5))
+    ex = [e for e in store.read() if e.type is EventType.EXCEPTION_RAISED][0]
+    c = ActionChoice(exception_id=ex.payload["exception_id"], trigger=ex.payload["trigger"], case=ex.case_id,
+                     action="wait_for_ipc", params={}, rationale="x", basis_seq=max(e.seq or 0 for e in store.read()),
+                     mode="llm", basis_input={})
+    d = gw.submit_action(c, at(2, 10, day=5))
+    assert d.status == "rejected" and d.reasons == ["ipc_off_duty"]
+    notice = [e for e in store.read() if e.payload.get("kind") == "isolation_notice"]
+    assert not notice or notice[0].payload.get("holder") == "id_oncall"
+
+
+def test_night_isolation_notice_names_on_call_holder():
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ExceptionBrain
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=4), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(2, day=5), "his", precautions=["airborne"], organism="MTB")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(2, 5, day=5))
+    ExceptionBrain(gw, FakeLLM(), pol).step(at(2, 10, day=5))
+    notice = [e for e in store.read() if e.payload.get("kind") == "isolation_notice"]
+    assert notice and notice[0].payload["holder"] == "id_oncall"
+    esc = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "brain_escalate"]
+    assert all(e.payload.get("assignee") in ("ipc", "id_oncall") for e in esc)

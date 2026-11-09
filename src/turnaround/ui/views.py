@@ -196,8 +196,11 @@ def pending_approvals(st) -> list[dict]:
                     "bed": r.payload.get("bed_id") if r else None, "since": _hm(e.observed_at),
                     "deadline": _hm(datetime.fromisoformat(r.payload["deadline"])) if r and r.payload.get("deadline") else "",
                     "rationale": (prop.payload.get("rationale") if prop else "") or "",
-                    "facts": _fact_chips(ctx),
-                    "recommend": recommend_beds(st, e.case_id) if e.payload["action"] == "propose_rematch" else []})
+                    "facts": [f.replace("안내 시각 ", "안내 시각 어제 ") if (r and r.observed_at.date() < st.now.date()) else f
+                              for f in _fact_chips(ctx)],
+                    "recommend": recommend_beds(st, e.case_id) if e.payload["action"] == "propose_rematch" else [],
+                    # 늦은 격리의 병상 결정은 감염관리실이 승인 (DECISIONS 최고점 루프 2회차)
+                    "decider": "ipc" if (r and r.payload.get("trigger") in st.gw.ISOLATION_TRIGGERS) else "admission"})
     # 마감이 지난 요청이 맨 위(지금 처리), 그다음 최신 요청 (4단계 화면 검수 3)
     return sorted(out, key=lambda a: (not a["overdue"], -a["requested_at"].timestamp()))
 
@@ -268,9 +271,14 @@ def admission_view(st) -> dict:
                       "who": who(people, t.case_id), "bed": t.payload.get("bed_id"), "bed_ko": bed_ko(t.payload.get("bed_id")),
                       "due": _hm(due), "due_at": due, "overdue": due < st.now, "created": t.observed_at,
                       "stale": t.observed_at.date() < st.now.date()})
+    # 같은 환자에 승인 카드가 있으면 '안내 시각 지켜보기'는 그 카드와 겹치므로 빼고 카드 하나로 본다 (2회차 화면 검토)
+    pending_cases = {a["case"] for a in pending_approvals(st)}
+    tasks = [t for t in tasks if not (t["raw_kind"] == "promise_watch" and t["case"] in pending_cases)]
     # 마감 지난 일 먼저, 그다음 마감 이른 순 (새로 생긴 일이 묻히지 않게 같은 마감이면 최신 먼저)
     tasks.sort(key=lambda x: (not x["overdue"], x["due_at"], -x["created"].timestamp()))
-    return {"notices": notices, "approvals": pending_approvals(st), "contacts": contacts, "reviews": review_queue(st),
+    allp = pending_approvals(st)
+    return {"notices": notices, "approvals": [a for a in allp if a["decider"] == "admission"],
+            "waiting_ipc": [a for a in allp if a["decider"] == "ipc"], "contacts": contacts, "reviews": review_queue(st),
             "tasks": tasks, "blocked": blocked_decisions(st)}
 
 
@@ -383,8 +391,11 @@ def ipc_view(st) -> dict:
             done = any(k == "terminal" for _, k in d.cleaning_done_kinds)
             terminal.append({"bed": bed_ko(d.bed_id), "departed": _hm(d.facts[EventType.PATIENT_DEPARTED]),
                              "status": "종말소독 완료" if done else "종말소독 대기"})
-    holder = HOLDER_KO.get(load_operations().holder("ipc", st.now), "감염관리실")
-    return {"alerts": alerts, "isolation_orders": iso, "terminal": terminal, "np_free": np_free, "holder": holder}
+    role = load_operations().holder("ipc", st.now)
+    holder = HOLDER_KO.get(role, "감염관리실")
+    approvals = [a for a in pending_approvals(st) if a["decider"] == "ipc"]
+    return {"alerts": alerts, "isolation_orders": iso, "terminal": terminal, "np_free": np_free, "holder": holder,
+            "holder_role": role, "approvals": approvals}
 
 
 def manager_view(st) -> dict:
@@ -680,7 +691,7 @@ def role_counts(st) -> dict[str, int]:
     w = ward_view(st)
     i = ipc_view(st)
     return {"admission": len(a["approvals"]) + len(a["contacts"]) + len(a["tasks"]), "ward": len(w["todo"]),
-            "ipc": sum(1 for x in i["alerts"] if not x["checked"])}
+            "ipc": sum(1 for x in i["alerts"] if not x["checked"]) + len(i["approvals"])}
 
 
 __all__ += ["audit_log", "case_timeline", "role_counts"]

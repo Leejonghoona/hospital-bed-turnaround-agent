@@ -63,20 +63,20 @@ def patient_dialog(sv, case: str) -> None:
                                                 for r in t["rows"]]))
 
 
-REASONS = {"decline": ["원무가 직접 처리", "병동과 통화로 해결", "환자 사정으로 보류", "기타"],
+REASONS = {"decline": ["원무가 직접 처리", "병동과 통화로 해결", "환자 사정으로 보류", "지금 병상 유지(격리 조치 가능)", "기타"],
            "undo": ["다른 병상이 더 적합", "환자 요청", "병동 사정", "기타"],
            "object": ["간호 인력 부족", "격리 준비 불가", "다른 환자 우선", "기타"]}
 
 
 @st.dialog("사유를 남겨 주세요")
-def reason_dialog(sv, kind: str, target: str, label: str) -> None:
+def reason_dialog(sv, kind: str, target: str, label: str, actor: str = "bed_manager") -> None:
     st.write(label)
     r = st.selectbox("사유", REASONS[kind])
     memo = st.text_input("메모(선택)")
     text = r + (f" · {memo}" if memo else "")
     if st.button("확인", type="primary", use_container_width=True):
         if kind == "decline":
-            sv.gw.decline_action(target, "bed_manager", text, sv.now)
+            sv.gw.decline_action(target, actor, text, sv.now)
         else:
             sv.gw.ward_objection(target, ("원무 되돌림: " if kind == "undo" else "병동 이의: ") + text, sv.now)
         st.rerun()
@@ -124,6 +124,9 @@ def show_admission(d: dict, sv=None, beds=None, key: str = "") -> None:
         st.html(T.empty("지금 처리할 일이 없습니다. 평범한 배정은 에이전트가 확정하고 아래에 알립니다."))
     d = {**d, "approvals": [x for x in d["approvals"] if keep(x)], "contacts": [x for x in d["contacts"] if keep(x)],
          "tasks": [x for x in d["tasks"] if keep(x)], "notices": [x for x in d["notices"] if keep(x)]}
+    for a in d.get("waiting_ipc") or []:
+        st.html(T.card(f"{a['who']} · 감염관리실 결정 대기", f"{T.e(a['situation'])} 병상 결정은 감염관리실이 승인합니다. 결정되면 환자 재연락 작업이 생깁니다.",
+                       [T.chip("격리", "red"), T.chip("원무는 대기", "gray")], [T.chip(f"마감 {a['deadline']}", "amber")]))
     for a in d["approvals"]:
         c1, c2 = st.columns([6, 1], vertical_alignment="center")
         chips = [T.chip(a["trigger_ko"], "violet"), T.chip("승인 필요", "blue")] + ([T.chip("마감 지남", "red")] if a["overdue"] else [])
@@ -132,7 +135,7 @@ def show_admission(d: dict, sv=None, beds=None, key: str = "") -> None:
                if a.get("recommend") else "")
         title = a["action_ko"]
         if a.get("recommend") and a["recommend"][0].startswith("배정 기준에 맞는 빈 병상 없음"):
-            title = "다른 병상 찾기 승인 (지금은 맞는 병상 없음 → 대기 유지·다른 병동 검토)"
+            title = "병상 다시 찾기 승인 (지금은 맞는 병상 없음 · 못 찾으면 담당 검토로)"
         c1.html(T.card(f"{a['who']} · {title}", f"{T.e(a['situation'])}<br><b>{T.e(a['effect'])}</b>{rec}", chips, facts,
                        "urgent" if a["overdue"] else "todo"))
         if sv is not None:
@@ -260,9 +263,26 @@ def show_ipc(d: dict, sv=None) -> None:
                     ("빈 음압실", d["np_free"], "지금 바로 쓸 수 있는", "accent"),
                     ("종말소독 대기", len(waiting), "격리 퇴실 병상", "")]))
     st.html(T.footnote(f"지금 이 통지의 담당: {d.get('holder', '감염관리실')} (근무 시간 밖에는 감염내과 당직이 대행, 설계 가정)"))
-    st.html(T.section("지금 할 일", len(todo), "'확인, 조치 시작'을 누르면 감염관리실이 이 사안을 맡았다는 기록(누가·언제)이 남고 원무·병동에 보입니다"))
-    if not todo:
+    aps = d.get("approvals") or []
+    st.html(T.section("지금 할 일", len(todo) + len(aps), "격리 병실 결정은 감염관리실이 승인합니다. '확인, 조치 시작'은 이 사안을 맡았다는 기록(누가·언제)을 남깁니다"))
+    if not todo and not aps:
         st.html(T.empty("확인할 통지가 없습니다."))
+    for a in aps:
+        c1, c2 = st.columns([6, 1], vertical_alignment="center")
+        rec = (f"<br><span class='wl-note'>지금 기준 옮길 병상: {T.e(' · '.join(a['recommend']))}</span>" if a.get("recommend") else "")
+        c1.html(T.card(f"{a['who']} · 병상 결정: {a['action_ko']}", f"{T.e(a['situation'])}<br><b>{T.e(a['effect'])}</b>{rec}",
+                       [T.chip("격리", "red"), T.chip("감염관리실 승인", "blue")],
+                       [T.chip(f, "gray") for f in a["facts"]] + [T.chip(f"마감 {a['deadline']}", "red" if a["overdue"] else "amber")],
+                       "urgent"))
+        if sv is not None:
+            role = d.get("holder_role") or "ipc"
+            if c2.button("승인", key=f"ipc-ap-{a['exception_id']}", type=_btn_type(), use_container_width=True,
+                         help=f"{a['who']} 병상 결정 승인"):
+                dec = sv.gw.approve_action(a["exception_id"], role, sv.now)
+                st.toast("다시 확인한 뒤 " + ("실행했습니다" if dec.status == "executed" else "거부했습니다"))
+                st.rerun()
+            if c2.button("거절", key=f"ipc-dc-{a['exception_id']}", use_container_width=True, help=f"{a['who']} 병상 결정 거절"):
+                reason_dialog(sv, "decline", a["exception_id"], f"{a['who']}: '{a['action_ko']}'을 거절합니다.", actor=role)
     for a in todo:
         c1, c2 = st.columns([6, 1], vertical_alignment="center")
         facts = [T.chip(f"지금 병상 {a['bed_ko']} ({a['room_type']})", "gray"),
@@ -303,7 +323,7 @@ def show_manager(d: dict) -> None:
     st.html(T.checks([(None if r["검사 수"] == 0 else r["위반"] == 0,
                        f"{r['지표']} · " + ("해당 없음(오늘 검사 대상 없음)" if r["검사 수"] == 0 else f"위반 {r['위반']}건 / 검사 {r['검사 수']}건"),
                        r["뜻"]) for r in d["safety"]]))
-    st.html(T.section("자동 처리 범위 제안", len(d["cards"]), "근거가 쌓이면 에이전트가 맡을 범위를 넓히자고 제안하고, 적용은 사람이 승인"))
+    st.html(T.section("자동 처리 범위 제안", sum(c["recommendation"] != "유지" for c in d["cards"]), "근거가 쌓이면 에이전트가 맡을 범위를 넓히자고 제안하고, 적용은 사람이 승인"))
     for c in d["cards"]:
         tone = {"승격 제안": "blue", "강등 제안": "red", "유지": "gray"}[c["recommendation"]]
         rec = {"승격 제안": "에이전트에 맡기자고 제안", "강등 제안": "사람 확인으로 되돌리자고 제안", "유지": "지금대로 유지"}[c["recommendation"]]
@@ -327,7 +347,7 @@ def show_onboarding(d: dict, progress: bool = True) -> None:
     if d.get("stage") != "done":
         st.html(T.kpis([("이번 묶음 질문", len(d["questions"]), d.get("stage_ko", ""), "accent"),
                         ("제안 없는 질문", d.get("open", 0), "사람이 답을 찾아야 함", ""),
-                        ("남은 질문", d["remaining"], "", ""), ("답한 질문", d["answered"], "", "")]))
+                        ("남은 질문", d["remaining"], "답에 따라 뒤 질문이 줄거나 새로 생김", ""), ("답한 질문", d["answered"], "", "")]))
         st.html(T.section(f"지금 묻는 것: {d['stage_ko']}", len(d["questions"]), "표 구조 → 값 형식 → 열의 뜻 → 코드 뜻 순서로 묻습니다"))
         for q in d["questions"][:8]:
             chips = [T.chip("제안 " + str(q["proposal"]), "blue")] if q["proposal"] is not None else [T.chip("제안 없음", "gray")]
@@ -407,7 +427,7 @@ if mode == "시연 대본":
         st.html(T.guide("이 화면에서 볼 것", v["caption"].split(": ", 1)[-1], step.look))
         nxt = run.scene.steps[run.index + 1] if not run.done else None
         if nxt is not None and nxt.act:
-            st.button(f"▶ {nxt.act}", key="act", on_click=run.next, type="primary")
+            st.button(nxt.act, key="act", on_click=run.next, type="primary", icon=":material/arrow_forward:")
         if v.get("changed"):
             with st.expander(f"이번 단계에서 바뀐 것 {len(v['changed'])}건 (결정 기록)", expanded=False):
                 st.html(T.table(["시각", "누가", "환자", "무엇을", "내용"],

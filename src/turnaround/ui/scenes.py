@@ -131,9 +131,9 @@ def _a2(run):
 
 def _a3(run):
     _to(run, 18)
-    hl = __import__("turnaround.evaluation.human_load", fromlist=["human_load"]).human_load(run.st.store.read())
-    return (f"18:00 관리자 화면. 입원 {hl['admission_cases']}건, 확정 {hl['committed']}건, "
-            f"사람 손 없이 확정 {hl['no_touch_committed']}건. 실행 안전 위반은 아래 표")
+    hl = __import__("turnaround.ui.views", fromlist=["manager_view"]).manager_view(run.st)["human_load"]  # 화면 지표와 같은 함수
+    return (f"18:00 관리자 화면. 오늘 입원 {hl['admission_cases']}명, 확정 {hl['committed']}명, "
+            f"사람 손 없이 확정 {hl['no_touch_committed']}명. 실행 안전 위반은 아래 표")
 
 
 SCENE_DAY = Scene("day", "1. 평범한 하루", "에이전트가 확정하고 통보한다. 사람은 환자 연락과 병동 준비만 한다.",

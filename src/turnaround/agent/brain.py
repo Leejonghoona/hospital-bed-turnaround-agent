@@ -163,7 +163,8 @@ class ExceptionBrain:
             return self.fallback(base)
 
     def fallback(self, base: dict, rejected: tuple[str, str] | None = None) -> ActionChoice:
-        params = {"role": "bed_manager"}
+        # 늦은 격리는 감염관리실(근무 외 감염내과 당직, 워크리스트가 시간대로 바꿈)에 올린다 (2회차 안전 검토)
+        params = {"role": "ipc" if base.get("trigger") == "late_isolation" else "bed_manager"}
         if rejected:  # 근거 카드에 거부된 행동과 사유를 남긴다 (2단계 안전 검수 M7)
             params.update(rejected_action=rejected[0], rejected_reason=rejected[1])
         return ActionChoice(**{**base, "action": "escalate", "params": params,

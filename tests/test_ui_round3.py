@@ -14,8 +14,11 @@ def _play(sid):
 
 def test_rematch_approval_always_explains_bed_options():
     r, out = _play("exception")
-    recs = [a for v in out if v["role"] == "admission" for a in v["data"]["approvals"] if a["action"] == "propose_rematch"]
+    # 늦은 격리의 병상 결정은 감염관리실 화면에서 승인한다 (원무 화면에는 '결정 대기'로만)
+    recs = [a for v in out if v["role"] == "ipc" for a in v["data"]["approvals"] if a["action"] == "propose_rematch"]
     assert recs, "재배정 승인 단계가 있어야 한다"
+    adm = [a for v in out if v["role"] == "admission" for a in v["data"]["approvals"] if a["action"] == "propose_rematch"]
+    assert not adm
     # 만실·격리로 맞는 병상이 없어도 빈 목록 대신 이유를 보여 준다
     assert all(a["recommend"] and all(isinstance(x, str) and x for x in a["recommend"]) for a in recs)
 

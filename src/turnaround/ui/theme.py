@@ -14,8 +14,14 @@ TOKENS = {
     "violet_bg": "#F1ECFF", "gray_bg": "#F2F4F6",
 }
 
+import os as _os
+
+# 폐쇄망 병원에서는 외부 글꼴을 부르지 않는다 (TURNAROUND_OFFLINE=1이면 시스템 글꼴, 2회차 CIO 검토)
+_FONT = "" if _os.environ.get("TURNAROUND_OFFLINE") == "1" else \
+    '<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">'
+
 CSS = """
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+%(font_link)s
 <style>
 html, body, [class*="css"], .stApp, button, input, select, textarea { font-family: Pretendard, -apple-system, sans-serif !important; }
 .stApp { background: %(bg)s; }
@@ -76,7 +82,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
 .wl-kanban { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
 .wl-col { background:%(gray_bg)s; border-radius:16px; padding:12px; min-height:140px; }
-.wl-col h4 { margin:2px 4px 10px; font-size:14px; font-weight:800; color:%(sub)s; display:flex; justify-content:space-between; }
+.wl-col h4 { margin:2px 4px 10px; font-size:14px; font-weight:800; color:%(sub)s; display:flex; justify-content:space-between; gap:8px; }
 .wl-mini { background:#fff; border-radius:12px; padding:10px 12px; margin-bottom:8px; border:1px solid %(line)s; font-size:13px; }
 .wl-mini b { font-size:14px; }
 .wl-steps { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin: 4px 0 14px; }
@@ -95,7 +101,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-table th { text-align:left; color:%(mute)s; font-weight:700; padding:10px 12px; border-bottom:1px solid %(line)s; background:#FAFBFC; }
 .wl-table td { padding:10px 12px; border-bottom:1px solid %(line)s; color:%(ink)s; }
 </style>
-""" % TOKENS
+<script>try{(window.parent||window).document.documentElement.lang="ko"}catch(e){}</script>
+""" % {**TOKENS, "font_link": _FONT}
 
 
 def e(x) -> str:
@@ -107,7 +114,7 @@ def chip(text: str, tone: str = "gray") -> str:
 
 
 def topbar(subtitle: str, now: str | None, mode: str) -> str:
-    return (f'<div class="wl-top"><div class="wl-brand"><div class="wl-logo">W</div>병실관리AI'
+    return (f'<div class="wl-top"><div class="wl-brand"><div class="wl-logo">병</div>병실관리AI'
             f'<span class="wl-badge">합성 데이터 데모</span></div><div class="wl-meta"><span>{e(subtitle)}</span>'
             + (f'<span><b>{e(now)}</b> 기준</span>' if now else "") + f'<span class="wl-badge">{e(mode)}</span></div></div>')
 

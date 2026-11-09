@@ -82,7 +82,9 @@ class Gateway:
         self.room_of = {b.id: b.room_id for b in self.beds}
         self.room_by_id = {r.id: r for r in self.rooms}
         self.census = dict(census or {})  # 현재 재원 환자 (병상 ID → 환자)
-        self.calendar = calendar or load_operations().calendar  # 사후 검토 기한 (운영 달력, SAG-8)
+        ops = load_operations()
+        self.calendar = calendar or ops.calendar  # 사후 검토 기한 (운영 달력, SAG-8)
+        self.staff = dict(ops.staff)  # 안전 예외 승인 권한자 (설계 가정, 실제는 인증 시스템)
         self._waived: dict[str, list[str]] = {}  # 제안별로 정책이 검토에서 뺀 사유 (통보 근거)
 
     # ---------- 이벤트에서 계산하는 상태 ----------
@@ -329,6 +331,10 @@ class Gateway:
         if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage"), contacted):
             return reject("not_allowed")
         builder = getattr(self, "_input_builder", None)
+        if builder is None:  # 머리가 등록되지 않아도 게이트웨이가 스스로 입력을 계산한다 (2회차 안전 검토)
+            from turnaround.agent.brain import ExceptionBrain
+            from turnaround.agent.llm import FakeLLM
+            builder = ExceptionBrain(self, FakeLLM(), self.policy, wards=getattr(self, "wards", ()))
         # 머리가 낸 입력은 믿지 않는다: 운영에서는 게이트웨이가 이벤트에서 같은 입력을 다시 계산해 판정한다
         basis = builder._input(raised, events, now) if builder is not None else choice.basis_input
         if not fallback_ok and basis:
@@ -349,7 +355,8 @@ class Gateway:
         if choice.trigger == "late_isolation":
             # 늦은 격리는 어떤 행동이든 감염관리실이 함께 안다 (4단계 시연에서 발견: 공기주의인데 감염관리실 통지 없음)
             self._emit(choice.case, f"{exid}:task:ipc_notice", EventType.HUMAN_TASK_CREATED, now, kind="isolation_notice",
-                       assignee="ipc", notice=True, exception_id=exid, trigger=choice.trigger,
+                       assignee="ipc", holder="ipc" if self.calendar.in_office(now) else "id_oncall",
+                       notice=True, exception_id=exid, trigger=choice.trigger,
                        bed_id=raised.payload.get("bed_id"), card={**(raised.payload.get("context") or {}),
                                                                  "deadline": raised.payload.get("deadline"),
                                                                  "agent_action": choice.action})
@@ -371,6 +378,20 @@ class Gateway:
                        how=choice.action)
         return Decision("executed", "action", autonomy)
 
+    ISOLATION_TRIGGERS = frozenset({"late_isolation"})
+
+    def _approver_roles(self, exception_id: str, events: list[Event]) -> set[str]:
+        """이 승인 요청을 결정할 수 있는 역할. 늦은 격리의 병상 결정은 감염관리실(근무 외 감염내과 당직)이 한다
+        (표준예방지침 5.5.2.6, 최고점 루프 2회차). 그 밖은 원무·올림 역할."""
+        raised = next((e for e in events if e.type is EventType.EXCEPTION_RAISED
+                       and e.payload.get("exception_id") == exception_id), None)
+        if raised is not None and raised.payload.get("trigger") in self.ISOLATION_TRIGGERS:
+            return set(self.policy.manual_override.safety_exception_roles)
+        return set(self.policy.hospital_profile.escalation_roles) | set(self.policy.manual_override.roles)
+
+    def approver_roles(self, exception_id: str) -> set[str]:
+        return self._approver_roles(exception_id, self._events())
+
     def decline_action(self, exception_id: str, actor: str, reason: str, now: datetime) -> Decision:
         """사람이 승인 요청을 거절한다 (4단계 UX 검수: 승인만 있고 거절이 없었다). 예외는 사람이 맡은 것으로 닫는다."""
         events = self._events()
@@ -378,8 +399,7 @@ class Gateway:
                     and e.payload.get("exception_id") == exception_id), None)
         if req is None:
             return Decision("unknown", "action")
-        roles = set(self.policy.hospital_profile.escalation_roles) | set(self.policy.manual_override.roles)
-        if actor not in roles:
+        if actor not in self._approver_roles(exception_id, events):
             return Decision("rejected", "action", None, ["approver_role"])
         if any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exception_id for e in events):
             return Decision("superseded", "action")
@@ -446,8 +466,7 @@ class Gateway:
         if any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exception_id for e in events):
             return Decision("superseded", "action")
         action = req.payload["action"]
-        roles = set(self.policy.hospital_profile.escalation_roles) | set(self.policy.manual_override.roles)
-        if actor not in roles:
+        if actor not in self._approver_roles(exception_id, events):
             return Decision("rejected", "action", None, ["approver_role"])
         prop = next((e for e in events if e.type is EventType.ACTION_PROPOSED
                      and e.payload.get("exception_id") == exception_id and e.payload.get("action") == action), None)
@@ -980,25 +999,42 @@ class Gateway:
         """감염관리실(또는 야간 대행)이 특정 환자·병상에 대한 안전 예외를 미리 승인한다. 승인은 기록으로만 인정한다:
         직접 수정 때 역할 문자열을 주장하는 것으로는 통과하지 않는다."""
         mo = self.policy.manual_override
-        if role not in mo.safety_exception_roles or not approver:
-            d = Decision("refused", "safety_exception", None, ["role_not_allowed"])
-        elif bed_id not in self.room_of:
+        events = self._events()
+        patient, _ = self._admission(case, events)
+        if role not in mo.safety_exception_roles or not approver or self.staff.get(approver) != role:
+            d = Decision("refused", "safety_exception", None, ["role_not_allowed"])  # 등록된 권한자만 (위조 방지)
+        elif bed_id not in self.room_of or patient is None:
             d = Decision("refused", "safety_exception", None, ["unknown_case_or_bed"])
         else:
+            # 승인은 지금 보이는 위반 코드와 시한에 묶는다: 같은 병실 상황이 바뀌어 새 위반이 생기면 다시 받아야 한다
             self._emit(case, f"gw:se:{case}:{bed_id}:{approver}:{now.isoformat()}", EventType.SAFETY_EXCEPTION_APPROVED,
-                       now, "human", bed_id=bed_id, by=approver, role=role)
+                       now, "human", bed_id=bed_id, by=approver, role=role,
+                       violations=sorted(self._shacl(case, patient, bed_id, events)),
+                       valid_until=(now + timedelta(hours=self.SAFETY_EXCEPTION_TTL_H)).isoformat())
             d = Decision("recorded", "safety_exception")
         self._audit(f"gw:se:{case}:{bed_id}:{now.isoformat()}:audit", case, now, "safety_exception", bed_id, d,
                     actor=approver, role=role)
         return d
 
+    SAFETY_EXCEPTION_TTL_H = 4  # 안전 예외 승인 유효 시간 (설계 가정)
+
     def _safety_exception_recorded(self, case: str, bed_id: str, claim: tuple[str, str] | None, requester: str,
-                                   events: list[Event]) -> bool:
+                                   events: list[Event], now: datetime | None = None,
+                                   violations: list[str] | None = None) -> bool:
         if not claim or claim[1] not in self.policy.manual_override.safety_exception_roles or claim[0] == requester:
             return False
-        return any(e.type is EventType.SAFETY_EXCEPTION_APPROVED and e.case_id == case
-                   and e.payload.get("bed_id") == bed_id and e.payload.get("by") == claim[0]
-                   and e.payload.get("role") == claim[1] for e in events)
+        for e in events:
+            if not (e.type is EventType.SAFETY_EXCEPTION_APPROVED and e.case_id == case
+                    and e.payload.get("bed_id") == bed_id and e.payload.get("by") == claim[0]
+                    and e.payload.get("role") == claim[1]):
+                continue
+            until = e.payload.get("valid_until")
+            if now is not None and until and now > datetime.fromisoformat(until):
+                continue  # 시한 지난 승인
+            if violations is not None and not set(violations) <= set(e.payload.get("violations") or []):
+                continue  # 승인 뒤 새 위반이 생김
+            return True
+        return False
 
     # ---------- 관리자 직접 수정 ----------
 
@@ -1032,7 +1068,8 @@ class Gateway:
             exception = None
             tier = self._safety_tier(violations, patient) if violations else None
             if violations:
-                approved = self._safety_exception_recorded(case, bed_id, safety_exception_by, actor, events)
+                approved = self._safety_exception_recorded(case, bed_id, safety_exception_by, actor, events, now,
+                                                           violations)
                 real_reason = len("".join(ch for ch in (reason_text or "") if ch.isalnum())) >= 2  # "." 같은 빈 사유는 받지 않는다
                 ok = (tier == "preapproval" and approved) or (tier == "reason_entry" and (real_reason or approved))
                 if not ok:
