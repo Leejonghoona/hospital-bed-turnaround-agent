@@ -559,7 +559,8 @@ def exception_v2(llm: LLM, limit: int | None = None, reps_n: int = 30) -> dict:
         role_ok = None
         if it["gold_action"]["action"] == "escalate" and v == "gold":
             role_ok = (out.get("params") or {}).get("role") == it["gold_action"]["params"].get("role")
-        rows.append({"id": it["id"], "verdict": v, "action": out.get("action"), "good": float(v in _GOOD),
+        rows.append({"id": it["id"], "verdict": v, "action": out.get("action"), "params": out.get("params"),
+                     "rationale": str(out.get("rationale") or ""), "good": float(v in _GOOD),
                      "exact": float(v == "gold"), "notice_ok": notice, "role_ok": role_ok,
                      "difficulty": it["difficulty"], "trigger": it["trigger"], "origin": it.get("origin")})
     rep = []
@@ -591,7 +592,8 @@ def exception_v2(llm: LLM, limit: int | None = None, reps_n: int = 30) -> dict:
             "by_difficulty": by("difficulty"), "by_trigger": by("trigger"), "by_origin": by("origin"),
             "R1_pass3": round(statistics.fmean(x["pass3"] for x in rep), 4) if rep else None, "R1_n": len(rep),
             "R1_same_action": round(statistics.fmean(x["same"] for x in rep), 4) if rep else None,
-            "items": [{k: r[k] for k in ("id", "verdict", "action", "notice_ok")} for r in rows], "stopped": stopped}
+            "items": [{k: r[k] for k in ("id", "verdict", "action", "params", "rationale", "notice_ok")} for r in rows],
+            "stopped": stopped}
 
 
 def explain_facts(text: str, ctx: dict) -> dict:
