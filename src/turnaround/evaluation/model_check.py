@@ -534,7 +534,7 @@ _GOOD = ("gold", "acceptable")
 
 
 def exception_v2(llm: LLM, limit: int | None = None, reps_n: int = 30) -> dict:
-    from turnaround.agent.brain import SYSTEM as BRAIN_SYSTEM
+    from turnaround.agent.brain import SYSTEM_V1 as BRAIN_SYSTEM  # 측정은 사전 등록한 v1로 고정 (v2는 사후 변경)
     from .eval_sets import load
     items = load("exception_decisions_v2_1")[:limit]
     auto = {"auto", "post_report"}
@@ -638,7 +638,7 @@ def manifest() -> dict:
     """세트 파일과 프롬프트의 SHA-256. 결과가 어느 세트·지시문으로 나왔는지 고정한다 (봉인·재현성)."""
     import hashlib
 
-    from turnaround.agent.brain import SYSTEM as BRAIN_SYSTEM
+    from turnaround.agent.brain import SYSTEM_V1 as BRAIN_SYSTEM  # 측정은 사전 등록한 v1로 고정 (v2는 사후 변경)
     from turnaround.agent.planner import EXPLAIN_SYSTEM, SYSTEM as PLAN_SYSTEM
     from turnaround.agent.qa import SYSTEM as QA_SYSTEM
     h = lambda b: hashlib.sha256(b).hexdigest()[:16]  # noqa: E731
