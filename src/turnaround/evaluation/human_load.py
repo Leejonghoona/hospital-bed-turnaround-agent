@@ -22,6 +22,7 @@ ACCOUNTABLE = {EventType.WARD_ACCEPTED: "ward_reply", EventType.WARD_REJECTED: "
 
 def human_load(events: list[Event], rubber_stamp_s: float = 30.0) -> dict:
     admissions = {e.case_id for e in events if e.type is EventType.ADMISSION_REQUESTED}
+    cancelled = {e.case_id for e in events if e.type is EventType.ADMISSION_CANCELLED}
     commits = [e for e in events if e.type is EventType.MATCH_COMMITTED and e.case_id in admissions]
     committed = {e.case_id for e in commits}
     # 공식 확정은 사람이 한 것만 책임 개입이다. 에이전트 확정은 통보만 받는다 (DECISIONS 2026-11-09)
@@ -53,6 +54,10 @@ def human_load(events: list[Event], rubber_stamp_s: float = 30.0) -> dict:
         "admission_cases": len(admissions), "committed": len(committed),
         "judgement_per_case": round(sum(judge.values()) / n, 3),
         "accountable_per_case": round(sum(acct.values()) / n, 3),
+        # 일반 경로 처리율 (로드맵 07 M1): 판단 개입도 사람 확정도 없이 에이전트가 확정까지 간 입원
+        "no_touch_committed": sum(1 for c in committed - human_committed if judge[c] == 0),
+        "no_touch_ratio_of_admissions": round(sum(1 for c in committed - human_committed if judge[c] == 0)
+                                              / max(1, len(admissions - cancelled)), 3),
         "fully_automatic_ratio": round(sum(1 for c in committed if judge[c] == 0) / len(committed), 3) if committed else None,
         "approval_wait_median_s": statistics.median(waits) if waits else None,
         "rubber_stamp_suspects": sum(1 for w in waits if w < rubber_stamp_s),

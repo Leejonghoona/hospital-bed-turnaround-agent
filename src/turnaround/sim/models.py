@@ -226,6 +226,16 @@ class GeneratorConfig(_Frozen):
     death_count: int = Field(default=1, ge=0)  # 임종실 전실 사례 (DAT-10, 합성 가정)
     ama_count: int = Field(default=1, ge=0)  # 자의 퇴원 사례
     transfer_out_count: int = Field(default=1, ge=0)  # 급변 전동(퇴원 예정이던 환자가 악화돼 중환자실로) (SAG-10)
+    # 입원 대기 구성 (로드맵 07 M1). test: 검토 사례 10종을 한 건씩 고정(회귀용). realistic: 사례마다 비율로 뽑는다
+    admission_mix: Literal["test", "realistic"] = "test"
+    # 현실 구성 비율 (docs/검토/현장조사/입원사례_구성비율.md 추천표. 등급 B·C 근거, D는 설계 가정)
+    # contact 4.2% = 다제내성균 4%(C, 질병관리청 2026-10 시점유병률을 낮춰 씀) + C. difficile 0.2%(C, JKMS 2024)
+    # airborne 0.5%(D), droplet 1.5%(D, 연평균), preemptive 2%(D), icu 8%(D), single_room 5%(D),
+    # same_name 0.5%(D), missing_gender 0.5%(D), integrated_care 희망 30%(D). 성인 병동이라 소아 0
+    realistic_rates: dict[str, float] = Field(default_factory=lambda: {
+        "airborne": 0.005, "contact": 0.042, "droplet": 0.015, "preemptive": 0.02, "pediatric": 0.0, "icu": 0.08,
+        "single_room": 0.05, "same_name": 0.005, "missing_gender": 0.005, "integrated_care": 0.30})
+    integrated_care_consent_missing_rate: float = Field(default=0.25, ge=0, le=1)  # 현실 구성, 설계 가정
 
     @property
     def discharge_count(self) -> int:
@@ -239,7 +249,7 @@ class GeneratorConfig(_Frozen):
                 raise ValueError(f"{name}가 퇴원 건수({total})보다 많다")
         if self.isolation_discharge_count > self.days:
             raise ValueError("격리 퇴실은 하루 1건까지만 둔다")
-        if self.admission_cancel_count > self.admission_count - N_SPECIAL_ADMISSIONS:
+        if self.admission_mix == "test" and self.admission_cancel_count > self.admission_count - N_SPECIAL_ADMISSIONS:
             raise ValueError("입원 취소는 검토 사례가 아닌 일반 입원 대기에서만 고른다")
         return self
 

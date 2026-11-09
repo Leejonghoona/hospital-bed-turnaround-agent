@@ -35,8 +35,8 @@ class DemoState:
 
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
-               policy=None, step_min: int = 15, mode: str = "explain") -> DemoState:
-    h = generate(seed=seed)
+               policy=None, step_min: int = 15, mode: str = "explain", config=None) -> DemoState:
+    h = generate(seed=seed, config=config)
     events = hospital_to_events(h, seed=seed)
     entries = 0
     if via_fhir:
@@ -46,7 +46,8 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     events = sorted(events, key=lambda e: e.observed_at)
     store = EventStore(":memory:")
     gw = Gateway(store, h.rooms, h.beds, policy or load_policy())
-    saga = SagaRunner(store, SagaPolicy.for_layout(h.rooms, h.beds))
+    saga = SagaRunner(store, SagaPolicy.for_layout(h.rooms, h.beds) if policy is None
+                      else SagaPolicy.from_policy(policy, h.rooms, h.beds))
     agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM(), mode=mode)
     work = WorklistRunner(store, load_operations())
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())

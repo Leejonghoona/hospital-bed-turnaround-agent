@@ -234,11 +234,22 @@ class _Gen:
         days = list(range(cfg.days)) + [self.rng.randrange(cfg.days) for _ in range(n - cfg.days)]
         self.rng.shuffle(days)
         # 담당 검토로 가야 할 사례를 서로 다른 대기 건에 하나씩 둔다.
-        special = list(SPECIAL_KINDS)
-        order = self.rng.sample(range(n), n)
-        kind = {idx: special[j] for j, idx in enumerate(order[: len(special)])}
-        normal = order[len(special):]
-        cancelled = set(self.rng.sample(normal, cfg.admission_cancel_count))
+        if cfg.admission_mix == "realistic":
+            kind = {}
+            for idx in range(n):
+                r, acc = self.rng.random(), 0.0
+                for k in SPECIAL_KINDS:
+                    acc += cfg.realistic_rates.get(k, 0.0)
+                    if r < acc:
+                        kind[idx] = k
+                        break
+            normal = [i for i in range(n) if i not in kind]
+        else:
+            special = list(SPECIAL_KINDS)
+            order = self.rng.sample(range(n), n)
+            kind = {idx: special[j] for j, idx in enumerate(order[: len(special)])}
+            normal = order[len(special):]
+        cancelled = set(self.rng.sample(normal, min(cfg.admission_cancel_count, len(normal))))
         same_name = self.rng.choice(discharges).patient.name
 
         result = []
@@ -269,7 +280,10 @@ class _Gen:
                 preferred_ward_id=ward.id, from_icu=k == "icu", wants_single_room=k == "single_room",
                 single_room_reason="isolation" if organism else ("preference" if k == "single_room" else None),
                 integrated_care_requested=k == "integrated_care",
-                integrated_care_consent=None,  # 동의 미확인 (LP-21 검토 사유)
+                # 동의 미확인 (LP-21 검토 사유). 현실 구성에서는 일부만 미확인
+                integrated_care_consent=(None if cfg.admission_mix == "test"
+                                         or self.rng.random() < cfg.integrated_care_consent_missing_rate else True)
+                if k == "integrated_care" else None,
                 cancelled_at=cancelled_at,
             ))
         return tuple(result)
