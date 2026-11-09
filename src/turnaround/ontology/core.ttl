@@ -148,3 +148,24 @@ ta:act_propose_surveillance_hold a ta:ActionType ; ta:autonomyKey "propose_surve
 ta:act_nudge_order a ta:ActionType ; ta:autonomyKey "nudge_order" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
 ta:act_offer_lounge a ta:ActionType ; ta:autonomyKey "offer_lounge" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
 ta:act_wait_for_guardian a ta:ActionType ; ta:autonomyKey "wait_for_guardian" ; ta:gatewayMethod "submit_action" .
+
+# ---------------- 사건 순서 (같은 사례 안에서 앞 사건은 뒤 사건보다 늦지 않다) ----------------
+# 매핑 에이전트가 이름이 애매한 시각 열(예: "퇴원일시")을 순서로 가려낸다.
+ta:ev_discharge_decided ta:notAfter ta:ev_order_confirmed .
+ta:ev_order_confirmed ta:notAfter ta:ev_rx_issued, ta:ev_medication_ready, ta:ev_education_done .
+ta:ev_rx_issued ta:notAfter ta:ev_rx_dispensed .
+ta:ev_rx_dispensed ta:notAfter ta:ev_medication_ready .
+ta:ev_medication_ready ta:notAfter ta:ev_billing_done .
+ta:ev_billing_done ta:notAfter ta:ev_patient_departed .
+ta:ev_education_done ta:notAfter ta:ev_patient_departed .
+ta:ev_guardian_arrived ta:notAfter ta:ev_patient_departed .
+ta:ev_patient_departed ta:notAfter ta:ev_cleaning_requested, ta:ev_cleaning_started .
+ta:ev_cleaning_started ta:notAfter ta:ev_cleaning_done .
+ta:ev_cleaning_done ta:notAfter ta:ev_bed_ready .
+ta:ev_death_confirmed ta:notAfter ta:ev_body_transferred .
+ta:ev_admission_requested ta:notAfter ta:ev_admission_cancelled .
+
+# ---------------- 매핑 안전 규칙 ----------------
+# 안전 속성(L2)과 병실 종류 코드표는 확신과 상관없이 사람이 확인한다.
+ta:mapping_confirm_always ta:codeKey "patient.precautions", "room_type", "patient.gender", "gender", "patient.organism",
+    "cleaning_requested.cleaning_type", "cleaning_done.cleaning_type" .

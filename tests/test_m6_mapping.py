@@ -32,3 +32,41 @@ def test_gold_mapping_restores_canonical_events_and_layout(fmt, seed):
     assert sorted(map(_key, out.events)) == sorted(map(_key, ev))
     assert out.rooms == h.rooms and out.beds == h.beds
     assert {w.id: w.departments for w in out.wards} == {w.id: w.departments for w in h.wards}
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_mapping_agent_draft_plus_answers_restores_exactly(fmt):
+    from turnaround.evaluation.mapping_eval import score
+    h, ev = _canonical(2)
+    r = score(export(h, ev, fmt), gold_mapping(fmt), ev, h)
+    assert r["columns"]["wrong"] == 0 and r["codes"]["wrong"] == 0
+    assert r["exact_after_answers"]
+
+
+def test_trap_discharge_time_column_is_resolved_by_event_order():
+    """'퇴원일시'·DSCH_DT는 수납 완료 시각이다. 이름이 아니라 핵심 온톨로지의 사건 순서로 가린다."""
+    from turnaround.agent.mapping_agent import propose_mapping
+    h, ev = _canonical(1)
+    for fmt, table, col in (("emr_a", "TB_DSCH", "DSCH_DT"), ("emr_b", "퇴원현황", "퇴원일시")):
+        d = propose_mapping(export(h, ev, fmt))
+        assert d.columns[(table, col)] == "t:billing_done"
+        checks = d.evidence["order_checks"][f"{table}.{col}"]
+        assert checks["t:billing_done"] == 0 and checks["t:patient_departed"] > 0
+
+
+def test_llm_input_has_no_raw_identifiers():
+    import json
+    from turnaround.agent.mapping_agent import profile
+    h, ev = _canonical(1)
+    for fmt in FORMATS:
+        text = json.dumps(profile(export(h, ev, fmt)), ensure_ascii=False)
+        assert h.discharges[0].patient.name not in text and "SYN-P" not in text
+
+
+def test_safety_codes_always_go_to_a_human():
+    from turnaround.agent.mapping_agent import propose_mapping
+    h, ev = _canonical(1)
+    d = propose_mapping(export(h, ev, "emr_b"))
+    ids = {q.id for q in d.questions}
+    assert any(i.startswith("code:patient.precautions:") for i in ids)
+    assert any(i.startswith("code:room_type:") for i in ids)
