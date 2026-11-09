@@ -32,6 +32,15 @@ def test_safety_sweep_seeds_0_999():
     print(r)
 
 
+def test_executed_safety_sweep_50_seeds():
+    """시스템이 실행한 상태의 안전 (DECISIONS 2026-11-09). 위 시드 0~999 스윕은 생성기 자료 점검이다."""
+    from turnaround.evaluation.safety_exec import executed_safety_sweep
+    r = executed_safety_sweep(range(50))
+    print(r)
+    assert r["S1"]["violations"] == 0 and r["S2"]["violations"] == 0
+    assert r["S1"]["denominator"] > 0 and r["S2"]["denominator"] > 0
+
+
 # ---------- 2. 강제 종료 경계 전수 ----------
 
 def _sig(store):

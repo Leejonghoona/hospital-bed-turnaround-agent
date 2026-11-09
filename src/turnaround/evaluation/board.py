@@ -25,9 +25,10 @@ from turnaround.gateway import load_policy
 
 ROOT = Path(__file__).resolve().parents[3]
 DEV_DIR = ROOT / "evals" / "scenarios" / "dev"
-HEADER = "## 점수판 기록 v2"
-COLUMNS = ["날짜", "커밋", "시나리오 세트", "분리", "LLM", "정책", "S1 위반/분모", "S2 위반/분모", "S4 누수/절단",
-           "통과/실패/미구현", "퇴실→준비 P50·P90(분)", "가정"]
+HEADER = "## 점수판 기록 v3"
+# v3 (2026-11-09): 생성기 자료 점검과 시스템 실행 상태 안전을 나눠 적는다 (DECISIONS "안전 지표 S1·S2를 시스템 실행 상태로 재기")
+COLUMNS = ["날짜", "커밋", "시나리오 세트", "분리", "LLM", "정책", "실행 S1 위반/분모", "실행 S2 위반/분모", "실행 시드",
+           "생성기 점검 S1·S2", "저장소 시각 조회 누수/절단", "통과/실패/미구현", "퇴실→준비 P50·P90(분)", "가정"]
 
 
 
@@ -40,7 +41,8 @@ def scenario_set_hash(directory: Path) -> str:
 
 
 def _safety(seeds: Iterable[int]) -> dict:
-    """지금은 생성기 상태를 검사한다. 사가와 게이트웨이가 생기면 시스템이 실행한 상태로 바꾼다."""
+    """생성기 자료 점검: 합성 생성기가 만든 퇴원·청소 기록이 기준을 지키는지 본다. 제품 안전의 증거가 아니다.
+    시스템이 실행한 상태의 안전은 safety_exec.executed_safety_sweep (점수판 "실행 S1·S2")."""
     s1_v = s1_n = s2_v = s2_n = 0
     for seed in seeds:
         h = generate(seed=seed)
@@ -82,8 +84,16 @@ def _lookahead(seeds: Iterable[int]) -> dict:
     return {"leaks": leaks, "cuts": cuts, "source": "event_store_noisy_replay"}
 
 
+def _exec(exec_seeds):
+    if exec_seeds is None:
+        return None
+    from .safety_exec import executed_safety_sweep
+    return executed_safety_sweep(exec_seeds)
+
+
 def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "dev",
-              llm: str | None = None, policy: str = "none") -> dict:
+              llm: str | None = None, policy: str = "none", exec_seeds: Iterable[int] | None = None) -> dict:
+    """exec_seeds를 주면 그 시드로 데모 하루 재생을 돌려 실행 상태 안전을 잰다(시드당 20초쯤)."""
     from .runners_gateway import AGENT_CONFIG
     llm = llm or f"{AGENT_CONFIG['llm_factory']().name}/{AGENT_CONFIG['mode']}"
     seeds = list(seeds)
@@ -107,6 +117,7 @@ def run_board(directory: Path, seeds: Iterable[int], commit: str, split: str = "
         "scenarios": {"total": len(scenarios), **counts, "by_id": results, "failures": failures,
                       "labels_approved": sum(s.status == "approved" for s in scenarios)},
         "safety": _safety(seeds), "baseline": no_agent_baseline(seeds),
+        "safety_executed": _exec(exec_seeds),
         "note": "합성 데이터 기준 추정",
     }
 
@@ -116,10 +127,12 @@ def append_results_row(results_md: Path, r: dict) -> None:
     if HEADER not in text:
         text = text.rstrip("\n") + f"\n\n{HEADER}\n`python -m turnaround.evaluation.board --write`가 추가한다. 손으로 고치지 않는다.\n\n"
         text += "| " + " | ".join(COLUMNS) + " |\n|" + "---|" * len(COLUMNS) + "\n"
-    s, b, sc = r["safety"], r["baseline"], r["scenarios"]
+    s, b, sc, x = r["safety"], r["baseline"], r["scenarios"], r.get("safety_executed")
+    frac = lambda m: f"{m['violations']}/{m['denominator']}"  # noqa: E731
     cells = [r["date"], r["commit"], r["scenario_set"], r["split"], r["llm"], r["policy"],
-             f"{s['S1']['violations']}/{s['S1']['denominator']}", f"{s['S2']['violations']}/{s['S2']['denominator']}",
-             f"{s['S4']['leaks']}/{s['S4']['cuts']}",
+             frac(x["S1"]) if x else "-", frac(x["S2"]) if x else "-",
+             f"{x['seeds'][0]}~{x['seeds'][1]}" if x and x["seeds"] else "-",
+             f"{frac(s['S1'])}·{frac(s['S2'])}", f"{s['S4']['leaks']}/{s['S4']['cuts']}",
              f"{sc['passed']}/{sc['failed']}/{sc['not_implemented']}",
              f"{b['bed_prep_min']['p50']}·{b['bed_prep_min']['p90']} (기존 방식)", ",".join(b["assumptions"]) or "-"]
     row = "| " + " | ".join(map(str, cells)) + " |"
@@ -142,19 +155,21 @@ def main() -> None:
     p = argparse.ArgumentParser(description="평가 점수판")
     p.add_argument("--seeds", default="0-199")
     p.add_argument("--write", action="store_true", help="evals/results에 JSON 저장, RESULTS.md에 한 줄 추가")
+    p.add_argument("--exec-seeds", default="0-9", help="실행 상태 안전을 잴 시드 (데모 하루 재생, 시드당 20초쯤)")
     p.add_argument("--split", choices=["dev", "holdout"], default="dev",
                    help="holdout은 마일스톤(4단계, 7단계 끝)에만 돌린다. 실행 횟수가 RESULTS.md에 남는다")
     a = p.parse_args()
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
                             cwd=ROOT).stdout.strip() or "unknown"
     directory = DEV_DIR.parent / "holdout" if a.split == "holdout" else DEV_DIR
-    r = run_board(directory, _parse_seeds(a.seeds), commit, split=a.split, policy=load_policy().version)
+    r = run_board(directory, _parse_seeds(a.seeds), commit, split=a.split, policy=load_policy().version,
+                  exec_seeds=_parse_seeds(a.exec_seeds))
     if a.write:
         out = ROOT / "evals" / "results" / f"{r['date']}_{commit}_{a.split}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
         append_results_row(ROOT / "docs" / "RESULTS.md", r)
-    print(json.dumps({k: r[k] for k in ("commit", "scenario_set", "safety")} | {"scenarios": {
+    print(json.dumps({k: r[k] for k in ("commit", "scenario_set", "safety", "safety_executed")} | {"scenarios": {
         k: r["scenarios"][k] for k in ("total", "passed", "failed", "not_implemented")}}, ensure_ascii=False))
 
 

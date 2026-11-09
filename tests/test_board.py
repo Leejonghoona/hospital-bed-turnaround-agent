@@ -55,3 +55,18 @@ def test_results_row_is_appended_under_scoreboard_header(tmp_path):
     text = md.read_text(encoding="utf-8")
     assert text.count(HEADER) == 1
     assert text.count("| abc1234 |") == 2
+
+
+def test_scoreboard_row_separates_executed_safety_from_generator_check(tmp_path, monkeypatch):
+    """DECISIONS 2026-11-09: 실행 상태 안전과 생성기 자료 점검을 다른 열로 적는다."""
+    from turnaround.evaluation import board
+    fake = {"source": "system_executed", "seeds": [0, 9], "S1": {"violations": 0, "denominator": 70},
+            "S2": {"violations": 0, "denominator": 12}}
+    monkeypatch.setattr(board, "_exec", lambda seeds: fake if seeds is not None else None)
+    md = tmp_path / "RESULTS.md"
+    md.write_text("# 결과\n", encoding="utf-8")
+    r = run_board(DEV, seeds=range(0, 3), commit="x1", exec_seeds=range(10))
+    append_results_row(md, r)
+    row = [l for l in md.read_text(encoding="utf-8").splitlines() if "| x1 |" in l][0]
+    assert "| 0/70 | 0/12 | 0~9 |" in row and r["safety"]["source"] == "generator_state"
+    assert run_board(DEV, seeds=range(0, 1), commit="x2")["safety_executed"] is None
