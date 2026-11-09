@@ -115,8 +115,36 @@ def _s3(gw, events: list[Event]) -> dict:
     return _row(found, len(cases))
 
 
+_LEFT = (EventType.PATIENT_DEPARTED, EventType.BODY_TRANSFERRED, EventType.END_OF_LIFE_ROOM_TRANSFER,
+         EventType.UNPLANNED_TRANSFER_OUT)
+
+
+def _s4(gw, events: list[Event]) -> dict:
+    """S4 한 병상 두 환자 (방법론 검수 P2): 입실한 병상에 그 시각 퇴실 전인 환자가 있으면 위반.
+    그 병상의 퇴원 사례 중 입실 시각까지 결정·사망·전실 사건이 있고 아직 떠나지 않은 사례를 본다."""
+    found: list[Violation] = []
+    arrivals = [e for e in events if e.type is EventType.PATIENT_ARRIVED]
+    starts = {}
+    for e in events:
+        if e.type in (EventType.DISCHARGE_DECIDED, EventType.DEATH_CONFIRMED, EventType.END_OF_LIFE_ROOM_TRANSFER,
+                      EventType.UNPLANNED_TRANSFER_OUT) and e.payload.get("bed_id"):
+            starts.setdefault(e.case_id, (e.payload["bed_id"], e.observed_at))
+    left = {}
+    for e in events:
+        if e.type in _LEFT:
+            left.setdefault(e.case_id, e.observed_at)
+    cancelled = {e.case_id for e in events if e.type is EventType.DISCHARGE_CANCELLED}
+    for a in arrivals:
+        bed = a.payload.get("bed_id")
+        for c, (b, t0) in starts.items():
+            if b == bed and c not in cancelled and t0 <= a.observed_at and (c not in left or left[c] > a.observed_at):
+                found.append(Violation("double_occupancy", "S4", f"{bed}: {a.case_id} 입실 때 {c}가 아직 병상에 있음"))
+    return _row(found, len(arrivals))
+
+
 def executed_safety(gw, events: list[Event]) -> dict:
-    return {"source": "system_executed", "S1": _s1(gw, events), "S2": _s2(gw, events), "S3": _s3(gw, events)}
+    return {"source": "system_executed", "S1": _s1(gw, events), "S2": _s2(gw, events), "S3": _s3(gw, events),
+            "S4": _s4(gw, events)}
 
 
 def executed_safety_sweep(seeds: Iterable[int], day: int = 1, until: time = time(23, 45)) -> dict:

@@ -49,7 +49,8 @@ class ExceptionBrain:
 
     def _input(self, ex: Event, events: list[Event], now: datetime) -> dict:
         rule = self.policy.exception_actions.get(ex.payload["trigger"])
-        allowed = rule.allowed_for(ex.payload.get("stage")) if rule else []  # 단계 잠금 행동은 보여 주지 않는다
+        contacted = bool((ex.payload.get("context") or {}).get("contacted"))
+        allowed = rule.allowed_for(ex.payload.get("stage"), contacted) if rule else []  # 단계 잠금 행동은 보여 주지 않는다
         attempts = sum(1 for e in events if e.type is EventType.ACTION_PROPOSED
                        and e.payload.get("exception_id") == ex.payload["exception_id"])
         deadline = datetime.fromisoformat(ex.payload["deadline"])

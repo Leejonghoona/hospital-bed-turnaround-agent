@@ -75,6 +75,7 @@ def _layout() -> tuple[tuple[Room, ...], tuple[Bed, ...]]:
 class _Gen:
     def __init__(self, seed: int, config: GeneratorConfig, dists: dict[str, StageDistribution]):
         self.rng = random.Random(seed)
+        self.seed = seed
         self.rx_rng = random.Random(f"rx-{seed}")  # 퇴원약 단계 전용: 기존 난수열을 바꾸지 않는다
         self.cfg = config
         self.dists = dists
@@ -164,11 +165,11 @@ class _Gen:
         place = {i: ex_rng.choice(["eol_room", "ward"]) for i, k in dtype.items() if k == "death"}
 
         real = cfg.discharge_mix == "realistic"
-        mix_rng = random.Random(f"mix-{self.cfg.days}-{n}")  # 현실 구성 전용 난수열 (시험 구성 값은 그대로)
+        mix_rng = random.Random(f"mix-{self.seed}-{self.cfg.days}-{n}")  # 현실 구성 전용 난수열 (시험 구성 값은 그대로)
         regular = ({i for i in range(n) if i not in unregistered and dtype.get(i) is None
                     and mix_rng.random() < cfg.regular_discharge_rate} if real else set())
         slots = _GUARDIAN_SLOTS_REALISTIC if real else _GUARDIAN_SLOTS
-        seq_rng = random.Random(f"seq-{self.cfg.days}-{n}")  # 현장형 순서·청소 두 갈래 전용 (기존 값 불변)
+        seq_rng = random.Random(f"seq-{self.seed}-{self.cfg.days}-{n}")  # 현장형 순서·청소 두 갈래 전용 (기존 값 불변)
         result = []
         for i, (day, bed, iso) in enumerate(plan):
             room = self.room_by_id[bed.room_id]
@@ -314,7 +315,7 @@ class _Gen:
             day = days[i]
             requested = self.day_at(day, time(10, 0)) + timedelta(minutes=30 * self.rng.randint(0, 10))
             if cfg.discharge_mix == "realistic":
-                a_rng = random.Random(f"adm-{i}-{day}-{cfg.days}")
+                a_rng = random.Random(f"adm-{self.seed}-{i}-{day}-{cfg.days}")
                 lo, hi, _ = a_rng.choices(_ADMISSION_WINDOWS_REALISTIC, weights=[w for *_, w in _ADMISSION_WINDOWS_REALISTIC])[0]
                 span = (hi.hour * 60 + hi.minute) - (lo.hour * 60 + lo.minute)
                 requested = self.day_at(day, lo) + timedelta(minutes=30 * a_rng.randint(0, span // 30 - 1))

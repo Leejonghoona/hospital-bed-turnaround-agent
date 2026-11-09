@@ -16,9 +16,12 @@ LOCKED_HUMAN_ACTIONS = frozenset({"contact_patient", "approve_safety_exception"}
 # 단계 잠금: 환자 연락·확정·입실 뒤에는 매칭을 스스로 바꾸지 않는다(목표 함수 2항, 안전 검토 1.3).
 # 허용 목록에서 빼고(머리에게 보이지 않음) 게이트웨이도 거부한다. 병원 설정으로 풀 수 없다.
 # 근거: Haiku 5.5 예외 판단 측정(2026-11-09)에서 금지 20건 중 14건이 이 단계의 자동 재매칭이었다
+# 연락 뒤에는 단계 이름과 상관없이 스스로 바꾸는 행동을 잠근다 (E7 등은 단계가 pending_commit이라도 맥락이 연락 뒤)
+AUTO_REMATCH_ACTIONS = frozenset({"rematch_now", "replan_now"})
 STAGE_LOCKED_ACTIONS: dict[str, frozenset[str]] = {
     "after_contact": frozenset({"rematch_now"}), "after_commit": frozenset({"rematch_now"}),
     "after_arrival": frozenset({"rematch_now"})}
+STAGE_LOCKED_ACTIONS = {k: v | AUTO_REMATCH_ACTIONS for k, v in STAGE_LOCKED_ACTIONS.items()}
 Autonomy = Literal["auto", "post_report", "human"]
 
 
@@ -99,9 +102,9 @@ class ExceptionRule(_Frozen):
     # 단계별로 더 좁힌 허용 목록 (없으면 allowed 그대로). 단계 잠금(STAGE_LOCKED_ACTIONS)은 언제나 뺀다
     stage_allowed: dict[str, list[str]] = Field(default_factory=dict)
 
-    def allowed_for(self, stage: str | None) -> list[str]:
+    def allowed_for(self, stage: str | None, contacted: bool = False) -> list[str]:
         base = self.stage_allowed.get(stage or "", self.allowed)
-        locked = STAGE_LOCKED_ACTIONS.get(stage or "", frozenset())
+        locked = STAGE_LOCKED_ACTIONS.get(stage or "", frozenset()) | (AUTO_REMATCH_ACTIONS if contacted else frozenset())
         return [a for a in base if a in self.allowed and a not in locked]
 
 

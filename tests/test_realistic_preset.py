@@ -36,3 +36,11 @@ def test_test_preset_is_unchanged():
     a = generate(seed=42).discharges[0].actual.departed_at
     b = generate(seed=42, config=GeneratorConfig()).discharges[0].actual.departed_at
     assert a == b and GeneratorConfig().discharge_mix == "test"
+
+
+def test_realistic_streams_depend_on_seed():
+    """현실 프리셋 전용 난수열에 시드가 들어가야 한다 (방법론 검수: 모든 시드의 1번 퇴원 심사 간격이 같았음)."""
+    a = generate(seed=1, config=GeneratorConfig.realistic()).discharges[0].actual
+    b = generate(seed=2, config=GeneratorConfig.realistic()).discharges[0].actual
+    assert (a.billing_review_done_at - a.order_confirmed_at) != (b.billing_review_done_at - b.order_confirmed_at) or \
+        a.order_confirmed_at.time() != b.order_confirmed_at.time()

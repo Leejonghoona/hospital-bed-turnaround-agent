@@ -209,3 +209,15 @@ def test_wait_asks_ward_to_reconfirm_eta():
     ExceptionBrain(gw, FakeLLM(), FIELD).step(at(10, 10))
     kinds = {t.payload.get("kind") for t in _types(store, EventType.HUMAN_TASK_CREATED)}
     assert "guardian_eta_reconfirm" in kinds
+
+
+def test_step_nudge_on_medication_propagates_through_field_sequence():
+    """방법론 검수 P4: 퇴원약 단계 재촉 효과가 현장형 순서(전달 → 퇴실)를 거쳐 전파된다."""
+    h = generate(seed=3, config=GeneratorConfig.realistic())
+    d = next(x for x in h.discharges if x.discharge_type == "normal" and x.actual.medication_handed_at
+             and x.actual.medication_ready_at > x.actual.receipt_checked_at
+             and x.actual.guardian_arrived_at < x.actual.medication_handed_at)
+    at_ = d.actual.medication_ready_at - timedelta(minutes=60)
+    t2 = retime(d, Levers(step_nudges=(("medication", at_),)), ReactiveEffects())
+    assert t2.medication_ready_at < d.actual.medication_ready_at
+    assert t2.medication_handed_at < d.actual.medication_handed_at and t2.departed_at <= d.actual.departed_at

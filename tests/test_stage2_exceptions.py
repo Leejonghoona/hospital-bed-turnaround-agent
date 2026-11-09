@@ -134,3 +134,18 @@ def test_all_ten_gold_set_triggers_are_implemented():
     import json
     trig = {json.loads(l)["trigger"] for l in open("evals/model_eval/exception_decisions_v2_1.jsonl", encoding="utf-8")}
     assert trig <= set(FIELD.exception_actions), trig - set(FIELD.exception_actions)
+
+
+def test_e7_after_contact_never_auto_replans():
+    """정답 세트 XD-175·176: 연락 뒤 정보 정정은 스스로 다시 찾지 않고 추천안을 사람이 승인한다."""
+    evs = [_adm_at(at(14)), ev("A1", f"prematch_created:{BED}", EventType.PREMATCH_CREATED, at(8), "agent", bed_id=BED),
+           ev("A1", "contact", EventType.PATIENT_CONTACTED, at(8, 30), "human"),
+           ev("A1", "fix", EventType.PATIENT_INFO_CORRECTED, at(9), "human", field="gender", value="M")]
+    store, gw = make(evs, policy=FIELD)
+    _saga(store).step(at(9, 5))
+    brain = _brain(gw)
+    ex = [e for e in brain.open_exceptions(store.read()) if e.payload["trigger"] == "info_changed_pending"][0]
+    assert "replan_now" not in [a["id"] for a in brain._input(ex, store.read(), at(9, 10))["allowed_actions"]]
+    _brain(gw, _Script({"action": "replan_now", "params": {}, "rationale": "x"})).step(at(9, 10))
+    rej = [e for e in _types(store, EventType.ACTION_REJECTED) if e.payload["exception_id"].startswith("E7")]
+    assert rej and rej[0].payload["reasons"] == ["stage_locked"]

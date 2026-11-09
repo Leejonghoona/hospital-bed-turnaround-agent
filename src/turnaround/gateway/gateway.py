@@ -312,10 +312,14 @@ class Gateway:
         fallback_ok = choice.mode == "fallback" and choice.action == "escalate"
         if not fallback_ok and (rule is None or choice.action not in rule.allowed):
             return reject("not_allowed")
-        from .profile import STAGE_LOCKED_ACTIONS
-        if choice.action in STAGE_LOCKED_ACTIONS.get(raised.payload.get("stage") or "", frozenset()):
+        from .profile import AUTO_REMATCH_ACTIONS, STAGE_LOCKED_ACTIONS
+        contacted = bool((raised.payload.get("context") or {}).get("contacted")) or any(
+            e.type is EventType.PATIENT_CONTACTED and e.case_id == (raised.payload.get("admission_id") or choice.case)
+            for e in events)
+        if choice.action in STAGE_LOCKED_ACTIONS.get(raised.payload.get("stage") or "", frozenset()) or \
+                (contacted and choice.action in AUTO_REMATCH_ACTIONS):
             return reject("stage_locked")  # 연락·확정·입실 뒤 자동 재매칭 금지 (머리가 골라도 막는다)
-        if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage")):
+        if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage"), contacted):
             return reject("not_allowed")
         if any((e.seq or 0) > choice.basis_seq and e.case_id == choice.case and e.type in self._ACTION_MATERIAL
                for e in events):
