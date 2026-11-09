@@ -265,17 +265,19 @@ def _c4(run):
 
 def _c5(run):
     from turnaround.agent.onboarding_flow import apply_package
-    run.pkg = run.pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    # 두 사람 승인: 의료정보팀 + 감염관리 책임자(격리·성별 매핑이 있으므로). 사람 ID는 합성 값 (2회차 개인정보·IT 검토)
+    run.pkg = run.pkg.approve(by_role="medical_informatics", user_id="mi-park", acknowledge_profile_questions=True)
+    run.pkg = run.pkg.approve(by_role="ipc_lead", user_id="ipc-lee", acknowledge_profile_questions=True)
     mapped = apply_package(run.pkg, _tables())
     _day(run, SEED_NEW, time(18), mapped=mapped)
-    return "의료정보팀이 설정판을 승인하고 운영을 시작했다. 그 병원의 하루를 관리자 화면에서 본다"
+    return "의료정보팀과 감염관리 책임자가 설정판을 승인하고 운영을 시작했다. 그 병원의 하루를 관리자 화면에서 본다"
 
 
 SCENE_ONBOARD = Scene("onboard", "3. 새 병원 시작하기",
                       "처음 보는 병원의 내보내기 표를 올려 질문에 답하고, 시험 운영 검사 → 승인 → 운영 시작까지 한 번에 간다.",
                       [Step("업로드와 첫 질문", "onboarding", _c1, ["처음 보는 병원 내보내기 표 3개를 올렸다", "질문은 구조 → 형식 → 열 → 코드표 순서로 묶어서 묻는다", "병상 표를 못 찾아 구조부터 묻는다"]), Step("구조·형식·열 답", "onboarding", _c2, ["앞 묶음의 답으로 초안을 다시 만들어 뒤 질문이 줄어든다", "제안이 있는 질문은 확인만, 제안 없는 질문은 사람이 답을 찾는다"], act="제안대로 답하고 다음 묶음으로"),
                        Step("코드표 일괄 입력", "onboarding", _c3, ["병원 코드표를 한 번에 넣어 코드 질문을 해결", "'모름'은 승인이 아니다: 안전 코드는 늘 사람이 확인"], act="병원 코드표 올리기"), Step("시험 운영 검사", "onboarding", _c4, ["정답이 없는 새 병원에서도 쓸 수 있는 검사: 이 병원 데이터로 하루를 시험 운영", "사건 순서, 안전, 배정이 실제로 생기는지, 코드 뜻이 뒤바뀌지 않았는지"], act="시험 운영 검사 돌리기"),
-                       Step("승인하고 운영 시작", "manager", _c5, ["의료정보팀 승인 → 설정판 고정 → 운영 시작", "관리자 화면에서 그 병원의 흐름·안전·자동 처리 범위 제안을 본다"], act="설정판 승인하고 운영 시작")])
+                       Step("승인하고 운영 시작", "manager", _c5, ["의료정보팀 + 감염관리 책임자 두 사람 승인 → 설정판 고정 → 운영 시작", "관리자 화면에서 그 병원의 흐름·안전·자동 처리 범위 제안을 본다"], act="설정판 승인하고 운영 시작")])
 
 SCENES = {s.id: s for s in (SCENE_DAY, SCENE_EXCEPTION, SCENE_ONBOARD)}
 

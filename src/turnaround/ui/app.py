@@ -434,7 +434,7 @@ if mode == "시연 대본":
                                 [[r["time"], r["actor"], r["patient"], r["what"], r["detail"]] for r in v["changed"]]))
         if v["role"] == "manager" and run.pkg is not None and run.pkg.status == "approved":
             st.html(T.card("새 병원 설정판이 승인되어 운영을 시작했습니다", "아래는 그 병원 데이터로 돌린 하루입니다",
-                           [T.chip("승인: 의료정보팀", "green"), T.chip(f"설정판 {run.pkg.version[:6]}", "gray")]))
+                           [T.chip("승인: 의료정보팀 · 감염관리 책임자", "green"), T.chip(f"설정판 {run.pkg.version[:6]}", "gray")]))
         render_role(v["role"], run.st, v["data"] if v["role"] == "onboarding" else None, key="scene")
 else:
     from turnaround.gateway import load_policy
