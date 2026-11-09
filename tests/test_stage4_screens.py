@@ -83,8 +83,8 @@ def test_app_clicks_through_scene(sid):
     for _ in SCENES[sid].steps:
         at.button(key="next").click().run()
     assert not at.exception, at.exception
-    text = " ".join(m.value for m in at.markdown) + " ".join(s.value for s in at.subheader)
-    assert "화면" in text
+    text = " ".join(h.proto.body for h in at.get("html"))
+    assert "화면에서 볼 것" in text and "wl-kpi" in text  # 단계 안내와 지표 카드가 그려진다
     assert at.button(key="next").disabled
 
 
@@ -95,7 +95,8 @@ def test_app_role_screens_render(role):
     at.sidebar.radio[0].set_value("역할 화면").run()
     at.sidebar.radio[1].set_value(role).run()
     assert not at.exception, at.exception
-    assert at.header and "화면" in at.header[0].value
+    text = " ".join(h.proto.body for h in at.get("html"))
+    assert "wl-page-h" in text and ("wl-kpi" in text or "wl-table" in text or "wl-empty" in text)
 
 
 def test_browser_screenshot_of_scene(tmp_path):

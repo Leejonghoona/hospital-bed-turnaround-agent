@@ -11,7 +11,7 @@ async function idle(page) {
 
 (async () => {
   const b = await chromium.launch();
-  const page = await b.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: Number(scale || 2) });
+  const page = await b.newPage({ viewport: { width: 1440, height: 1600 }, deviceScaleFactor: Number(scale || 2) });
   for (const [sid, title, n] of SCENES) {
     if (only && only !== sid) continue;
     await page.goto(`http://127.0.0.1:${port}`);

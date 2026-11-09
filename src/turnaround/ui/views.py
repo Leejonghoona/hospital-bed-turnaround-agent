@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from turnaround.events import EventType
 from turnaround.saga import fold
 from turnaround.saga.worklist import is_notice, load_operations, open_tasks
@@ -113,7 +115,7 @@ def pending_approvals(st) -> list[dict]:
                     "action_ko": ACTION_KO.get(e.payload["action"], e.payload["action"]),
                     "trigger_ko": TRIGGER_KO.get(r.payload["trigger"], "") if r else "",
                     "bed": r.payload.get("bed_id") if r else None, "since": _hm(e.observed_at),
-                    "deadline": r.payload.get("deadline", "")[11:16] if r else "",
+                    "deadline": _hm(datetime.fromisoformat(r.payload["deadline"])) if r and r.payload.get("deadline") else "",
                     "rationale": (prop.payload.get("rationale") if prop else "") or "",
                     "facts": _facts(ctx)})
     # 마감이 지난 요청이 맨 위(지금 처리), 그다음 최신 요청 (4단계 화면 검수 3)
@@ -272,5 +274,52 @@ def onboarding_view(session) -> dict:
             "open": sum(1 for q in g.questions if q.proposal is None)}
 
 
-__all__ = ["SAFETY_KO", "STAGE_KO", "admission_view", "blocked_decisions", "ipc_view", "manager_view", "onboarding_view", "pending_approvals",
+REVIEW_KO = {"isolation": "격리", "preemptive_isolation": "선제 격리", "pediatric": "소아", "icu_stepdown": "중환자실 하향",
+             "single_room_preference": "1인실 희망", "grade_upgrade": "상급병실 차액", "no_bed": "조건 맞는 병상 없음",
+             "close_scores": "1·2순위 점수 근접", "missing_input": "입력 누락", "same_name_same_ward": "같은 병동 동명이인",
+             "integrated_care_consent_missing": "통합병동 동의 미확인", "isolation_discharge_bed": "격리 퇴실 병실",
+             "ward_objection": "병동 이의"}
+ROOM_KO = {"negative_pressure": "음압실", "single": "1인실", "multi": "다인실"}
+STATE_KO = {"occupied": "재원 중", "discharging": "퇴원 진행", "dirty": "청소 대기", "cleaning": "청소 중",
+            "ready": "입실 가능", "empty": "빈 병상", "arrived": "새 환자 입실"}
+
+
+def bed_states(st) -> list[dict]:
+    """병상 현황판: 병상마다 지금 상태와 다음 환자 (색과 글자로 함께 보여 준다)."""
+    _today(st)
+    ev = st.store.read()
+    s = fold(ev)
+    room = {r.id: r for r in st.h.rooms}
+    out = []
+    for b in st.h.beds:
+        ds = sorted((d for d in s.discharges.values() if d.bed_id == b.id and EventType.DISCHARGE_CANCELLED not in d.facts),
+                    key=lambda d: min(d.facts.values()) if d.facts else st.now)
+        d = ds[-1] if ds else None
+        incoming = [m for m in s.matches.values() if m.active and m.bed_id == b.id]
+        arrived = [m for m in incoming if EventType.PATIENT_ARRIVED in m.facts]
+        nxt = next((m for m in incoming if EventType.PATIENT_ARRIVED not in m.facts), None)
+        detail = ""
+        if arrived:
+            state, detail = "arrived", f"{arrived[0].admission_id} 입실 {_hm(arrived[0].facts[EventType.PATIENT_ARRIVED])}"
+        elif d is not None and EventType.PATIENT_DEPARTED not in d.facts:
+            state, detail = "discharging", f"{d.id} 퇴원 진행"
+        elif d is not None and not (d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY)):
+            state = "cleaning" if d.seen(EventType.CLEANING_STARTED) else "dirty"
+            detail = "종말소독" if d.isolation else "일반 청소"
+        elif d is not None:
+            state = "ready"
+        elif b.id in st.gw.census:
+            state = "occupied"
+        else:
+            state = "empty"
+        if nxt is not None and state != "arrived":
+            detail = (detail + " · " if detail else "") + f"다음 {nxt.admission_id}"
+        out.append({"bed": b.id, "label": b.id.replace("-", " ").replace("W", "").replace(" R", "-").replace(" B", "-"),
+                    "ward": b.ward_id, "room": ROOM_KO.get(room[b.room_id].room_type.value, ""), "state": state,
+                    "state_ko": STATE_KO[state], "detail": detail, "isolation": bool(d and d.isolation
+                                                                                      and state in ("dirty", "cleaning"))})
+    return out
+
+
+__all__ = ["bed_states", "SAFETY_KO", "STAGE_KO", "admission_view", "blocked_decisions", "ipc_view", "manager_view", "onboarding_view", "pending_approvals",
            "ward_view"]
