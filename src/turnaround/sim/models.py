@@ -236,6 +236,17 @@ class GeneratorConfig(_Frozen):
         "airborne": 0.005, "contact": 0.042, "droplet": 0.015, "preemptive": 0.02, "pediatric": 0.0, "icu": 0.08,
         "single_room": 0.05, "same_name": 0.005, "missing_gender": 0.005, "integrated_care": 0.30})
     integrated_care_consent_missing_rate: float = Field(default=0.25, ge=0, le=1)  # 현실 구성, 설계 가정
+    # 퇴원 쪽 구성 (제안요청서_QI_통계.md 4절). realistic: 정규 퇴원(전날 처방, 09:30 일괄 불출)과 추가 퇴원을 섞고,
+    # 보호자 도착 예정을 09:00~12:30으로, 입원 수속을 오후 가중으로 둔다
+    discharge_mix: Literal["test", "realistic"] = "test"
+    regular_discharge_rate: float = Field(default=0.65, ge=0, le=1)  # 등급 B: 인천성모 65%, 양산부산대 62.7%
+
+    @classmethod
+    def realistic(cls, **kw) -> "GeneratorConfig":
+        """현실 기준선 프리셋: 10일·하루 3건 퇴원(평균 재원 약 7일), 입원 대기 30, 조사 비율 (DECISIONS 2026-11-09)."""
+        base = dict(days=10, discharges_per_day=3, admission_count=30, admission_mix="realistic",
+                    discharge_mix="realistic", guardian_delay_count=4, unregistered_count=10, admission_cancel_count=4)
+        return cls(**{**base, **kw})
 
     @property
     def discharge_count(self) -> int:

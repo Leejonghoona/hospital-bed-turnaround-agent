@@ -7,7 +7,7 @@ from datetime import datetime, time, timedelta
 
 from turnaround.rules import aerosol_wait_min
 
-from .distributions import DEFAULT_STAGE_DISTRIBUTIONS
+from .distributions import DEFAULT_STAGE_DISTRIBUTIONS, REALISTIC_STAGE_OVERRIDES
 from .models import (
     RX_REVISION_REASONS,
     AdmissionRequest,
@@ -48,6 +48,10 @@ _ROOM_LAYOUT = {
 }
 
 _GUARDIAN_SLOTS = tuple(time(h, m) for h in range(10, 14) for m in (0, 30))
+_GUARDIAN_SLOTS_REALISTIC = tuple(time(h, m) for h in range(9, 14) for m in (0, 30))[:-1]  # 09:00~13:00 (등급 C: 서울성모 "오전 내원" 안내, 점심 뒤 도착 사례 해운대백)
+# 입원 수속 예정 (등급 B, 해운대백·동아대·서울아산·분당서울대): (시작, 끝, 가중치)
+_ADMISSION_WINDOWS_REALISTIC = ((time(10, 0), time(12, 0), 15), (time(12, 0), time(14, 0), 25),
+                                (time(14, 0), time(16, 0), 35), (time(16, 0), time(17, 30), 25))
 _AIRBORNE_ORGANISMS = ("MTB", "MEASLES", "VARICELLA")
 _SINGLE_ROOM_ORGANISMS = ("MRSA", "VRE", "CRE", "CDIFF", "INFLUENZA", "PERTUSSIS")
 _MDRO = {"MRSA", "VRE", "CRE"}  # 다제내성균: 격리·해제는 감염관리실 (LP-19)
@@ -159,6 +163,11 @@ class _Gen:
         dtype |= {i: "transfer_out" for i in ex_rng.sample(rest, min(cfg.transfer_out_count, len(rest)))}
         place = {i: ex_rng.choice(["eol_room", "ward"]) for i, k in dtype.items() if k == "death"}
 
+        real = cfg.discharge_mix == "realistic"
+        mix_rng = random.Random(f"mix-{self.cfg.days}-{n}")  # 현실 구성 전용 난수열 (시험 구성 값은 그대로)
+        regular = ({i for i in range(n) if i not in unregistered and dtype.get(i) is None
+                    and mix_rng.random() < cfg.regular_discharge_rate} if real else set())
+        slots = _GUARDIAN_SLOTS_REALISTIC if real else _GUARDIAN_SLOTS
         result = []
         for i, (day, bed, iso) in enumerate(plan):
             room = self.room_by_id[bed.room_id]
@@ -179,7 +188,7 @@ class _Gen:
 
             decided_at = self.day_at(day - 1, time(17, 0)) + timedelta(minutes=self.rng.randint(0, 60))
             registered_at = None if i in unregistered else decided_at + timedelta(minutes=self.rng.randint(5, 90))
-            guardian_expected = self.day_at(day, self.rng.choice(_GUARDIAN_SLOTS))
+            guardian_expected = self.day_at(day, self.rng.choice(slots))
             if i in guardian_delayed:
                 guardian_arrived = guardian_expected + timedelta(minutes=d["guardian_delay"])
             else:
@@ -190,6 +199,10 @@ class _Gen:
             # 퇴원약 (DAT-7): 처방 발행 → (수정) → 조제 → 병동 도착. 단계 시각은 설계 가정
             rx_issued = order + m(self.rx_rng.randint(0, 30))
             med = max(order + m(d["medication"]), rx_issued + m(20))
+            if i in regular:  # 정규 퇴원: 08시 전에 처방 완료, 퇴원약 09:30 일괄 불출 (인천성모·경북대·보라매, 등급 B)
+                order = self.day_at(day, time(7, 0)) + m(mix_rng.randint(0, 60))
+                rx_issued = order
+                med = self.day_at(day, time(9, 30)) + m(mix_rng.randint(0, 60))
             rx_revised_at = rx_reason = None
             if i in rx_revised:
                 rx_revised_at = rx_issued + m(self.rx_rng.randint(15, 60))
@@ -272,6 +285,11 @@ class _Gen:
             )
             day = days[i]
             requested = self.day_at(day, time(10, 0)) + timedelta(minutes=30 * self.rng.randint(0, 10))
+            if cfg.discharge_mix == "realistic":
+                a_rng = random.Random(f"adm-{i}-{day}-{cfg.days}")
+                lo, hi, _ = a_rng.choices(_ADMISSION_WINDOWS_REALISTIC, weights=[w for *_, w in _ADMISSION_WINDOWS_REALISTIC])[0]
+                span = (hi.hour * 60 + hi.minute) - (lo.hour * 60 + lo.minute)
+                requested = self.day_at(day, lo) + timedelta(minutes=30 * a_rng.randint(0, span // 30 - 1))
             cancelled_at = None
             if i in cancelled:
                 cancelled_at = self.day_at(day, time(7, 30)) + timedelta(minutes=self.rng.randint(0, 180))
@@ -293,7 +311,8 @@ def generate(seed: int = 42, config: GeneratorConfig | None = None,
              distributions: dict[str, StageDistribution] | None = None) -> SyntheticHospital:
     """합성 병원 하나를 만든다. 전역 random 상태는 건드리지 않는다."""
     cfg = config or GeneratorConfig()
-    dists = {**DEFAULT_STAGE_DISTRIBUTIONS, **(distributions or {})}
+    real = REALISTIC_STAGE_OVERRIDES if cfg.discharge_mix == "realistic" else {}
+    dists = {**DEFAULT_STAGE_DISTRIBUTIONS, **real, **(distributions or {})}
     g = _Gen(seed, cfg, dists)
     discharges = g.discharges()
     admissions = g.admissions(discharges)
