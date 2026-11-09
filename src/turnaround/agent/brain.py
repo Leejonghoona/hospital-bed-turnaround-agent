@@ -49,6 +49,7 @@ class ActionChoice(BaseModel):
     rationale: str = Field(default="", max_length=300)
     basis_seq: int
     mode: str  # llm | fake | fallback
+    basis_input: dict[str, Any] = Field(default_factory=dict)  # 머리에 준 입력 (게이트웨이 상황별 금지 검사에 같은 값을 쓴다)
 
 
 class ExceptionBrain:
@@ -145,7 +146,7 @@ class ExceptionBrain:
         try:
             out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
             return ActionChoice(**base, action=str(out["action"]), params=dict(out.get("params") or {}),
-                                rationale=str(out.get("rationale") or "")[:300],
+                                rationale=str(out.get("rationale") or "")[:300], basis_input=ctx,
                                 mode="fake" if self.llm.name == "fake" and not _scripted(self.llm) else "llm")
         except (LLMError, KeyError, TypeError, ValueError):
             return self.fallback(base)

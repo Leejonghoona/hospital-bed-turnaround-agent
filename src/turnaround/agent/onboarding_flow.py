@@ -476,6 +476,19 @@ def detect_drift(pkg: OnboardingPackage, tables: dict[str, list[dict]]) -> list[
     return _dedupe(qs)
 
 
+# ---------------- 운영 적용 ----------------
+
+def apply_package(pkg: OnboardingPackage, tables: dict[str, list[dict]]):
+    """승인되고 지문이 맞는 판만 운영 데이터 변환에 쓴다. 내보내기가 승인 때와 달라졌으면 변환하지 않고 재질문으로 보낸다."""
+    from turnaround.ontology.mapping import apply_mapping
+    if pkg.status != "approved" or not pkg.verify():
+        raise OnboardingError("승인되지 않았거나 지문이 맞지 않는 판은 운영에 쓰지 않는다")
+    drift = detect_drift(pkg, tables)
+    if drift:
+        raise OnboardingError(f"내보내기가 승인 때와 다르다({len(drift)}건): 재질문(OnboardingSession.revise)이 필요하다")
+    return apply_mapping(pkg.mapping, tables)
+
+
 # ---------------- 평가용: 정답으로 답하는 사람 ----------------
 
 def oracle(gold, group: QuestionGroup) -> dict:
@@ -493,5 +506,5 @@ def oracle(gold, group: QuestionGroup) -> dict:
     return out
 
 
-__all__ = ["APPROVER_ROLES", "REQUIRED_SAFETY_KEYS", "STAGES", "OnboardingError", "OnboardingPackage", "OnboardingSession", "QuestionGroup", "detect_drift",
+__all__ = ["apply_package", "APPROVER_ROLES", "REQUIRED_SAFETY_KEYS", "STAGES", "OnboardingError", "OnboardingPackage", "OnboardingSession", "QuestionGroup", "detect_drift",
            "oracle", "replay_proof"]

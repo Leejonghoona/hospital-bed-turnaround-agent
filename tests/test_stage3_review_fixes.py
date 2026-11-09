@@ -217,3 +217,38 @@ def test_swapped_code_meaning_fails_plausibility(key, a, b):
     assert not proof["passed"] and proof["plausibility"], proof
     ok, _, _ = replay_proof(gold, tables, day=3)
     assert ok["passed"] and not ok["plausibility"]
+
+
+# ---------------- 3단계 끝난 기준: 새 형식 병원 한 번에 운영까지 ----------------
+
+def test_new_format_hospital_onboards_to_operation_in_one_go():
+    """emr_f: 사전·관문에 쓰지 않은 새 형식. 업로드 → 질문 → 증명 → 승인 → 운영 적용 → 서비스 재생."""
+    from datetime import time
+    from turnaround.agent.onboarding_flow import OnboardingError, OnboardingSession, apply_package
+    from turnaround.evaluation.safety_exec import executed_safety
+    from turnaround.events import EventType
+    from turnaround.gateway import load_policy
+    from turnaround.sim import GeneratorConfig
+    from turnaround.ui.demo import build_demo
+    h, ev = _canonical(4)
+    tables = export(h, ev, "emr_f")
+    s = OnboardingSession(tables, hospital="H-F")
+    _run(s, gold_mapping("emr_f"))
+    pkg = s.finalize(day=3, seed=4)
+    assert pkg.proof["passed"], pkg.proof
+    with pytest.raises(OnboardingError):
+        apply_package(pkg, tables)  # 승인 전
+    ok = pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    mapped = apply_package(ok, tables)
+    assert sorted(map(_key, mapped.events)) == sorted(map(_key, ev)) and mapped.beds == h.beds
+    st = build_demo(seed=4, day=3, until=time(23, 45), via_fhir=False, policy=load_policy(profile="field_default"),
+                    config=GeneratorConfig.realistic(), mapped=mapped)
+    out = st.store.read()
+    assert any(e.type is EventType.MATCH_COMMITTED for e in out)
+    sf = executed_safety(st.gw, out)
+    assert all(sf[k]["violations"] == 0 for k in ("S1", "S2", "S3", "S4"))
+    changed = {k: [dict(r) for r in v] for k, v in tables.items()}
+    for r in changed["PX_DSCH"]:
+        r["PX_NEWCOL"] = "x"
+    with pytest.raises(OnboardingError):
+        apply_package(ok, changed)  # 변화가 있으면 재질문으로

@@ -299,12 +299,47 @@ def _spec_e() -> FormatSpec:
                       table_names={"cases": "환자마스터", "events": "이벤트이력", "layout": "병상마스터"})
 
 
+# 세 번째 새 형식 (2026-11-10, 3단계 끝난 기준 "새 형식 병원 한 번에 운영까지"). emr_d·e는 관문·학습 곡선에 써서 더는
+# 홀드아웃이 아니다. emr_f는 사전·관문에 넣지 않는다. 이 형식을 보고 규칙을 고치지 않고 첫 결과를 기록한다.
+# 넓은 표, 약어 대문자 열 이름(PX_ 접두), 점 구분 날짜, T/F, 목록 "+", 숫자 병동, 낯선 코드값
+def _f_name(col: str) -> str:
+    return "PX_" + "".join(w[:4] for w in col.split("_")).upper()
+
+
+_F_COLS = {k: _f_name(v) for k, v in _D_COLS.items()}
+_F_LAYOUT = {"ward_id": "PX_UNIT", "room_id": "PX_RM", "bed_id": "PX_BD", "room_type": "PX_RMCLS",
+             "capacity": "PX_CAPA", "gender": "PX_RMGND", "air_changes_per_hour": "PX_VENT", "cohort_key": "PX_COHT",
+             "near_nurse_station": "PX_NSADJ", "ward_name": "PX_UNITNM", "specialty": "PX_UNITTYP",
+             "departments": "PX_UNITSVC"}
+
+
+def _spec_f() -> FormatSpec:
+    dept = {"호흡기내과": "SV10", "소화기내과": "SV12", "감염내과": "SV13", "일반외과": "SV31", "정형외과": "SV32",
+            "소아청소년과": "SV41", "신경과": "SV14"}
+    prec = {"contact": "CT", "droplet": "DR", "airborne": "AB"}
+    clean = {"general": "ROUT", "terminal": "DEEP"}
+    codes = {"patient.gender": {"M": "1", "F": "2"}, "gender": {"M": "1", "F": "2"},
+             "patient.department": dept, "patient.precautions": prec,
+             "room_type": {"negative_pressure": "IS", "single": "PV", "multi": "GN"},
+             "cleaning_requested.cleaning_type": clean, "cleaning_done.cleaning_type": clean,
+             "patient.precaution_status": {"confirmed": "C1", "suspected": "C2", "preemptive": "C3"},
+             "patient.isolation_ordered_by": {"physician": "DR", "ipc": "IC"},
+             "rx_revised.reason": {"discharge_hold": "R1", "dose_change": "R2", "add_medication": "R3"},
+             "discharge_decided.discharge_type": {"ama": "AMA"}, "unplanned_transfer_out.destination": {"icu": "ICU"},
+             "admission_requested.preferred_ward_id": {"W71": "71", "W72": "72"}}
+    return FormatSpec("emr_f", "wide", "%Y.%m.%d %H:%M", dict(_F_COLS), codes=codes, list_sep="+",
+                      bool_values=("T", "F"), bed_parts=("PX_UNIT", "PX_RM", "PX_BD"), bed_part_style="digits",
+                      layout_columns=dict(_F_LAYOUT),
+                      table_names={"discharges": "PX_DSCH", "admissions": "PX_ADMRSV", "layout": "PX_BEDMST"})
+
+
 FORMATS = ("emr_a", "emr_b", "emr_c")
 HOLDOUT_FORMATS = ("emr_d", "emr_e")
+NEW_FORMATS = ("emr_f",)  # 사전·관문에 쓰지 않는 새 형식
 
 
 def spec(name: str) -> FormatSpec:
-    return {"emr_d": _spec_d, "emr_e": _spec_e}.get(name, lambda: _spec(name))()
+    return {"emr_d": _spec_d, "emr_e": _spec_e, "emr_f": _spec_f}.get(name, lambda: _spec(name))()
 
 
 # ---------------- 쓰기 ----------------
@@ -401,4 +436,4 @@ def gold_mapping(name: str):
                    bed_parts=sp.bed_parts, bed_part_style=sp.bed_part_style, codes=inv, tables=tables)
 
 
-__all__ = ["FORMATS", "HOLDOUT_FORMATS", "FormatSpec", "export", "gold_mapping", "records", "spec"]
+__all__ = ["FORMATS", "HOLDOUT_FORMATS", "NEW_FORMATS", "FormatSpec", "export", "gold_mapping", "records", "spec"]

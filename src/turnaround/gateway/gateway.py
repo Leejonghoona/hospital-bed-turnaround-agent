@@ -328,6 +328,10 @@ class Gateway:
             return reject(why)  # 연락·확정·입실 뒤 자동 재매칭 금지 (머리가 골라도 막는다)
         if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage"), contacted):
             return reject("not_allowed")
+        if not fallback_ok and choice.basis_input:
+            from .guards import situational_block
+            if (why := situational_block(choice.basis_input, choice.action)) is not None:
+                return reject(why)  # 상황별 금지: 정답 세트 측정과 같은 함수 (08 계획 2단계)
         if any((e.seq or 0) > choice.basis_seq and e.case_id == choice.case and e.type in self._ACTION_MATERIAL
                for e in events):
             return reject("stale_basis")  # 재확인 1: 고른 뒤 판단 정보가 바뀜 → 예외를 열어 두고 다시 고른다
