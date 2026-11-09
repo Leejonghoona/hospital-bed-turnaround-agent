@@ -230,3 +230,42 @@ def test_missing_record_says_no_record_not_no():
 def test_vendor_cannot_use_qa():
     store, recs = _qa_store()
     assert QueryAgent(store, FakeLLM(), recs).ask("Q3", "environment_vendor", "D1 재입원?", at(14)).status == "refused"
+
+
+# ---------- 추출 v3: 설정 기반 스키마, 상대 날짜(U3), 메모 주체(U5) ----------
+
+def test_v3_schema_comes_from_policy_and_respects_case_kind():
+    from turnaround.agent.extract import sanitize_v3
+    from turnaround.gateway import load_policy
+    sch = load_policy().extraction
+    raw = {"guardian_eta": "11:00", "guardian_eta_day": 1, "single_room_wish": True, "delay_reason": "billing",
+           "skip_review": True}
+    assert sanitize_v3(raw, sch, "discharge") == {"guardian_eta": "11:00", "guardian_eta_day": 1, "delay_reason": "billing"}
+    assert sanitize_v3(raw, sch, "admission") == {"single_room_wish": True}  # 1인실 희망은 입원 대기 메모에서만
+
+
+def test_v3_rejects_bad_day_offsets_and_orphan_days():
+    from turnaround.agent.extract import sanitize_v3
+    from turnaround.gateway import load_policy
+    sch = load_policy().extraction
+    assert sanitize_v3({"guardian_eta": "11:00", "guardian_eta_day": 30}, sch, "discharge") == {"guardian_eta": "11:00"}
+    assert sanitize_v3({"guardian_eta": "11:00", "guardian_eta_day": True}, sch, "discharge") == {"guardian_eta": "11:00"}
+    assert sanitize_v3({"guardian_eta_day": 1}, sch, "discharge") == {}
+
+
+def test_relative_day_is_resolved_by_code():
+    from datetime import datetime
+    from turnaround.agent.extract import eta_datetime
+    ref = datetime(2026, 3, 2, 19, 30)  # 전날 저녁에 받은 "내일 11시"
+    assert eta_datetime({"guardian_eta": "11:00", "guardian_eta_day": 1}, ref) == datetime(2026, 3, 3, 11, 0)
+    assert eta_datetime({"guardian_eta": "14:00"}, ref) == datetime(2026, 3, 2, 14, 0)
+
+
+def test_delay_codes_are_configurable():
+    from turnaround.agent.extract import build_system, sanitize_v3
+    from turnaround.gateway import load_policy
+    sch = load_policy().extraction.model_copy(update={"delay_codes": ["medication", "guardian", "education", "billing",
+                                                                      "test_wait", "transfer", "other"]})
+    assert "test_wait" in build_system(sch, "discharge")
+    assert sanitize_v3({"delay_reason": "test_wait"}, sch, "discharge") == {"delay_reason": "test_wait"}
+    assert sanitize_v3({"delay_reason": "transport"}, sch, "discharge") == {}

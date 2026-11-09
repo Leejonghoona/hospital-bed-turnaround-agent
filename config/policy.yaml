@@ -50,6 +50,12 @@ scoring:                     # 에이전트 목표 함수 4~5항 가중치 (SPEC
   ward_load_per_pending: -3.0       # 병동에 진행 중 제안 1건당
   ready_delay_per_10min: -1.0       # 준비까지 10분당
   rematch_gain_min: 3.0             # 재매칭 최소 이득 (6항 변동 최소). 준비 30분 단축에 해당
+extraction:                  # 메모 추출 스키마 (U3 상대 날짜, U5 메모 주체 결정. U1 필드·U2 코드는 현직자 설문 뒤 확정)
+  delay_codes: [guardian, billing, medication, transport]   # 보류: 설계 문서 6개 + 기타 안과 비교 중 (U2)
+  fields_by_case:
+    discharge: [guardian_eta, guardian_eta_day, delay_reason, mobility_aid]
+    admission: [single_room_wish]   # 1인실 희망은 입원 대기 환자의 정보 (검수 결과)
+  max_day_offset: 7
 provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. law > guideline > hospital_rule > field_practice > design_assumption
   autonomy_stage: {tier: design_assumption, cite: "설계 문서 자율화 단계. 1단계 HITL로 시작"}
   promoted_departments: {tier: design_assumption, cite: "자율화 2단계 승격은 운영 지표로 정한다"}
@@ -63,4 +69,5 @@ provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. l
   manual_override.safety_tiers: {tier: guideline, cite: "표준예방지침 5.5.2.4, 5.5.2.6, 5.2.1, 5.3.2.3, 5.3.2.4, 5.4.2.5 (LP-24)"}
   ventilation: {tier: guideline, cite: "표준예방지침 제5장 부록 3 공기순환 횟수별 제거 시간, 99.9% 열. 병실 순환 횟수 기본값(음압 12, 일반 4)은 설계 가정"}
   scoring: {tier: design_assumption, cite: "SPEC 3절 목표 함수 가중치. 규칙 모드와 에이전트를 같은 목표로 비교"}
+  extraction: {tier: design_assumption, cite: "필드·코드는 현직자 설문(docs/검토/현직자_설문_문구.json) 뒤 확정. 상대 날짜·메모 주체는 라벨 절차 검수 합의"}
   external_llm: {tier: hospital_rule, cite: "환자정보 국외 이전 금지 운영 원칙 (설계 문서 보안 절)"}

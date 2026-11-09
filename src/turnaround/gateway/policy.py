@@ -41,6 +41,20 @@ class Scoring(BaseModel):
     rematch_gain_min: float = 3.0  # 6항 변동 최소: 재매칭은 이득이 이 값을 넘을 때만 (준비 30분 단축)
 
 
+class ExtractionSchema(BaseModel):
+    """추출 필드와 지연 사유 코드 (설정으로 둔다: 병원마다 다르고 2단계 온보딩이 제안한다).
+
+    U3(상대 날짜)·U5(메모 주체)는 결정됨. 지연 사유 코드(U2)와 필드 집합(U1)은 현직자 설문 뒤 확정한다.
+    """
+    model_config = ConfigDict(frozen=True)
+    delay_codes: list[str] = Field(default_factory=lambda: ["guardian", "billing", "medication", "transport"])
+    fields_by_case: dict[str, list[str]] = Field(default_factory=lambda: {
+        "discharge": ["guardian_eta", "guardian_eta_day", "delay_reason", "mobility_aid"],
+        "admission": ["single_room_wish"],
+    })
+    max_day_offset: int = 7
+
+
 class Provenance(BaseModel):
     model_config = ConfigDict(frozen=True)
     tier: Literal["law", "guideline", "hospital_rule", "field_practice", "design_assumption"]
@@ -64,6 +78,7 @@ class Policy(BaseModel):
     manual_override: ManualOverridePolicy
     ventilation: Ventilation = Field(default_factory=Ventilation)
     scoring: Scoring = Field(default_factory=Scoring)
+    extraction: ExtractionSchema = Field(default_factory=ExtractionSchema)
     external_llm: str = "deny"
     provenance: dict[str, Provenance] = Field(default_factory=dict)
 
