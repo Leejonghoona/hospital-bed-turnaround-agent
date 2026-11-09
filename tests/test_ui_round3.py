@@ -50,3 +50,32 @@ def test_changed_rows_have_no_internal_codes():
             for row in v["changed"]:
                 assert row["what"] != "담당 검토로 보냄"  # 반복되는 계획 주기 기록은 강조하지 않는다
                 assert not re.search(r"[a-z]+_[a-z]+", row["detail"] + row["what"]), row
+
+
+SKIP_KEYS = {"exception_id", "proposal_id", "task_id", "version", "stage", "role", "action", "id", "raw_kind",
+             "raw_proposal", "case", "bed", "raw", "raw_action", "trigger", "kind_raw",
+             "reasons"}  # reasons는 화면에서 REVIEW_KO로 바꿔 그린다
+
+
+def _texts(d, key=""):
+    if isinstance(d, dict):
+        for k, v in d.items():
+            if k not in SKIP_KEYS:
+                yield from _texts(v, k)
+    elif isinstance(d, (list, tuple)):
+        for v in d:
+            yield from _texts(v, key)
+    elif isinstance(d, str):
+        yield key, d
+
+
+def test_no_snake_case_codes_on_any_scene_screen():
+    import re
+    bad = []
+    for sid in SCENES:
+        r, out = _play(sid)
+        for v in out:
+            for k, t in _texts({"caption": v["caption"], "data": v["data"], "changed": v["changed"]}):
+                if re.search(r"\b[a-z]+_[a-z_]+\b", t):
+                    bad.append((sid, v["step"], k, t[:80]))
+    assert not bad, bad[:10]

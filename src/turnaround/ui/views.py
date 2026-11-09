@@ -13,7 +13,7 @@ from datetime import datetime
 
 from turnaround.events import EventType
 from turnaround.saga import fold
-from turnaround.saga.worklist import is_notice, load_operations, open_tasks
+from turnaround.saga.worklist import _role, is_notice, load_operations, open_tasks
 
 ACTION_KO = {"propose_rematch": "다른 병상 추천안 승인", "request_recontact": "환자 재연락", "rematch_now": "규칙으로 다시 찾기",
              "escalate": "사람에게 올림", "remind_owner": "단계 담당에게 알림", "remind_ward": "병동에 알림",
@@ -23,10 +23,10 @@ ACTION_KO = {"propose_rematch": "다른 병상 추천안 승인", "request_recon
              "request_postpone_contact": "연락 보류"}
 TRIGGER_KO = {"late_isolation": "늦은 격리", "sequence_stalled": "퇴원 단계 정체", "guardian_delay_same_day": "보호자 지연",
               "cleaning_overdue": "청소 지연", "no_bed": "병상 없음", "discharge_date_changed": "퇴원 취소·연기",
-              "info_changed_pending": "환자 정보 정정", "ward_objection": "병동 이의", "promise_at_risk": "약속 위험",
+              "info_changed_pending": "환자 정보 정정", "ward_objection": "병동 이의", "promise_at_risk": "안내 시각 지연 위험",
               "call_up_stalled": "호출 정체"}
 REASON_KO = {"stage_locked": "연락·확정·입실 뒤 자동 변경 금지", "wait_after_attempt": "시도 뒤 또 기다림 금지",
-             "promise_needs_action": "약속 위험에서 기다림 금지", "not_ready_before_deadline": "마감 안에 준비 안 됨",
+             "promise_needs_action": "안내 시각 지연 위험에서 기다림 금지", "not_ready_before_deadline": "마감 안에 준비 안 됨",
              "lounge_unsafe": "격리·이동 보조 환자 라운지 금지", "not_departed": "퇴실 전 청소·침상 정리 금지",
              "terminal_cleaning_pending": "종말소독 전 침상 정리 금지", "max_attempts": "같은 알림 반복 금지",
              "deadline_passed": "마감 뒤 기다림 금지", "not_allowed": "허용 목록 밖", "no_request_to_remind": "재요청할 청소 요청 없음",
@@ -41,11 +41,14 @@ SAFETY_KO = {"S1": ("격리·성별 배정 위반", "격리 환자를 맞지 않
              "S2": ("종말소독 누락", "격리 퇴실 병상을 종말소독 없이 다음 환자에게 쓴 경우"),
              "S3": ("청소 전 빈 병상 전환", "청소·침상 정리가 끝나기 전에 빈 병상으로 바꾼 경우"),
              "S4": ("한 병상 두 환자", "앞 환자가 나가기 전에 다음 환자를 입실시킨 경우")}
-KIND_KO = {"isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "예외 올림",
+KIND_KO = {"isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "사람 확인 요청",
            "order_nudge": "퇴원 처방 재촉", "call_up_reminder": "호출 독촉", "approval_rejected": "승인 거부 안내",
            "postpone_contact": "연락 보류", "data_fix": "입력 보완", "recontact_prepare": "재연락 준비",
            "nudge_late_discharges": "늦은 퇴원 재촉", "cleaning_track": "청소 추적", "missing_bed_prep": "침상 정리 누락",
-           "promise_watch": "안내 시각 지켜보기"}
+           "promise_watch": "안내 시각 지켜보기", "cleaning_rerequest_notice": "청소 재요청 알림",
+           "cleaning_eta_share": "청소 예정 공유", "guardian_eta_reconfirm": "보호자 도착 시각 재확인",
+           "next_ready_share": "다음 준비 병상 공유", "no_bed_eta_notice": "빈 병상 없음 · 예상 시각 안내",
+           "provisional_precautions_check": "임시 격리 주의 확인"}
 
 
 FACT_KO = {"promise_at": ("안내한 시각", None), "cleaning_started": ("청소 시작", {True: "함", False: "안 함"}),
@@ -144,6 +147,13 @@ def _today(st) -> None:
     _TODAY["d"] = st.now.date()
 
 
+HOLDER_KO = {"admission_office": "원무(주간)", "night_admin": "야간 당직 원무", "admission_lead": "원무 책임자",
+             "ipc": "감염관리실", "id_oncall": "감염내과 당직(야간·휴일)", "ipc_lead": "감염관리 책임자",
+             "charge_nurse": "책임간호사", "nursing_supervisor": "간호부 당직 감독", "environment_vendor": "청소 협력업체",
+             "environment_lead": "환경 책임자", "discharge_review": "퇴원심사", "discharge_review_lead": "퇴원심사 책임자",
+             "cashier": "수납 창구", "inpatient_pharmacy": "약제부", "pharmacy_oncall": "약제부 당직", "pharmacy_lead": "약제부 책임자"}
+
+
 def _kind(k: str | None) -> str:
     k = k or ""
     if k in REASON_TASK_KO:
@@ -151,7 +161,7 @@ def _kind(k: str | None) -> str:
     if k.startswith("step_nudge:"):
         return {"step_nudge:medication": "퇴원약 재촉(약제부)", "step_nudge:billing_review": "퇴원심사 재촉",
                 "step_nudge:billing_payment": "수납 재촉"}.get(k, k)
-    return KIND_KO.get(k, k)
+    return KIND_KO.get(k, "기타 작업" if "_" in k else k)  # 번역 없는 내부 코드는 화면에 내보내지 않는다
 
 
 def _decided(ev) -> set[str]:
@@ -229,8 +239,9 @@ def admission_view(st) -> dict:
                             "alternatives": b.get("alternatives") or [],
                             "undo_until": _hm(until) if until else "", "undo_open": bool(until and st.now < until),
                             "active": bool(m and m.active and m.bed_id == e.payload.get("bed_id"))})
+    from turnaround.ui.demo import _announce
     contacts = [{"case": c, "who": who(people, c), "bed": m.bed_id, "bed_ko": bed_ko(m.bed_id),
-                 "committed": _hm(m.facts[EventType.MATCH_COMMITTED])}
+                 "committed": _hm(m.facts[EventType.MATCH_COMMITTED]), "suggest_at": _announce(st, c, st.now, ev)}
                 for c, m in sorted(s.matches.items()) if m.active and EventType.MATCH_COMMITTED in m.facts
                 and EventType.PATIENT_CONTACTED not in m.facts]
     ops = load_operations()
@@ -245,9 +256,15 @@ def admission_view(st) -> dict:
             card = t.payload.get("card") or {}
             why = " · ".join(x for x in (TRIGGER_KO.get(t.payload.get("trigger"), ""),
                                          "에이전트가 스스로 정하지 못해 사람에게 넘김",
-                                         ("막은 행동: " + ACTION_KO.get(card["rejected_action"], card["rejected_action"]))
+                                         ("멈춘 동작: " + ACTION_KO.get(card["rejected_action"], card["rejected_action"]))
                                          if card.get("rejected_action") else "") if x)
-        tasks.append({"task_id": t.event_id, "kind": _kind(kind), "raw_kind": kind, "why": why, "case": t.case_id,
+        esc = next((x.payload.get("to") for x in ev if x.type is EventType.TASK_ESCALATED
+                    and x.payload.get("task_id") == t.event_id and x.observed_at <= st.now), None)
+        hand = next((x.payload.get("to") for x in reversed(ev) if x.type is EventType.TASK_HANDED_OVER
+                     and x.payload.get("task_id") == t.event_id and x.observed_at <= st.now), None)
+        tasks.append({"escalated_to": HOLDER_KO.get(esc, esc) if esc else "", "handed_to": HOLDER_KO.get(hand, hand) if hand else "",
+                      "holder": HOLDER_KO.get(ops.holder(_role(t, ops), st.now), ""),
+                      "task_id": t.event_id, "kind": _kind(kind), "raw_kind": kind, "why": why, "case": t.case_id,
                       "who": who(people, t.case_id), "bed": t.payload.get("bed_id"), "bed_ko": bed_ko(t.payload.get("bed_id")),
                       "due": _hm(due), "due_at": due, "overdue": due < st.now, "created": t.observed_at,
                       "stale": t.observed_at.date() < st.now.date()})
@@ -257,7 +274,31 @@ def admission_view(st) -> dict:
             "tasks": tasks, "blocked": blocked_decisions(st)}
 
 
-WARD_STEPS = ("병동 준비 필요", "준비 완료 · 호출 대기", "호출됨 · 이동 중", "입실 완료")
+WARD_STEPS = ("병동 준비 필요", "병동 준비 완료 · 병상·호출 대기", "호출됨 · 이동 중", "입실 완료")
+
+
+def _reg(p: dict) -> str:
+    """등록번호(합성). 실제 병원에서는 환자 확인 두 지표(이름 + 등록번호/생년월일) 중 하나로 보인다."""
+    pid = str(p.get("patient_id") or "")
+    return pid.replace("SYN-", "") if pid else ""
+
+
+def _prep_chips(p: dict, ev, case: str) -> list[str]:
+    """병동이 입실 전에 준비할 정보 (현업 검토: 진료과, 격리, 이동 보조, 중환자실에서 옴)."""
+    precs = set(p.get("precautions") or []) | {x for e in ev if e.type is EventType.ISOLATION_ORDER_ADDED and e.case_id == case
+                                               for x in (e.payload.get("precautions") or [])}
+    out = [p.get("department") or "진료과 미상"]
+    if precs:
+        out.append("격리: " + ", ".join(VAL_KO.get(x, x) for x in sorted(precs)))
+    if p.get("from_icu"):
+        out.append("중환자실에서 옴")
+    if p.get("mobility_aid"):
+        out.append("이동 보조")
+    if p.get("immunocompromised"):
+        out.append("면역저하")
+    if p.get("open_wound"):
+        out.append("개방 상처")
+    return out
 
 
 def ward_view(st) -> dict:
@@ -282,8 +323,11 @@ def ward_view(st) -> dict:
                      "hold": held.get(e.case_id, ""), "proposal_id": e.payload.get("proposal_id"),
                      "by": "에이전트 확정" if e.payload.get("committed_by") == "agent" else "사람 확정"})
     bstate = {b["bed"]: b["state_ko"] for b in bed_states(st)}
+    req = {e.case_id: e.payload for e in ev if e.type is EventType.ADMISSION_REQUESTED}
     for f in flow:
         f["bed_state"] = bstate.get(f["bed"], "")
+        f["prep"] = _prep_chips(req.get(f["case"]) or {}, ev, f["case"])
+        f["reg"] = _reg(req.get(f["case"]) or {})
     todo = [f for f in flow if f["step"] == WARD_STEPS[0] or f["hold"]]
     open_ = open_tasks(ev, st.now).values()
     notes = [{"kind": _kind(t.payload.get("kind")), "case": who(people, t.case_id), "bed": bed_ko(t.payload.get("bed_id")),
@@ -315,7 +359,7 @@ def ipc_view(st) -> dict:
     def _card(c: dict, trig) -> str:
         parts = [TRIGGER_KO.get(trig, "")] if trig else []
         if c.get("rejected_action"):
-            parts.append(f"막은 행동 {ACTION_KO.get(c['rejected_action'], c['rejected_action'])}"
+            parts.append(f"멈춘 동작 {ACTION_KO.get(c['rejected_action'], c['rejected_action'])}"
                          f"({REASON_KO.get(c.get('rejected_reason'), c.get('rejected_reason'))})")
         if c.get("agent_action"):
             parts.append(f"에이전트 제안: {ACTION_KO.get(c['agent_action'], c['agent_action'])}"
@@ -339,7 +383,8 @@ def ipc_view(st) -> dict:
             done = any(k == "terminal" for _, k in d.cleaning_done_kinds)
             terminal.append({"bed": bed_ko(d.bed_id), "departed": _hm(d.facts[EventType.PATIENT_DEPARTED]),
                              "status": "종말소독 완료" if done else "종말소독 대기"})
-    return {"alerts": alerts, "isolation_orders": iso, "terminal": terminal, "np_free": np_free}
+    holder = HOLDER_KO.get(load_operations().holder("ipc", st.now), "감염관리실")
+    return {"alerts": alerts, "isolation_orders": iso, "terminal": terminal, "np_free": np_free, "holder": holder}
 
 
 def manager_view(st) -> dict:
@@ -370,7 +415,9 @@ def manager_view(st) -> dict:
                   and e.case_id == c), None)
         k = "조건 맞는 병상 없음(퇴원 병상 대기)" if r and "no_bed" in r else "담당 검토 중" if r else "아직 배정 시각 전"
         why[k] = why.get(k, 0) + 1
-    return {"cards": cards, "human_load": human_load(ev),
+    # 오늘 입원 사례만으로 센다(저장소에는 앞선 날의 사례도 있어 분모가 어긋났다, 최고점 루프 1회차 현업 검토)
+    today_set = set(today_adm)
+    return {"cards": cards, "human_load": human_load([e for e in ev if e.case_id in today_set]),
             "flow": {"12시 전 퇴실": f"{fl['departed_before_noon']}명 / {fl['discharges']}명",
                      "퇴실 시각(중앙값)": fl["departure_median"] or "-", "병상 준비 완료(중앙값)": fl["ready_median"] or "-",
                      "수속부터 입실까지(평균)": f"{round(fl['entry_wait_mean_min'])}분" if fl["entry_wait_mean_min"] is not None else "-"},
@@ -523,7 +570,7 @@ EVENT_KO = {
     "BED_MARKED_VACANT": "입실 가능 전환", "DISCHARGE_CANCELLED": "퇴원 취소", "PROMISE_AT_RISK": "안내 시각 위험",
     "PATIENT_INFO_CORRECTED": "환자 정보 정정", "LOUNGE_OFFERED": "라운지 제안", "BED_PREP_DONE": "침상 정리 완료",
 }
-ACTOR_KO = {"agent": "에이전트", "gateway": "실행 게이트웨이", "saga": "시스템", "human": "사람", "his": "병원 전산(HIS)",
+ACTOR_KO = {"agent": "에이전트", "gateway": "시스템(안전 검사)", "saga": "시스템", "human": "사람", "his": "병원 전산(HIS)",
             "timer": "시스템", "equipment": "장비"}
 
 

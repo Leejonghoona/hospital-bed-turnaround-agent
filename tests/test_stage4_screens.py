@@ -38,7 +38,7 @@ def test_day_scene_shows_agent_commit_with_basis_and_ward_flow(day):
     a = views[0]["data"]
     assert a["notices"] and all(n["undo_until"] for n in a["notices"])  # 되돌릴 수 있는 시한
     w = views[1]["data"]
-    assert w["flow"] and {f["step"] for f in w["flow"]} & {"준비 완료 · 호출 대기", "호출됨 · 이동 중", "입실 완료"}
+    assert w["flow"] and {f["step"] for f in w["flow"]} & {"병동 준비 완료 · 병상·호출 대기", "호출됨 · 이동 중", "입실 완료"}
     m = views[2]["data"]
     assert all(row["위반"] == 0 for row in m["safety"]) and m["flow"]
 

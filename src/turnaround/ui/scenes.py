@@ -1,7 +1,7 @@
 """시연 대본 3장면 (08 계획 4단계). 화면에서 "다음" 버튼을 누를 때마다 한 단계씩 진행한다. 합성 데이터 전용.
 
 1. 평범한 하루: 에이전트가 확정하고 병동·원무에 통보한다. 사람은 환자 연락과 병동 준비만 한다.
-2. 예외와 승인: 약속 위험에서 머리가 원무 재연락을 제안하고 사람이 승인한다. 늦은 격리 오더가 오면 감염관리실과
+2. 예외와 승인: 안내 시각 지연 위험에서 머리가 원무 재연락을 제안하고 사람이 승인한다. 늦은 격리 오더가 오면 감염관리실과
    원무가 근거 카드를 받고, 연락 뒤 자동 변경은 게이트웨이가 막는다.
 3. 새 병원: 처음 보는 내보내기(emr_f)를 올려 질문 묶음에 답하고, 재생 증명 → 승인 → 운영 적용까지 간다.
    그 병원 하루를 돌려 관리자가 자동 처리 범위 카드를 본다.
@@ -23,6 +23,7 @@ class Step:
     role: str  # admission | ward | ipc | manager | onboarding
     run: Callable[["SceneRun"], str]  # 사람 동작·시각 진행을 하고 설명을 돌려준다
     look: list[str] = field(default_factory=list)  # 화면에서 볼 것 (시연 안내)
+    act: str = ""  # 이 단계를 일으키는 사람의 동작 이름(앞 화면에 이 이름의 버튼을 둔다)
 
 
 @dataclass
@@ -80,10 +81,10 @@ class SceneRun:
                 p = self.pkg.proof
                 data["package"] = {"status": {"proposed": "승인 대기", "approved": "승인됨"}.get(self.pkg.status),
                                    "version": self.pkg.version,
-                                   "proof": [{"검사": "시험 운행 검사", "결과": "통과" if p.get("passed") else "실패"},
+                                   "proof": [{"검사": "시험 운영 검사", "결과": "통과" if p.get("passed") else "실패"},
                                              {"검사": "사건 순서 위반", "결과": p.get("order_violations")},
-                                             {"검사": "하루 재생 안전 위반", "결과": p.get("safety_violations")},
-                                             {"검사": "하루 재생 배정", "결과": p.get("commits")},
+                                             {"검사": "시험 운영 안전 위반", "결과": p.get("safety_violations")},
+                                             {"검사": "시험 운영 배정", "결과": p.get("commits")},
                                              {"검사": "코드 뜻 뒤바뀜 의심",
                                               "결과": len(p.get("plausibility") or [])}]}
         elif self.st is not None:
@@ -147,7 +148,7 @@ def _b1(run):
     from turnaround.ui.views import pending_approvals
     ap = pending_approvals(run.st)
     run.memo["approval"] = ap[0]["exception_id"] if ap else None
-    return (f"13:30 원무 화면. 약속 위험: 에이전트가 '{ap[0]['action_ko']}'을 제안했고 사람 승인을 기다린다"
+    return (f"13:30 원무 화면. 안내 시각 지연 위험: 에이전트가 {ap[0]['who']} 환자에게 '{ap[0]['action_ko']}'을 제안했고 사람 승인을 기다린다"
             if ap else "13:30 원무 화면. 승인 대기 카드 없음")
 
 
@@ -155,9 +156,13 @@ def _b2(run):
     exid = run.memo.get("approval")
     if not exid:
         return "승인할 카드가 없다"
+    from turnaround.ui.views import _people, who
+    ev = run.st.store.read()
+    case = next((e.case_id for e in ev if e.type.name == "ACTION_APPROVAL_REQUESTED" and e.payload.get("exception_id") == exid), None)
     d = run.st.gw.approve_action(exid, "bed_manager", run.st.now)
     ko = {"executed": "실행됨", "rejected": "거부됨"}.get(d.status, d.status)
-    return f"원무가 '승인'을 눌렀다 → 게이트웨이가 다시 확인한 뒤 {ko} (재연락 할 일이 생긴다)"
+    name = who(_people(ev), case) if case else "환자"
+    return f"원무가 {name} 카드의 '승인'을 눌렀다 → 게이트웨이가 다시 확인한 뒤 {ko} (그 환자의 재연락 할 일이 생긴다)"
 
 
 def _b3(run):
@@ -203,8 +208,8 @@ def _b4(run):
 
 
 SCENE_EXCEPTION = Scene("exception", "2. 예외와 승인",
-                        "약속 위험은 사람 승인으로 재연락, 늦은 격리는 감염관리실·원무 근거 카드, 금지 행동은 게이트웨이가 막는다.",
-                        [Step("약속 위험 승인 카드", "admission", _b1, ["'지금 할 일'의 승인 카드: 환자에게 안내한 시각이 위험해 에이전트가 재연락을 제안", "근거 칩: 안내한 시각, 앞 환자 퇴실 여부, 마감", "사람 승인이 필요한 행동만 이렇게 올라온다"]), Step("원무 승인", "admission", _b2, ["승인 순간에도 게이트웨이가 단계 잠금과 선행 조건을 다시 확인한다", "승인 카드가 사라지고 재연락 작업이 생긴다"]),
+                        "안내 시각 지연 위험은 사람 승인으로 재연락, 늦은 격리는 감염관리실·원무 근거 카드, 금지 행동은 게이트웨이가 막는다.",
+                        [Step("안내 시각 지연 위험 승인 카드", "admission", _b1, ["'지금 할 일'의 승인 카드: 환자에게 안내한 시각이 위험해 에이전트가 재연락을 제안", "근거 칩: 안내한 시각, 앞 환자 퇴실 여부, 마감", "사람 승인이 필요한 행동만 이렇게 올라온다"]), Step("원무 승인", "admission", _b2, ["승인 순간에도 게이트웨이가 단계 잠금과 선행 조건을 다시 확인한다", "승인한 환자의 카드가 사라지고 그 환자의 재연락 작업이 생긴다(다른 환자 카드는 그대로 남는다)"]),
                          Step("늦은 격리 오더", "ipc", _b3, ["확정된 환자에게 늦은 공기주의 격리 오더(결핵 의심)", "감염관리실 '지금 할 일'에 통지, 에이전트 제안은 원무 승인 대기", "병상을 다시 확인하기 전에는 '환자 올려 보내기(호출)'를 보류한다"]), Step("막힌 판단 기록", "admission", _b4, ["시연용 시험 입력: 에이전트가 확정 환자를 스스로 다른 병상으로 옮기려 함", "게이트웨이가 거부하고 '막힌 판단' 기록에 남는다(아래 펼침)"])])
 
 
@@ -254,7 +259,7 @@ def _c3(run):
 def _c4(run):
     run.pkg = run.session.finalize(day=3, seed=SEED_NEW)
     p = run.pkg.proof
-    return (f"이 병원 데이터로 하루를 시험 운행해 검사: {'통과' if p['passed'] else '실패'} (사건 순서 위반 "
+    return (f"이 병원 데이터로 하루를 시험 운영해 검사: {'통과' if p['passed'] else '실패'} (사건 순서 위반 "
             f"{p['order_violations']}건, 안전 위반 {p['safety_violations']}건, 배정 {p['commits']}건)")
 
 
@@ -267,10 +272,10 @@ def _c5(run):
 
 
 SCENE_ONBOARD = Scene("onboard", "3. 새 병원 시작하기",
-                      "처음 보는 병원의 내보내기 표를 올려 질문에 답하고, 시험 운행 검사 → 승인 → 운영 시작까지 한 번에 간다.",
-                      [Step("업로드와 첫 질문", "onboarding", _c1, ["처음 보는 병원 내보내기 표 3개를 올렸다", "질문은 구조 → 형식 → 열 → 코드표 순서로 묶어서 묻는다", "병상 표를 못 찾아 구조부터 묻는다"]), Step("구조·형식·열 답", "onboarding", _c2, ["앞 묶음의 답으로 초안을 다시 만들어 뒤 질문이 줄어든다", "제안이 있는 질문은 확인만, 제안 없는 질문은 사람이 답을 찾는다"]),
-                       Step("코드표 일괄 입력", "onboarding", _c3, ["병원 코드표를 한 번에 넣어 코드 질문을 해결", "'모름'은 승인이 아니다: 안전 코드는 늘 사람이 확인"]), Step("시험 운행 검사", "onboarding", _c4, ["정답이 없는 새 병원에서도 쓸 수 있는 검사: 이 병원 데이터로 하루를 시험 운행", "사건 순서, 안전, 배정이 실제로 생기는지, 코드 뜻이 뒤바뀌지 않았는지"]),
-                       Step("승인하고 운영 시작", "manager", _c5, ["의료정보팀 승인 → 설정판 고정 → 운영 시작", "관리자 화면에서 그 병원의 흐름·안전·자동 처리 범위 제안을 본다"])])
+                      "처음 보는 병원의 내보내기 표를 올려 질문에 답하고, 시험 운영 검사 → 승인 → 운영 시작까지 한 번에 간다.",
+                      [Step("업로드와 첫 질문", "onboarding", _c1, ["처음 보는 병원 내보내기 표 3개를 올렸다", "질문은 구조 → 형식 → 열 → 코드표 순서로 묶어서 묻는다", "병상 표를 못 찾아 구조부터 묻는다"]), Step("구조·형식·열 답", "onboarding", _c2, ["앞 묶음의 답으로 초안을 다시 만들어 뒤 질문이 줄어든다", "제안이 있는 질문은 확인만, 제안 없는 질문은 사람이 답을 찾는다"], act="제안대로 답하고 다음 묶음으로"),
+                       Step("코드표 일괄 입력", "onboarding", _c3, ["병원 코드표를 한 번에 넣어 코드 질문을 해결", "'모름'은 승인이 아니다: 안전 코드는 늘 사람이 확인"], act="병원 코드표 올리기"), Step("시험 운영 검사", "onboarding", _c4, ["정답이 없는 새 병원에서도 쓸 수 있는 검사: 이 병원 데이터로 하루를 시험 운영", "사건 순서, 안전, 배정이 실제로 생기는지, 코드 뜻이 뒤바뀌지 않았는지"], act="시험 운영 검사 돌리기"),
+                       Step("승인하고 운영 시작", "manager", _c5, ["의료정보팀 승인 → 설정판 고정 → 운영 시작", "관리자 화면에서 그 병원의 흐름·안전·자동 처리 범위 제안을 본다"], act="설정판 승인하고 운영 시작")])
 
 SCENES = {s.id: s for s in (SCENE_DAY, SCENE_EXCEPTION, SCENE_ONBOARD)}
 

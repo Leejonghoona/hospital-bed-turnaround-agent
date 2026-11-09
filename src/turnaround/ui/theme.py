@@ -8,9 +8,9 @@ from __future__ import annotations
 from html import escape
 
 TOKENS = {
-    "blue": "#3182F6", "blue_bg": "#E8F3FF", "ink": "#191F28", "sub": "#4E5968", "mute": "#6B7684",
-    "line": "#E5E8EB", "bg": "#F7F8FA", "card": "#FFFFFF", "green": "#03B26C", "green_bg": "#E6F8EF",
-    "amber": "#F59F00", "amber_bg": "#FFF4DB", "red": "#F04452", "red_bg": "#FFEBEE", "violet": "#7048E8",
+    "blue": "#1B64DA", "blue_bg": "#E8F3FF", "ink": "#191F28", "sub": "#4E5968", "mute": "#5F6B7A",
+    "line": "#E5E8EB", "bg": "#F7F8FA", "card": "#FFFFFF", "green": "#067A4B", "green_bg": "#E6F8EF",
+    "amber": "#F59F00", "amber_bg": "#FFF4DB", "red": "#C8102E", "red_bg": "#FFEBEE", "violet": "#5B32D6",
     "violet_bg": "#F1ECFF", "gray_bg": "#F2F4F6",
 }
 
@@ -33,7 +33,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-logo { width:28px; height:28px; border-radius:8px; background:%(blue)s; color:#fff; display:flex; align-items:center;
            justify-content:center; font-size:15px; }
 .wl-meta { display:flex; gap:18px; color:%(sub)s; font-size:14px; align-items:center; }
-.wl-badge { background:%(gray_bg)s; color:%(sub)s; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
+.wl-badge { background:%(gray_bg)s; color:%(sub)s; border-radius:999px; padding:4px 10px; font-size:13px; font-weight:700; }
 .wl-page-h { display:flex; align-items:flex-end; justify-content:space-between; margin: 4px 0 16px; }
 .wl-page-h h2 { font-size:26px; font-weight:800; letter-spacing:-0.5px; margin:0; color:%(ink)s; }
 .wl-page-h p { margin:4px 0 0; color:%(sub)s; font-size:14px; }
@@ -41,12 +41,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-kpi { background:#fff; border:1px solid %(line)s; border-radius:16px; padding:16px 18px; }
 .wl-kpi .l { color:%(sub)s; font-size:13px; font-weight:600; }
 .wl-kpi .v { font-size:28px; font-weight:800; color:%(ink)s; margin-top:4px; letter-spacing:-0.5px; }
-.wl-kpi .h { color:%(mute)s; font-size:12px; margin-top:2px; }
+.wl-kpi .h { color:%(mute)s; font-size:13px; margin-top:2px; }
 .wl-kpi.accent .v { color:%(blue)s; }
 .wl-kpi.warn .v { color:%(red)s; }
 .wl-sec { display:flex; align-items:center; gap:8px; margin: 22px 0 10px; }
 .wl-sec h3 { font-size:17px; font-weight:800; margin:0; color:%(ink)s; }
-.wl-sec .n { background:%(blue)s; color:#fff; border-radius:999px; font-size:12px; font-weight:800; padding:2px 8px; }
+.wl-sec .n { background:%(blue)s; color:#fff; border-radius:999px; font-size:13px; font-weight:800; padding:2px 8px; }
 .wl-sec .d { color:%(mute)s; font-size:13px; }
 .wl-card { background:#fff; border:1px solid %(line)s; border-radius:16px; padding:16px 18px; margin-bottom:10px; }
 .wl-card.urgent { border-left: 4px solid %(red)s; }
@@ -55,24 +55,24 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-card .ttl { font-weight:800; font-size:16px; color:%(ink)s; }
 .wl-card .sub { color:%(sub)s; font-size:14px; margin-top:6px; line-height:1.55; }
 .wl-card .facts { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
-.wl-chip { display:inline-flex; align-items:center; gap:4px; border-radius:8px; padding:3px 8px; font-size:12px; font-weight:700; }
+.wl-chip { display:inline-flex; align-items:center; gap:4px; border-radius:8px; padding:3px 8px; font-size:13px; font-weight:700; }
 .c-blue { background:%(blue_bg)s; color:%(blue)s; } .c-green { background:%(green_bg)s; color:%(green)s; }
-.c-amber { background:%(amber_bg)s; color:#B26B00; } .c-red { background:%(red_bg)s; color:%(red)s; }
+.c-amber { background:%(amber_bg)s; color:#8A5300; } .c-red { background:%(red_bg)s; color:%(red)s; }
 .c-gray { background:%(gray_bg)s; color:%(sub)s; } .c-violet { background:%(violet_bg)s; color:%(violet)s; }
 .wl-note { color:%(mute)s; font-size:13px; }
 .wl-empty { background:#fff; border:1px dashed %(line)s; border-radius:16px; padding:22px; color:%(mute)s; text-align:center; font-size:14px; }
 .wl-board { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
 .wl-bed { border-radius:14px; padding:10px 12px; border:1px solid %(line)s; background:#fff; min-height:86px; }
-.wl-bed .id { font-size:12px; color:%(mute)s; font-weight:700; display:flex; justify-content:space-between; }
+.wl-bed .id { font-size:13px; color:%(mute)s; font-weight:700; display:flex; justify-content:space-between; }
 .wl-bed .st { font-weight:800; font-size:14px; margin-top:6px; }
-.wl-bed .who { font-size:12px; color:%(sub)s; margin-top:3px; }
+.wl-bed .who { font-size:13px; color:%(sub)s; margin-top:3px; }
 .wl-bed.s-occupied { background:%(gray_bg)s; } .wl-bed.s-occupied .st { color:%(sub)s; }
-.wl-bed.s-discharging { background:%(amber_bg)s; border-color:#FFE2A8; } .wl-bed.s-discharging .st { color:#B26B00; }
-.wl-bed.s-dirty { background:#FFF0E6; border-color:#FFD3B5; } .wl-bed.s-dirty .st { color:#C2410C; }
+.wl-bed.s-discharging { background:%(amber_bg)s; border-color:#FFE2A8; } .wl-bed.s-discharging .st { color:#8A5300; }
+.wl-bed.s-dirty { background:#FFF0E6; border-color:#FFD3B5; } .wl-bed.s-dirty .st { color:#A3360A; }
 .wl-bed.s-cleaning { background:%(violet_bg)s; border-color:#DDD2FF; } .wl-bed.s-cleaning .st { color:%(violet)s; }
 .wl-bed.s-ready, .wl-bed.s-empty { background:%(green_bg)s; border-color:#BDEBD4; } .wl-bed.s-ready .st, .wl-bed.s-empty .st { color:%(green)s; }
 .wl-bed.s-arrived { background:%(blue_bg)s; border-color:#C9E2FF; } .wl-bed.s-arrived .st { color:%(blue)s; }
-.wl-legend { display:flex; gap:14px; flex-wrap:wrap; color:%(sub)s; font-size:12px; margin: 6px 0 10px; }
+.wl-legend { display:flex; gap:14px; flex-wrap:wrap; color:%(sub)s; font-size:13px; margin: 6px 0 10px; }
 .wl-legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
 .wl-kanban { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
 .wl-col { background:%(gray_bg)s; border-radius:16px; padding:12px; min-height:140px; }
@@ -84,7 +84,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .wl-step.done { background:%(blue_bg)s; color:%(blue)s; } .wl-step.on { background:%(blue)s; color:#fff; }
 .wl-guide { background:%(blue_bg)s; color:%(ink)s; border-radius:14px; padding:12px 16px; margin-bottom:18px;
             border-left:4px solid %(blue)s; }
-.wl-guide .k { color:%(blue)s; font-size:12px; font-weight:800; }
+.wl-guide .k { color:%(blue)s; font-size:13px; font-weight:800; }
 .wl-guide .t { font-size:14px; font-weight:700; margin-top:2px; line-height:1.5; }
 .wl-guide ul { margin:6px 0 0 18px; padding:0; color:%(sub)s; font-size:13px; line-height:1.6; }
 .wl-check { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid %(line)s; }
@@ -113,7 +113,7 @@ def topbar(subtitle: str, now: str | None, mode: str) -> str:
 
 
 def footnote(text: str) -> str:
-    return f'<div style="color:#6B7684;font-size:12px;margin-top:18px">{e(text)}</div>'
+    return f'<div style="color:#5F6B7A;font-size:13px;margin-top:18px">{e(text)}</div>'
 
 
 def page_header(title: str, desc: str) -> str:
@@ -122,6 +122,9 @@ def page_header(title: str, desc: str) -> str:
 
 def kpis(items: list[tuple]) -> str:
     """(라벨, 값, 설명, 강조: '' | accent | warn)"""
+    def _zero(v):  # 0은 강조하지 않는다(강조색은 '봐야 할 숫자'에만)
+        return str(v).strip() in ("0", "0명", "0건", "0개")
+    items = [(l, v, h, "" if t == "accent" and _zero(v) else t) for l, v, h, t in items]
     cells = "".join(f'<div class="wl-kpi {t}"><div class="l">{e(l)}</div><div class="v">{e(v)}</div>'
                     f'<div class="h">{e(h)}</div></div>' for l, v, h, t in items)
     return f'<div class="wl-kpis" style="grid-template-columns:repeat({len(items)},1fr)">{cells}</div>'
@@ -189,9 +192,9 @@ def checks(items: list[tuple]) -> str:
     """(통과 여부 True/False/None(해당 없음), 제목, 설명)"""
     rows = []
     for ok, t, d in items:
-        ic = ('<span class="ic" style="background:#F2F4F6;color:#6B7684">–</span>' if ok is None else
-              '<span class="ic" style="background:#E6F8EF;color:#03B26C">✓</span>' if ok
-              else '<span class="ic" style="background:#FFEBEE;color:#F04452">!</span>')
+        ic = ('<span class="ic" style="background:#F2F4F6;color:#5F6B7A">–</span>' if ok is None else
+              '<span class="ic" style="background:#E6F8EF;color:#067A4B">✓</span>' if ok
+              else '<span class="ic" style="background:#FFEBEE;color:#C8102E">!</span>')
         rows.append(f'<div class="wl-check">{ic}<div><div class="tt">{e(t)}</div><div class="dd">{e(d)}</div></div></div>')
     return f'<div class="wl-card">{"".join(rows)}</div>'
 
