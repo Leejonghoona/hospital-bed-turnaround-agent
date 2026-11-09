@@ -158,6 +158,10 @@ class Gateway:
     def _out_of_service(self, bed_id: str, events: list[Event]) -> bool:
         return self.room_of.get(bed_id) in self._room_status(events)
 
+    def _on_hold(self, bed_id: str, events: list[Event]) -> bool:
+        """급변 전동 때 잡아 둔 병상 (SAG-10). 풀릴 때까지 다른 환자를 배정하지 않는다."""
+        return any(d.bed_id == bed_id and d.hold for d in fold(events).discharges.values())
+
     def check_room_alerts(self, now: datetime) -> list[str]:
         """고장 난 음압실에 공기주의 환자가 있으면 감염관리실 경보 (GW-12). 고장 이벤트당 한 번."""
         events = self._events()
@@ -373,6 +377,8 @@ class Gateway:
             return self._reject(prop, "proposal", ["bed_unavailable"], now)
         if self._out_of_service(prop.bed_id, events):
             return self._reject(prop, "proposal", ["room_out_of_service"], now)
+        if self._on_hold(prop.bed_id, events):
+            return self._reject(prop, "proposal", ["bed_on_hold"], now)
         violations = self._shacl(prop.case, patient, prop.bed_id, events)
         if violations:
             d = self._reject(prop, "proposal", violations, now, "review" if reasons else None)
@@ -470,6 +476,10 @@ class Gateway:
             return d
         if not self._ward_accepted(prop.proposal_id, events):
             return self._reject_commit(prop, ["ward_acceptance_missing"], now, tag)
+        if self._on_hold(prop.bed_id, events):
+            d = self._reject_commit(prop, ["bed_on_hold"], now, tag)
+            self._notify_if_accepted(prop, events, now, "bed_on_hold")
+            return d
         if self._out_of_service(prop.bed_id, events):
             d = self._reject_commit(prop, ["room_out_of_service"], now, tag)
             self._notify_if_accepted(prop, events, now, "room_out_of_service")
@@ -560,6 +570,8 @@ class Gateway:
             d = Decision("refused", "override", None, ["precondition_unmet"])  # 종말소독 완료 전
         elif self._out_of_service(bed_id, events):
             d = Decision("refused", "override", None, ["room_out_of_service"])  # 폐쇄·고장·감시 대기
+        elif self._on_hold(bed_id, events):
+            d = Decision("refused", "override", None, ["bed_on_hold"])  # 급변 전동으로 잡아 둔 병상
         elif (self._room_status(events).get(self.room_of.get(self._assignments(events).get(case, ""), ""))
               == "surveillance_hold"):
             d = Decision("refused", "override", None, ["surveillance_hold"])  # 지침 8.3.4 동실자 이동 제한

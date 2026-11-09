@@ -138,7 +138,7 @@ class PlanningTools:
         room_ok: dict[str, bool] = {}
         for bed in self.gw.beds:
             b = bed.id
-            if b in occupied or b in held or self.gw._out_of_service(b, events):
+            if b in occupied or b in held or self.gw._out_of_service(b, events) or self.gw._on_hold(b, events):
                 continue
             # 배정 기준 위반 병상은 후보가 아니다 (안전은 도구가 보장). 기준은 모두 병실 단위라 병실마다 한 번 검사한다
             r = self.gw.room_of[b]

@@ -578,3 +578,12 @@ def test_death_information_is_not_queryable_by_vendor_or_manager():
     store, gw = make([eol])
     assert gw.query("environment_vendor", ["discharge_type"], "D9", at(10)).status != "answered"
     assert gw.query("bed_manager", ["discharge_type"], "D9", at(10)).status != "answered"
+
+
+def test_held_bed_is_refused_everywhere_until_released():
+    hold = ev("D9", "icu", EventType.UNPLANNED_TRANSFER_OUT, at(2), bed_id="W72-R04-B2", destination="icu", hold=True)
+    store, gw = make([adm(), hold])
+    assert gw.submit(prop(store=store), at(9)).reasons == ["bed_on_hold"]
+    assert _mo(gw, "A1", "W72-R04-B2", at(9, 5)).reasons == ["bed_on_hold"]
+    store.append(ev("D9", "release", EventType.BED_HOLD_RELEASED, at(10), bed_id="W72-R04-B2"))
+    assert gw.submit(prop("p2", store=store), at(10, 5)).status == "awaiting_manager"

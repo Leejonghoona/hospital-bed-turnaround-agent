@@ -26,6 +26,10 @@ class EventType(str, Enum):
     GUARDIAN_ARRIVED = "guardian_arrived"
     PATIENT_DEPARTED = "patient_departed"
     END_OF_LIFE_ROOM_TRANSFER = "end_of_life_room_transfer"  # 임종실 전실: 원래 병상이 빈다 (SAG-9, LP-28)
+    DEATH_CONFIRMED = "death_confirmed"  # 병동 내 사망 확인: 가족 면회·사후 처치 동안 병상은 아직 사용 중 (SAG-10)
+    BODY_TRANSFERRED = "body_transferred"  # 안치실 이송: 이때 병상이 빈다 (SAG-10)
+    UNPLANNED_TRANSFER_OUT = "unplanned_transfer_out"  # 중증 악화 등 급변 전동(중환자실 등): payload destination, hold
+    BED_HOLD_RELEASED = "bed_hold_released"  # 급변 전동 때 잡아 둔 병상을 풀었다
     # 병상 준비
     CLEANING_REQUESTED = "cleaning_requested"
     CLEANING_STARTED = "cleaning_started"

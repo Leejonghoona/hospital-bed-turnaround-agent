@@ -80,7 +80,8 @@ class DischargeCase:
     eta_updates: list[tuple[str, datetime]] = field(default_factory=list)
     rx_revisions: list[tuple[str, datetime, str | None]] = field(default_factory=list)
     discharge_date: date | None = None  # 퇴원 예정일
-    discharge_type: str = "normal"  # normal | death(임종실 전실·사망) | ama(자의 퇴원) (SAG-9)
+    discharge_type: str = "normal"  # normal | death(임종실 전실·사망) | ama(자의 퇴원) | transfer_out(급변 전동)
+    hold: bool = False  # 급변 전동 때 병상을 잡아 둠 (풀릴 때까지 다른 환자 배정 불가)
 
     def seen(self, t: EventType) -> datetime | None:
         return self.facts.get(t)
@@ -210,8 +211,9 @@ def fold(events: Iterable[Event]) -> SagaState:
             # 예정일이 없으면 오후 결정은 다음 날, 오전 결정은 당일 퇴원으로 본다 (설계 가정)
             d.discharge_date = (date.fromisoformat(planned) if planned else
                                 ev.observed_at.date() + timedelta(days=1 if ev.observed_at.hour >= 12 else 0))
-        if ev.type is EventType.END_OF_LIFE_ROOM_TRANSFER:
-            # 임종실 전실: 그 시각에 원래 병상이 빈다. 퇴원 결정 없이 올 수 있다 (LP-28)
+        if ev.type in _WARD_EXIT:
+            # 퇴원 결정 없이 병상을 떠나는 경로 (SAG-9 임종실 전실, SAG-10 병동 사망·급변 전동)
+            kind, vacates = _WARD_EXIT[ev.type]
             d = s.discharges.get(ev.case_id)
             if d is None:
                 d = s.discharges[ev.case_id] = DischargeCase(ev.case_id)
@@ -220,8 +222,13 @@ def fold(events: Iterable[Event]) -> SagaState:
                 d.precautions = tuple(ev.payload.get("precautions") or ())
                 d.organism = ev.payload.get("organism")
                 d.facts.setdefault(EventType.DISCHARGE_DECIDED, ev.observed_at)
-            d.discharge_type = "death"
-            d.facts.setdefault(EventType.PATIENT_DEPARTED, ev.observed_at)
+            d.discharge_type = kind
+            if ev.type is EventType.UNPLANNED_TRANSFER_OUT and ev.payload.get("hold"):
+                d.hold, vacates = True, False  # 병상을 잡아 둔다: 풀릴 때 빈다
+            if ev.type is EventType.BED_HOLD_RELEASED:
+                d.hold = False
+            if vacates:
+                d.facts.setdefault(EventType.PATIENT_DEPARTED, ev.observed_at)
         d = s.discharges.get(ev.case_id)
         if d is None:
             continue
@@ -284,6 +291,35 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
     return out.events
 
 
+# 퇴원 결정 없이 병상을 떠나는 이벤트: (경로, 이 이벤트로 병상이 비는가)
+_WARD_EXIT = {
+    EventType.END_OF_LIFE_ROOM_TRANSFER: ("death", True),
+    EventType.DEATH_CONFIRMED: ("death", False),  # 가족 면회·사후 처치 동안 병상은 아직 사용 중
+    EventType.BODY_TRANSFERRED: ("death", True),
+    EventType.UNPLANNED_TRANSFER_OUT: ("transfer_out", True),
+    EventType.BED_HOLD_RELEASED: ("transfer_out", True),
+}
+
+
+def _release_matches_on_hold(d: DischargeCase, s: SagaState, now: datetime, out: _Out) -> None:
+    """잡아 둔 병상에 걸린 사전 매칭은 풀고 다시 찾는다. 연락 후면 담당 검토와 재연락 (퇴원 취소 보상과 같은 원칙)."""
+    bed = d.bed_id
+    for m in sorted(s.matches.values(), key=lambda x: x.admission_id):
+        if m.bed_id != bed or not m.active:
+            continue
+        if EventType.PATIENT_CONTACTED in m.facts:
+            out.cmd(m.admission_id, f"review:hold:{bed}", EventType.CASE_RECLASSIFIED_REVIEW, now, bed_id=bed,
+                    reason="bed_on_hold_after_contact")
+            out.cmd(m.admission_id, f"task:recontact:hold:{bed}", EventType.HUMAN_TASK_CREATED, now, bed_id=bed,
+                    reason="recontact")
+        else:
+            out.cmd(m.admission_id, f"prematch_released:hold:{bed}", EventType.PREMATCH_RELEASED, now, bed_id=bed,
+                    reason="bed_on_hold")
+            _notify_ward_if_accepted(m, out, now, "bed_on_hold")
+            out.cmd(m.admission_id, f"rematch:hold:{bed}", EventType.REMATCH_REQUESTED, now, target="admission",
+                    admission_id=m.admission_id)
+
+
 def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, p: SagaPolicy) -> None:
     decided = d.seen(EventType.DISCHARGE_DECIDED)
     if decided is None:
@@ -303,8 +339,10 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
         seen_at = d.seen(t)
         return seen_at is not None and seen_at <= due
 
-    # 사망 퇴원(임종실 전실)은 퇴실 전 경보를 모두 억제한다: 등록 확인, 퇴원약, 보호자, 수납 (SAG-9, LP-28)
-    if d.discharge_type != "death":
+    if d.hold:
+        _release_matches_on_hold(d, s, now, out)
+    # 사망(임종실 전실, 병동 사망)과 급변 전동은 퇴원이 아니다: 퇴실 전 경보를 모두 억제한다 (SAG-9, SAG-10)
+    if d.discharge_type not in ("death", "transfer_out"):
         # 전날 19:00: 등록됐으면 청소 예정표 공유, 19:00까지 미등록이면 병동에 확인 요청
         if registered is not None:
             due = max(due19, registered)

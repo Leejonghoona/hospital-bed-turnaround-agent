@@ -556,3 +556,36 @@ def test_death_information_never_leaves_in_saga_commands():
     store, _ = run([eol(when=at(0, 9))], until=at(0, 12), start=at(0, 9))
     for x in saga_events(store):
         assert "death" not in str(x.payload) and "discharge_type" not in x.payload
+
+
+# ---------- SAG-10 병동 사망, 급변 전동 ----------
+
+def test_death_on_ward_vacates_bed_only_at_body_transfer():
+    evs = [e("D9", "death", EventType.DEATH_CONFIRMED, at(0, 3), bed_id="W72-R03-B2", isolation_order=False)]
+    store, _ = run(evs, until=at(0, 4), start=at(0, 3))
+    assert not saga_events(store, EventType.CLEANING_REQUEST_ISSUED)  # 면회·사후 처치 중: 아직 사용 중
+    store.append(e("D9", "body", EventType.BODY_TRANSFERRED, at(0, 4, 30), bed_id="W72-R03-B2"))
+    SagaRunner(store).step(at(0, 4, 35))
+    req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
+    assert [r.occurred_at for r in req] == [at(0, 4, 30)]
+    assert not saga_events(store, EventType.REGISTRATION_CHECK_REQUESTED)
+
+
+def test_unplanned_icu_transfer_frees_bed_and_suppresses_discharge_alerts():
+    evs = [decided(), registered(),
+           e("D1", "icu", EventType.UNPLANNED_TRANSFER_OUT, at(0, 2), bed_id="W72-R03-B1", destination="icu")]
+    store, _ = run(evs, until=at(0, 12), start=at(0, 1))
+    assert [r.occurred_at for r in saga_events(store, EventType.CLEANING_REQUEST_ISSUED)] == [at(0, 2)]
+    assert not [x for x in saga_events(store, EventType.HUMAN_TASK_CREATED) if x.payload.get("kind") == "rx_missing"]
+
+
+def test_bed_hold_releases_prematch_and_frees_bed_on_release():
+    evs = [e("D9", "icu", EventType.UNPLANNED_TRANSFER_OUT, at(0, 2), bed_id="W72-R03-B1", destination="icu", hold=True),
+           prematch(adm="P1", disc="D7", bed="W72-R03-B1", when=at(-1, 17, 40))]
+    store, _ = run(evs, until=at(0, 3), start=at(0, 2))
+    assert not saga_events(store, EventType.CLEANING_REQUEST_ISSUED)  # 잡아 둔 동안은 비지 않는다
+    rel = [x for x in saga_events(store, EventType.PREMATCH_RELEASED) if x.payload.get("reason") == "bed_on_hold"]
+    assert rel and saga_events(store, EventType.REMATCH_REQUESTED)
+    store.append(e("D9", "release", EventType.BED_HOLD_RELEASED, at(0, 6), bed_id="W72-R03-B1"))
+    SagaRunner(store).step(at(0, 6, 5))
+    assert [r.occurred_at for r in saga_events(store, EventType.CLEANING_REQUEST_ISSUED)] == [at(0, 6)]
