@@ -1,8 +1,6 @@
-"""예외 판단 정답 세트 v2.2 (M5, docs/검토/모델선정_사전등록.md). 모두 합성, 라벨은 초안(claude-draft).
+"""예외 판단 정답 세트 v2.1 (M5, docs/검토/모델선정_사전등록.md). 모두 합성, 라벨은 초안(claude-draft).
 
-v2(250문항)를 페르소나 3명 토론 검증(docs/검토/예외판단_v2_토론검증.md)의 합의대로 고친 판(v2.1)에
-사용자 결정 3건(DECISIONS 2026-11-09: 병동 통보 뒤 자동 재매칭의 통지, 곧 준비될 병상 추천, E1 병동 참조 알림)을
-통지·현장 질문 필드에만 반영한 판이다. 정답·허용·금지·입력은 v2.1과 같아 채점이 같다.
+v2(250문항)를 페르소나 3명 토론 검증(docs/검토/예외판단_v2_토론검증.md)의 합의대로 고친 판이다.
 초안 46문항(XD-001~046)은 문항별 합의 수정을 적용하고, 생성 문항(XD-047~)은 고친 결정 규칙으로 다시 만든다.
 
 사용자 검토 의견 (2026-11-09):
@@ -28,7 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SRC = ROOT / "evals" / "model_eval" / "exception_decisions_draft.jsonl"
-OUT = ROOT / "evals" / "model_eval" / "exception_decisions_v2_2.jsonl"
+OUT = ROOT / "evals" / "model_eval" / "exception_decisions_v2_1.jsonl"
 SEED = 202611091
 TARGET = 250
 
@@ -88,23 +86,18 @@ def _uniq(xs) -> list:
 
 # ---------- 초안 46문항: 토론 합의 수정 ----------
 
-# v2.2 사용자 결정(DECISIONS 2026-11-09): 병동 통보 뒤 자동 재매칭은 원래 병동(철회 먼저)·새 병동·병상관리에 한 묶음으로 통지
-REMATCH_AFTER_WARD_NOTICE = {"roles": ["ward", "bed_manager"], "include": ["reason", "evidence"],
-                             "withdraw_first": True, "bundle": True}
-
 # 문항별 합의(2명 이상 "수정"). 키: 바꿀 내용. gold는 (행동, params).
 DRAFT_FIX: dict[str, dict] = {
     "XD-001": {"acc_add": ["propose_rematch"]},
     "XD-002": {"gold": ("propose_rematch", {}), "acc": ["propose_rematch", "wait_for_ipc", "escalate:ipc"]},
-    "XD-004": {"acc_add": ["propose_rematch"], "notify": REMATCH_AFTER_WARD_NOTICE},
+    "XD-004": {"acc_add": ["propose_rematch"], "ask": "병동 통보 뒤 재매칭을 사람 승인으로 둘지(안전 검토 1.3 vs 정책 auto)"},
     "XD-005": {"acc_add": ["propose_rematch"]},
     "XD-007": {"gold": ("propose_rematch", {}), "acc": ["propose_rematch", "escalate:ipc"]},
     "XD-009": {"acc_add": ["propose_rematch"]},
     "XD-011": {"why": "연락 뒤라 자동 재매칭은 금지하고, 1인실 후보로 추천안을 내 사람 승인을 받는다."},
     "XD-013": {"why": "확정 취소는 사람(human_only)이 하고, 머리는 대체 병상 추천안을 사람 승인으로 낸다."},
     "XD-014": {"acc_drop": ["escalate:ward"],
-               "notify": {"roles": ["ward"], "include": ["reason", "evidence"], "kind": "reference"},
-               "ask": "입실 30분 이내 E1에서 병동 책임간호사에게 참조 알림(작업 아님)을 같이 보내는 것이 현장에 맞는가(설계 가정)"},
+               "ask": "주말 결핵 확정 환자가 20분 뒤 4인실에 입실할 때 가장 빨리 멈출 수 있는 사람이 병동 책임간호사인가 원무 당직인가(E1 올림 역할에 ward 추가 여부)"},
     "XD-015": {"acc_add": ["propose_rematch"]},
     "XD-016": {"gold": ("propose_rematch", {}), "acc": ["propose_rematch", "propose_surveillance_hold", "escalate:ipc"]},
     "XD-019": {"case": {"cleaning_started": False}},
@@ -114,11 +107,13 @@ DRAFT_FIX: dict[str, dict] = {
     "XD-024": {"case": {"contacted": False, "ward_notified": False}},
     "XD-027": {"acc_add": ["propose_rematch"]},
     "XD-029": {"gold": ("propose_rematch", {"bed_id": "W71-R03-B2"}), "tools": {"rematch_candidates": 1},
-               "why": "퇴원 예정 병상(W71-R03-B2)을 가배정 추천안으로 내고 사람이 승인한다. 기다리기만 하지 않는다."},
+               "why": "퇴원 예정 병상(W71-R03-B2)을 가배정 추천안으로 내고 사람이 승인한다. 기다리기만 하지 않는다.",
+               "ask": "곧 준비될(퇴원 예정) 병상도 추천안 대상으로 볼지"},
     "XD-030": {"gold": ("propose_rematch", {"bed_id": "W72-R04-B1"}), "tools": {"rematch_candidates": 1},
-               "why": "가장 먼저 준비될 병상(W72-R04-B1)을 추천안으로 내고 사람이 승인한다. 연기 안내 요청은 이르다."},
+               "why": "가장 먼저 준비될 병상(W72-R04-B1)을 추천안으로 내고 사람이 승인한다. 연기 안내 요청은 이르다.",
+               "ask": "곧 준비될(퇴원 예정) 병상도 추천안 대상으로 볼지"},
     "XD-032": {"acc_drop": ["wait_for_next_ready"], "forb_add": ["wait_for_next_ready"]},
-    "XD-036": {"acc_add": ["propose_rematch"], "notify": REMATCH_AFTER_WARD_NOTICE},
+    "XD-036": {"acc_add": ["propose_rematch"], "ask": "병동 통보 뒤 재매칭을 사람 승인으로 둘지(XD-004와 같은 결정)"},
     "XD-040": {"gold": ("request_bed_prep_first", {}), "tools": {"ready_p90_min": 200},
                "acc": ["request_bed_prep_first", "request_recontact"],
                "why": "준비 P90이 약속 시각을 넘는다. 진행 중인 청소 뒤 침상 정리를 먼저 해 달라고 한 번 요청하고 원무에 통지한다."},
@@ -179,8 +174,7 @@ def revise(item: dict) -> dict:
         it["rationale_ko"] = fix["why"]
     if fix and any(k in fix for k in ("acc_add", "acc", "acc_drop", "forb_drop", "forb_add", "case", "tools")):
         rev.append("토론: 허용·금지·입력 수정")
-    gold["notify"] = copy.deepcopy(fix["notify"]) if "notify" in fix else \
-        notify_for(it["trigger"], gold["action"], gold["params"])
+    gold["notify"] = notify_for(it["trigger"], gold["action"], gold["params"])
     it.update(gold_action=gold, acceptable_actions=acc, forbidden_actions=forb, human_only=list(HUMAN_ONLY),
               revision=rev, origin="draft_v1_revised", field_question=fix.get("ask"))
     it["field_uncertain"] = bool(it.get("field_uncertain")) or bool(fix.get("ask"))
