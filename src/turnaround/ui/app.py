@@ -19,14 +19,15 @@ from turnaround.ui.scenes import SCENES, SceneRun
 st.set_page_config(page_title="병실관리AI", page_icon="🛏️", layout="wide", initial_sidebar_state="expanded")
 st.html(T.CSS)
 
-ROLE_KO = {"admission": "원무 · 병상 배정", "ward": "병동 · 책임간호사", "ipc": "감염관리실", "manager": "관리자",
+ROLE_KO = {"audit": "결정 기록", "admission": "원무 · 병상 배정", "ward": "병동 · 책임간호사", "ipc": "감염관리실", "manager": "관리자",
            "onboarding": "새 병원 온보딩", "vendor": "청소 협력업체"}
 ROLE_DESC = {"admission": "에이전트가 확정한 배정을 확인하고, 사람 승인이 필요한 일만 처리합니다",
              "ward": "배정 통보를 받고 병동 준비부터 입실까지의 흐름을 봅니다",
              "ipc": "격리 사안 통지를 확인하고 종말소독 진행을 봅니다",
-             "manager": "오늘의 흐름, 안전 검사, 자율권 제안을 한눈에 봅니다",
+             "manager": "오늘의 흐름, 안전 검사, 자동 처리 범위 제안을 한눈에 봅니다",
              "onboarding": "새 병원의 내보내기 표를 올리면 질문에 답해 설정을 만들고, 시험 운행 검사 뒤 승인합니다",
-             "vendor": "청소 요청만 봅니다. 환자 정보는 보이지 않습니다"}
+             "vendor": "청소 요청만 봅니다. 환자 정보는 보이지 않습니다",
+             "audit": "누가 언제 무엇을 결정했는지 남긴 기록입니다(감사·되돌아보기)"}
 
 
 def _event(store, case, key, etype, now, **payload):
@@ -35,23 +36,74 @@ def _event(store, case, key, etype, now, **payload):
                        source="human", payload=payload))
 
 
+FILTER = {"ward": "전체", "q": ""}
+CONTACT_KINDS = {"recontact", "recontact_prepare", "postpone_contact"}
+
+
+def _task_done(sv, t: dict, by: str) -> None:
+    from turnaround.events import EventType
+    _event(sv.store, t["case"], f"done:{t['task_id']}", EventType.HUMAN_TASK_DONE, sv.now, task_id=t["task_id"], by=by)
+
+
+def keep(item: dict) -> bool:
+    """병동 필터와 환자 검색 (실사용 화면, UI 3차)."""
+    ward = FILTER["ward"]
+    if ward != "전체" and not str(item.get("bed_ko", "")).startswith(ward):
+        return False
+    q = FILTER["q"].strip()
+    return not q or q in str(item.get("who", "")) or q in str(item.get("bed_ko", ""))
+
+
+@st.dialog("환자 경과", width="large")
+def patient_dialog(sv, case: str) -> None:
+    t = views.case_timeline(sv, case)
+    st.html(T.card(t["who"], f"{T.e(t['department'])} · 병상 {T.e(t['bed_ko'])}" + (f" · 기다리는 병상의 앞 환자 {T.e(t['discharge'])}" if t["discharge"] else ""),
+                   [T.chip(t["status"], "blue"), T.chip(f"격리 {t['isolation']}", "red" if t["isolation"] != "없음" else "gray")]))
+    st.html(T.table(["시각", "누가", "무엇을", "내용"], [[r["time"], r["who"], ("" if r["mine"] else "[앞 환자] ") + r["what"], r["detail"]]
+                                                for r in t["rows"]]))
+
+
+REASONS = {"decline": ["원무가 직접 처리", "병동과 통화로 해결", "환자 사정으로 보류", "기타"],
+           "undo": ["다른 병상이 더 적합", "환자 요청", "병동 사정", "기타"],
+           "object": ["간호 인력 부족", "격리 준비 불가", "다른 환자 우선", "기타"]}
+
+
+@st.dialog("사유를 남겨 주세요")
+def reason_dialog(sv, kind: str, target: str, label: str) -> None:
+    st.write(label)
+    r = st.selectbox("사유", REASONS[kind])
+    memo = st.text_input("메모(선택)")
+    text = r + (f" · {memo}" if memo else "")
+    if st.button("확인", type="primary", use_container_width=True):
+        if kind == "decline":
+            sv.gw.decline_action(target, "bed_manager", text, sv.now)
+        else:
+            sv.gw.ward_objection(target, ("원무 되돌림: " if kind == "undo" else "병동 이의: ") + text, sv.now)
+        st.rerun()
+
+
 # ---------------- 역할 화면 ----------------
 
 def show_admission(d: dict, sv=None, beds=None, key: str = "") -> None:
     overdue = sum(a["overdue"] for a in d["approvals"]) + sum(t["overdue"] for t in d["tasks"])
     st.html(T.kpis([("승인 대기", len(d["approvals"]), "에이전트 제안 중 사람 승인이 필요한 것", "accent"),
                     ("마감 지남", overdue, "지금 먼저 처리", "warn" if overdue else ""),
-                    ("환자 연락", len(d["contacts"]), "확정됐고 아직 알리지 않은 입원", ""),
+                    ("환자 연락", len(d["contacts"]) + sum(t["raw_kind"] in CONTACT_KINDS for t in d["tasks"]),
+                     "첫 안내 + 재연락", ""),
                     ("오늘 에이전트 확정", len(d["notices"]), "통보받고 시한 안에 되돌릴 수 있음", "")]))
     todo = len(d["approvals"]) + len(d["contacts"]) + len(d["tasks"])
     st.html(T.section("지금 할 일", todo, "마감 지난 일 → 마감 이른 일 순서"))
     if not todo:
         st.html(T.empty("지금 처리할 일이 없습니다. 평범한 배정은 에이전트가 확정하고 아래에 알립니다."))
+    d = {**d, "approvals": [x for x in d["approvals"] if keep(x)], "contacts": [x for x in d["contacts"] if keep(x)],
+         "tasks": [x for x in d["tasks"] if keep(x)], "notices": [x for x in d["notices"] if keep(x)]}
     for a in d["approvals"]:
         c1, c2 = st.columns([6, 1], vertical_alignment="center")
         chips = [T.chip(a["trigger_ko"], "violet"), T.chip("승인 필요", "blue")] + ([T.chip("마감 지남", "red")] if a["overdue"] else [])
         facts = [T.chip(f, "gray") for f in a["facts"]] + [T.chip(f"마감 {a['deadline']}", "red" if a["overdue"] else "amber")]
-        c1.html(T.card(f"{a['who']} · {a['action_ko']}", f"{T.e(a['situation'])}<br><b>{T.e(a['effect'])}</b>", chips, facts,
+        rec = (f"<br><span class='wl-note'>지금 기준 추천 병상: {T.e(' · '.join(a['recommend']))} (승인하면 확정 직전에 다시 확인)</span>"
+               if a.get("recommend") else "")
+        c1.html(T.card(f"{a['who']} · {a['action_ko']}", f"{T.e(a['situation'])}<br><b>{T.e(a['effect'])}</b>{rec}", chips, facts,
                        "urgent" if a["overdue"] else "todo"))
         if sv is not None:
             if c2.button("승인", key=f"ap-{key}-{a['exception_id']}", type="primary", use_container_width=True):
@@ -59,20 +111,41 @@ def show_admission(d: dict, sv=None, beds=None, key: str = "") -> None:
                 st.toast("게이트웨이가 다시 확인한 뒤 " + ("실행했습니다" if dec.status == "executed" else "거부했습니다"))
                 st.rerun()
             if c2.button("거절", key=f"dc-{key}-{a['exception_id']}", use_container_width=True):
-                sv.gw.decline_action(a["exception_id"], "bed_manager", "원무가 직접 처리", sv.now)
-                st.toast("거절했습니다. 에이전트 제안은 실행하지 않고 원무가 직접 처리합니다")
-                st.rerun()
+                reason_dialog(sv, "decline", a["exception_id"], f"{a['who']}: '{a['action_ko']}' 제안을 거절합니다. 실행하지 않고 원무가 직접 처리합니다.")
+            if c2.button("경과", key=f"tl-a-{key}-{a['exception_id']}", use_container_width=True):
+                patient_dialog(sv, a["case"])
     for c in d["contacts"]:
-        st.html(T.card(f"{c['who']} · 입원 안내 연락", f"{T.e(c['bed_ko'])} 확정 {T.e(c['committed'])}",
+        c1, c2 = st.columns([6, 1], vertical_alignment="center")
+        c1.html(T.card(f"{c['who']} · 입원 안내 연락", f"{T.e(c['bed_ko'])} 확정 {T.e(c['committed'])} · 수속 시각과 병동을 안내하세요",
                        [T.chip("환자 연락", "blue")], kind="todo"))
-    for t in d["tasks"][:5]:
-        st.html(T.card(f"{t['who']} · {t['kind']}", T.e(t.get("why") or ""), [T.chip("작업", "gray")]
+        if sv is not None:
+            from turnaround.events import EventType
+            if c2.button("연락함", key=f"ct-{key}-{c['case']}", type="primary", use_container_width=True):
+                _event(sv.store, c["case"], "patient_contacted", EventType.PATIENT_CONTACTED, sv.now, bed_id=c["bed"],
+                       by="admission_office")
+                st.rerun()
+            if c2.button("경과", key=f"tl-c-{key}-{c['case']}", use_container_width=True):
+                patient_dialog(sv, c["case"])
+    fresh = [t for t in d["tasks"] if not t["stale"]]
+    stale = [t for t in d["tasks"] if t["stale"]]
+    for t in fresh[:5]:
+        c1, c2 = st.columns([6, 1], vertical_alignment="center")
+        c1.html(T.card(f"{t['who']} · {t['kind']}", T.e(t.get("why") or ""), [T.chip("작업", "gray")]
                        + ([T.chip("마감 지남", "red")] if t["overdue"] else []), [T.chip(f"마감 {t['due']}", "red" if t["overdue"] else "amber")],
                        "urgent" if t["overdue"] else "todo"))
-    if len(d["tasks"]) > 5:
-        with st.expander(f"작업 {len(d['tasks']) - 5}건 더 보기"):
-            st.html(T.table(["환자", "작업", "사유", "마감"], [[t["who"], t["kind"], t.get("why") or "", t["due"]]
-                                                       for t in d["tasks"][5:]]))
+        if sv is not None:
+            if c2.button("처리 완료", key=f"td-{key}-{t['task_id']}", type="primary", use_container_width=True):
+                _task_done(sv, t, "admission_office")
+                st.rerun()
+            if c2.button("경과", key=f"tl-t-{key}-{t['task_id']}", use_container_width=True):
+                patient_dialog(sv, t["case"])
+    rest = fresh[5:]
+    if rest:
+        with st.expander(f"오늘 작업 {len(rest)}건 더 보기"):
+            st.html(T.table(["환자", "작업", "사유", "마감"], [[t["who"], t["kind"], t.get("why") or "", t["due"]] for t in rest]))
+    if stale:
+        with st.expander(f"어제 이전부터 남은 작업 {len(stale)}건 · 묶어서 보기"):
+            st.html(T.table(["환자", "작업", "사유", "마감"], [[t["who"], t["kind"], t.get("why") or "", t["due"]] for t in stale]))
     st.html(T.section("에이전트가 확정하고 알린 배정", len(d["notices"]), "확정 직전 두 번 다시 확인함 · 시한 안에 되돌릴 수 있음"))
     if not d["notices"]:
         st.html(T.empty("오늘 에이전트가 확정한 배정이 아직 없습니다."))
@@ -86,9 +159,9 @@ def show_admission(d: dict, sv=None, beds=None, key: str = "") -> None:
                        + ([] if n["active"] else [T.chip("이미 바뀜", "gray")]), facts))
         if sv is not None and n["active"] and n["proposal_id"] and n["undo_open"] and \
                 c2.button("되돌리기", key=f"undo-{key}-{n['case']}", use_container_width=True):
-            sv.gw.ward_objection(n["proposal_id"], "원무 되돌림", sv.now)
-            st.toast("되돌렸습니다. 연락 전이면 다시 찾고, 연락 뒤면 담당 검토와 재연락으로 갑니다")
-            st.rerun()
+            reason_dialog(sv, "undo", n["proposal_id"], f"{n['who']} → {n['bed_ko']} 확정을 되돌립니다. 연락 전이면 다시 찾고, 연락 뒤면 담당 검토와 재연락으로 갑니다.")
+        if sv is not None and c2.button("경과", key=f"tl-n-{key}-{n['case']}", use_container_width=True):
+            patient_dialog(sv, n["case"])
     if d["blocked"]:
         st.html(T.section("오늘 막힌 판단", len(d["blocked"]), "에이전트가 골랐지만 안전 규칙이 막고 사람에게 올린 것"))
         st.html(T.table(["시각", "환자", "에이전트가 고른 행동", "막은 이유"], [[b["time"], b["case"], b["action"], b["reason"]]
@@ -105,11 +178,13 @@ def show_admission(d: dict, sv=None, beds=None, key: str = "") -> None:
 
 def show_ward(d: dict, sv=None, beds=None) -> None:
     S = views.WARD_STEPS
+    d = {**d, "flow": [x for x in d["flow"] if keep(x)], "todo": [x for x in d["todo"] if keep(x)]}
     cols = {k: [] for k in S}
     for f in d["flow"]:
         hold = T.chip("호출 보류: " + f["hold"], "red") if f["hold"] else ""
+        bs = T.chip("병상 " + f["bed_state"], "gray") if f.get("bed_state") else ""
         cols[f["step"]].append(T.mini(f"{f['who']}", f"{f['bed_ko']} · 통보 {f['notified']}",
-                                      f'<div style="margin-top:6px">{hold}</div>' if hold else ""))
+                                      f'<div style="margin-top:6px">{bs} {hold}</div>' if (hold or bs) else ""))
     st.html(T.kpis([(S[0], len(cols[S[0]]), "통보를 받고 아직 준비 전", "accent"), (S[1], len(cols[S[1]]), "병상·수속이 갖춰지면 호출", ""),
                     (S[2], len(cols[S[2]]), "원무가 환자를 병동으로 보냄", ""), (S[3], len(cols[S[3]]), "오늘", "")]))
     st.html(T.section("지금 할 일", len(d["todo"]), "'준비 완료'를 누르면 병상·수속이 갖춰질 때 원무가 환자를 보냅니다"))
@@ -126,8 +201,7 @@ def show_ward(d: dict, sv=None, beds=None) -> None:
                 _event(sv.store, f["case"], "ward_prep_done", EventType.WARD_PREP_DONE, sv.now, bed_id=f["bed"])
                 st.rerun()
             if f["proposal_id"] and c3.button("이의", key=f"obj-{f['case']}", use_container_width=True):
-                sv.gw.ward_objection(f["proposal_id"], "병동 이의", sv.now)
-                st.rerun()
+                reason_dialog(sv, "object", f["proposal_id"], f"{f['who']} → {f['bed_ko']} 배정에 이의를 냅니다. 연락 전이면 다른 병상을 다시 찾습니다.")
     st.html(T.section("입실 흐름", len(d["flow"]), " → ".join(S)))
     st.html(T.kanban(list(cols.items())))
     if beds is not None:
@@ -142,7 +216,7 @@ def show_ipc(d: dict, sv=None) -> None:
                     ("오늘 격리 오더", len(d["isolation_orders"]), "", ""),
                     ("빈 음압실", d["np_free"], "지금 바로 쓸 수 있는", "accent"),
                     ("종말소독 대기", len(waiting), "격리 퇴실 병상", "")]))
-    st.html(T.section("지금 할 일", len(todo), "확인하면 감염관리실이 조치를 맡았다는 기록이 남습니다"))
+    st.html(T.section("지금 할 일", len(todo), "'확인, 조치 시작'을 누르면 감염관리실이 이 사안을 맡았다는 기록(누가·언제)이 남고 원무·병동에 보입니다"))
     if not todo:
         st.html(T.empty("확인할 통지가 없습니다."))
     for a in todo:
@@ -152,8 +226,10 @@ def show_ipc(d: dict, sv=None) -> None:
                  T.chip(f"빈 음압실 {d['np_free']}개", "green" if d["np_free"] else "red"),
                  T.chip("이미 입실" if a["arrived"] else "아직 입실 전", "red" if a["arrived"] else "gray"),
                  T.chip(f"받은 시각 {a['time']}", "gray")]
-        c1.html(T.card(f"{a['who']} · {a['kind']}", T.e(a["card"]), [T.chip("격리", "red")], facts, "urgent"))
-        if sv is not None and c2.button("조치 맡음", key=f"ipc-{a['task_id']}", type="primary", use_container_width=True):
+        alt = (f"<br><span class='wl-note'>옮길 수 있는 병상: {T.e(' · '.join(a['alternatives']))}</span>"
+               if a.get("alternatives") else "")
+        c1.html(T.card(f"{a['who']} · {a['kind']}", T.e(a["card"]) + alt, [T.chip("격리", "red")], facts, "urgent"))
+        if sv is not None and c2.button("확인, 조치 시작", key=f"ipc-{a['task_id']}", type="primary", use_container_width=True):
             from turnaround.events import EventType
             _event(sv.store, a["case"], f"ipc_ack:{a['task_id']}", EventType.HUMAN_TASK_DONE, sv.now,
                    task_id=a["task_id"], by="ipc")
@@ -195,14 +271,15 @@ def show_manager(d: dict) -> None:
 ONBOARD_STEPS = ["표 구조", "값 형식", "열의 뜻", "코드 뜻", "시험 운행 검사", "승인하고 운영 시작"]
 
 
-def show_onboarding(d: dict) -> None:
+def show_onboarding(d: dict, progress: bool = True) -> None:
     if not d:
         return
     idx = {"structure": 0, "format": 1, "column": 2, "code": 3}.get(d.get("stage"), 4)
     if d.get("package") and d["package"]["status"] == "승인됨":
         idx = 5
-    st.html(T.section("설정 만들기 진행"))
-    st.html(T.steps(ONBOARD_STEPS, idx))
+    if progress:  # 시연 대본에서는 위의 단계 막대가 같은 진행을 보여 주므로 두 번 그리지 않는다
+        st.html(T.section("설정 만들기 진행"))
+        st.html(T.steps(ONBOARD_STEPS, idx))
     if d.get("stage") != "done":
         st.html(T.kpis([("이번 묶음 질문", len(d["questions"]), d.get("stage_ko", ""), "accent"),
                         ("제안 없는 질문", d.get("open", 0), "사람이 답을 찾아야 함", ""),
@@ -228,7 +305,7 @@ def show_onboarding(d: dict) -> None:
 
 def render_role(role: str, sv=None, data=None, key: str = "") -> None:
     if role == "onboarding":
-        show_onboarding(data or {})
+        show_onboarding(data or {}, progress=key != "scene")
         return
     if role == "vendor":
         from turnaround.ui.demo import vendor_view
@@ -238,6 +315,14 @@ def render_role(role: str, sv=None, data=None, key: str = "") -> None:
                 else T.empty("대기 중인 청소 요청이 없습니다"))
         return
     beds = views.bed_states(sv) if sv is not None else None
+    if beds is not None and FILTER["ward"] != "전체":
+        beds = [b for b in beds if b["ward"] == "W" + FILTER["ward"].replace("병동", "")]
+    if role == "audit":
+        rows = views.audit_log(sv, 80)
+        st.html(T.section("오늘의 결정 기록", len(rows), "에이전트·게이트웨이·사람이 한 결정을 최신순으로"))
+        st.html(T.table(["시각", "누가", "환자", "무엇을", "내용"], [[r["time"], r["actor"], r["patient"], r["what"], r["detail"]]
+                                                          for r in rows]) if rows else T.empty("오늘 기록이 없습니다"))
+        return
     if role == "admission":
         show_admission(views.admission_view(sv), sv, beds, key)
     elif role == "ward":
@@ -276,6 +361,10 @@ if mode == "시연 대본":
         step = run.scene.steps[run.index]
         st.html(T.page_header(ROLE_KO[v["role"]], ROLE_DESC[v["role"]]))
         st.html(T.guide("이 화면에서 볼 것", v["caption"].split(": ", 1)[-1], step.look))
+        if v.get("changed"):
+            st.html(T.section("이번 단계에서 바뀐 것", len(v["changed"]), "새로 남은 결정 기록(최신순)"))
+            st.html(T.table(["시각", "누가", "환자", "무엇을", "내용"],
+                            [[r["time"], r["actor"], r["patient"], r["what"], r["detail"]] for r in v["changed"]]))
         if v["role"] == "manager" and run.pkg is not None and run.pkg.status == "approved":
             st.html(T.card("새 병원 설정판이 승인되어 운영을 시작했습니다", "아래는 그 병원 데이터로 돌린 하루입니다",
                            [T.chip("승인: 의료정보팀", "green"), T.chip(f"설정판 {run.pkg.version[:6]}", "gray")]))
@@ -285,7 +374,6 @@ else:
     from turnaround.sim import GeneratorConfig
     from turnaround.ui.demo import build_demo
 
-    role = st.sidebar.radio("역할", ["admission", "ward", "ipc", "manager", "vendor"], format_func=ROLE_KO.get)
     seed = st.sidebar.number_input("합성 병원 번호", 0, 999, 0)
     t = st.sidebar.select_slider("시각", options=[time(h, m) for h in range(8, 20) for m in (0, 30)],
                                  value=time(13, 30), format_func=lambda x: x.strftime("%H:%M"))
@@ -296,6 +384,11 @@ else:
                           config=GeneratorConfig.realistic(), occupancy="full")
 
     s = _state(int(seed), t.hour, t.minute)
+    counts = views.role_counts(s)
+    role = st.sidebar.radio("역할", ["admission", "ward", "ipc", "manager", "audit", "vendor"],
+                            format_func=lambda r: ROLE_KO[r] + (f"  ·  할 일 {counts[r]}" if counts.get(r) else ""))
+    FILTER["ward"] = st.sidebar.selectbox("병동", ["전체", "71병동", "72병동"])
+    FILTER["q"] = st.sidebar.text_input("환자·병상 검색", placeholder="예: 김○, 04호")
     st.html(T.topbar(f"합성 병원 {int(seed)} · 71·72병동 24병상", s.now.strftime("%m월 %d일 %H:%M"), "역할 화면"))
     st.html(T.page_header(ROLE_KO[role], ROLE_DESC[role]))
     render_role(role, s, key="free")

@@ -59,6 +59,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 16px; }
 .c-blue { background:%(blue_bg)s; color:%(blue)s; } .c-green { background:%(green_bg)s; color:%(green)s; }
 .c-amber { background:%(amber_bg)s; color:#B26B00; } .c-red { background:%(red_bg)s; color:%(red)s; }
 .c-gray { background:%(gray_bg)s; color:%(sub)s; } .c-violet { background:%(violet_bg)s; color:%(violet)s; }
+.wl-note { color:%(mute)s; font-size:13px; }
 .wl-empty { background:#fff; border:1px dashed %(line)s; border-radius:16px; padding:22px; color:%(mute)s; text-align:center; font-size:14px; }
 .wl-board { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
 .wl-bed { border-radius:14px; padding:10px 12px; border:1px solid %(line)s; background:#fff; min-height:86px; }

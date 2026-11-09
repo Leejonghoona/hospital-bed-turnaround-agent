@@ -4,7 +4,7 @@
 2. 예외와 승인: 약속 위험에서 머리가 원무 재연락을 제안하고 사람이 승인한다. 늦은 격리 오더가 오면 감염관리실과
    원무가 근거 카드를 받고, 연락 뒤 자동 변경은 게이트웨이가 막는다.
 3. 새 병원: 처음 보는 내보내기(emr_f)를 올려 질문 묶음에 답하고, 재생 증명 → 승인 → 운영 적용까지 간다.
-   그 병원 하루를 돌려 관리자가 자율권 카드를 본다.
+   그 병원 하루를 돌려 관리자가 자동 처리 범위 카드를 본다.
 각 단계는 (보는 역할, 설명, 화면 데이터)를 돌려준다. 사람 동작(승인·답)은 화면의 버튼이 하는 일과 같은 함수를 부른다.
 """
 
@@ -51,10 +51,22 @@ class SceneRun:
         if self.done:
             return self.view()
         step = self.scene.steps[self.index + 1]
+        before = len(self.st.store.read()) if self.st is not None else 0
         caption = step.run(self)  # 단계가 끝까지 성공했을 때만 넘어간다(중간에 끊기면 같은 단계를 다시 한다)
+        self.memo["changed"] = self._changed(before)
         self.index += 1
         self.log.append(f"{self.index + 1}. {step.title}: {caption}")
         return self.view()
+
+    def _changed(self, before: int) -> list[dict]:
+        """이번 단계에서 새로 생긴 결정 기록(시연에서 '무엇이 바뀌었나'를 바로 보이게). 시각 진행만 한 단계도 포함."""
+        from turnaround.ui import views
+        if self.st is None:
+            return []
+        new_ids = {e.event_id for e in self.st.store.read()[before:]}
+        if not new_ids:
+            return []
+        return views.audit_log(self.st, 5, ids=new_ids, types=views.SPOTLIGHT_TYPES)
 
     def view(self) -> dict:
         from turnaround.ui import views
@@ -72,14 +84,14 @@ class SceneRun:
                                              {"검사": "사건 순서 위반", "결과": p.get("order_violations")},
                                              {"검사": "하루 재생 안전 위반", "결과": p.get("safety_violations")},
                                              {"검사": "하루 재생 배정", "결과": p.get("commits")},
-                                             {"검사": "개연성 문제(코드 뒤바뀜 의심)",
+                                             {"검사": "코드 뜻 뒤바뀜 의심",
                                               "결과": len(p.get("plausibility") or [])}]}
         elif self.st is not None:
             data = {"admission": views.admission_view, "ward": views.ward_view, "ipc": views.ipc_view,
                     "manager": views.manager_view}[step.role](self.st)
         return {"role": step.role, "title": step.title, "caption": self.log[-1], "data": data,
                 "now": self.st.now.strftime("%H:%M") if self.st is not None else None, "step": self.index + 1,
-                "steps": len(self.scene.steps)}
+                "steps": len(self.scene.steps), "changed": self.memo.get("changed") or []}
 
 
 def _policy():
@@ -113,7 +125,7 @@ def _a2(run):
     steps = {}
     for r in v["flow"]:
         steps[r["step"]] = steps.get(r["step"], 0) + 1
-    return "14:00 병동 화면. 통보 → 병동 준비 → 올려주세요 → 입실: " + ", ".join(f"{k} {n}" for k, n in steps.items())
+    return "14:00 병동 화면. 통보 → 병동 준비 → 호출 → 입실: " + ", ".join(f"{k} {n}" for k, n in steps.items())
 
 
 def _a3(run):
@@ -124,7 +136,7 @@ def _a3(run):
 
 
 SCENE_DAY = Scene("day", "1. 평범한 하루", "에이전트가 확정하고 통보한다. 사람은 환자 연락과 병동 준비만 한다.",
-                  [Step("에이전트 확정 통보", "admission", _a1, ["'에이전트가 확정하고 알린 배정' 카드: 누가 어느 병상으로, 차순위, 되돌리기 시한", "사람이 할 일은 '지금 할 일'에만 모인다(평범한 배정은 처리할 것이 없음)", "병상 현황판: 색과 글자로 퇴원 진행·청소·입실 가능을 구분"]), Step("병동 입실 흐름", "ward", _a2, ["칸반: 준비 필요 → 병동 준비 완료 → 올려주세요 → 입실", "병상·병동 준비·수속이 모두 갖춰질 때만 '올려주세요'가 나간다"]),
+                  [Step("에이전트 확정 통보", "admission", _a1, ["'에이전트가 확정하고 알린 배정' 카드: 누가 어느 병상으로, 차순위, 되돌리기 시한", "사람이 할 일은 '지금 할 일'에만 모인다(평범한 배정은 처리할 것이 없음)", "병상 현황판: 색과 글자로 퇴원 진행·청소·입실 가능을 구분"]), Step("병동 입실 흐름", "ward", _a2, ["칸반: 병동 준비 필요 → 준비 완료·호출 대기 → 호출됨·이동 중 → 입실 완료", "병상·병동 준비·수속이 모두 갖춰질 때만 '환자 올려 보내기(호출)'가 나간다"]),
                    Step("하루 결과", "manager", _a3, ["사람 손 없이 확정한 비율과 안전 검사 4종(위반 0)", "흐름 지표: 퇴실·병상 준비·입실 시각", "자동 처리 범위 제안: 근거가 쌓이면 에이전트에 맡길 범위를 넓히자고 제안, 적용은 사람이 승인"])])
 
 
@@ -193,10 +205,10 @@ def _b4(run):
 SCENE_EXCEPTION = Scene("exception", "2. 예외와 승인",
                         "약속 위험은 사람 승인으로 재연락, 늦은 격리는 감염관리실·원무 근거 카드, 금지 행동은 게이트웨이가 막는다.",
                         [Step("약속 위험 승인 카드", "admission", _b1, ["'지금 할 일'의 승인 카드: 환자에게 안내한 시각이 위험해 에이전트가 재연락을 제안", "근거 칩: 안내한 시각, 앞 환자 퇴실 여부, 마감", "사람 승인이 필요한 행동만 이렇게 올라온다"]), Step("원무 승인", "admission", _b2, ["승인 순간에도 게이트웨이가 단계 잠금과 선행 조건을 다시 확인한다", "승인 카드가 사라지고 재연락 작업이 생긴다"]),
-                         Step("늦은 격리 오더", "ipc", _b3, ["확정된 환자에게 늦은 공기주의 격리 오더(결핵 의심)", "감염관리실 '지금 할 일'에 통지, 에이전트 제안은 원무 승인 대기", "병상을 다시 확인하기 전에는 '올려주세요'를 보류한다"]), Step("막힌 판단 기록", "admission", _b4, ["시연용 시험 입력: 에이전트가 확정 환자를 스스로 다른 병상으로 옮기려 함", "게이트웨이가 거부하고 '막힌 판단' 기록에 남는다(아래 펼침)"])])
+                         Step("늦은 격리 오더", "ipc", _b3, ["확정된 환자에게 늦은 공기주의 격리 오더(결핵 의심)", "감염관리실 '지금 할 일'에 통지, 에이전트 제안은 원무 승인 대기", "병상을 다시 확인하기 전에는 '환자 올려 보내기(호출)'를 보류한다"]), Step("막힌 판단 기록", "admission", _b4, ["시연용 시험 입력: 에이전트가 확정 환자를 스스로 다른 병상으로 옮기려 함", "게이트웨이가 거부하고 '막힌 판단' 기록에 남는다(아래 펼침)"])])
 
 
-# ---------------- 3. 새 병원 온보딩과 자율권 ----------------
+# ---------------- 3. 새 병원 시작하기 ----------------
 
 def _gold():
     from turnaround.sim.exports import gold_mapping

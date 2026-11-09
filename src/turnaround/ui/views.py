@@ -3,7 +3,7 @@
 - 원무(병상 배정 담당): 에이전트 확정 통보(근거·되돌리기), 사람 승인 카드, 환자 연락 할 일, 담당 검토, 막힌 판단 기록
 - 병동(책임간호사): 배정 통보 → 병동 준비 → "올려주세요" → 입실, 참고 알림
 - 감염관리실: 늦은 격리·격리 사안 올림, 종말소독 진행
-- 관리자: 자율권 승격·강등 카드(근거), 사람 개입, 실행 안전
+- 관리자: 자동 처리 범위 제안 카드(근거), 사람 개입, 실행 안전
 - 온보딩: 지금 묶음의 질문과 진행률
 """
 
@@ -41,10 +41,11 @@ SAFETY_KO = {"S1": ("격리·성별 배정 위반", "격리 환자를 맞지 않
              "S2": ("종말소독 누락", "격리 퇴실 병상을 종말소독 없이 다음 환자에게 쓴 경우"),
              "S3": ("청소 전 빈 병상 전환", "청소·침상 정리가 끝나기 전에 빈 병상으로 바꾼 경우"),
              "S4": ("한 병상 두 환자", "앞 환자가 나가기 전에 다음 환자를 입실시킨 경우")}
-KIND_KO = {"isolation_notice": "늦은 격리 통지", "call_up_held": "올려주세요 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "예외 올림",
-           "order_nudge": "퇴원 처방 재촉", "call_up_reminder": "올려주세요 알림", "approval_rejected": "승인 거부 안내",
+KIND_KO = {"isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "예외 올림",
+           "order_nudge": "퇴원 처방 재촉", "call_up_reminder": "호출 독촉", "approval_rejected": "승인 거부 안내",
            "postpone_contact": "연락 보류", "data_fix": "입력 보완", "recontact_prepare": "재연락 준비",
-           "nudge_late_discharges": "늦은 퇴원 재촉", "cleaning_track": "청소 추적", "missing_bed_prep": "침상 정리 누락"}
+           "nudge_late_discharges": "늦은 퇴원 재촉", "cleaning_track": "청소 추적", "missing_bed_prep": "침상 정리 누락",
+           "promise_watch": "안내 시각 지켜보기"}
 
 
 FACT_KO = {"promise_at": ("안내한 시각", None), "cleaning_started": ("청소 시작", {True: "함", False: "안 함"}),
@@ -185,7 +186,8 @@ def pending_approvals(st) -> list[dict]:
                     "bed": r.payload.get("bed_id") if r else None, "since": _hm(e.observed_at),
                     "deadline": _hm(datetime.fromisoformat(r.payload["deadline"])) if r and r.payload.get("deadline") else "",
                     "rationale": (prop.payload.get("rationale") if prop else "") or "",
-                    "facts": _fact_chips(ctx)})
+                    "facts": _fact_chips(ctx),
+                    "recommend": recommend_beds(st, e.case_id) if e.payload["action"] == "propose_rematch" else []})
     # 마감이 지난 요청이 맨 위(지금 처리), 그다음 최신 요청 (4단계 화면 검수 3)
     return sorted(out, key=lambda a: (not a["overdue"], -a["requested_at"].timestamp()))
 
@@ -238,9 +240,17 @@ def admission_view(st) -> dict:
         if t.type is not EventType.HUMAN_TASK_CREATED or is_notice(t) or kind not in ADMISSION_KINDS:
             continue  # 원무가 할 일만 (청소 추적 같은 참고 작업은 빼고, 4단계 UX 검수)
         due = ops.due(t)
-        tasks.append({"kind": _kind(kind), "why": REASON_TASK_KO.get(t.payload.get("reason"), ""), "case": t.case_id,
+        why = REASON_TASK_KO.get(t.payload.get("reason"), "")
+        if kind == "brain_escalate":
+            card = t.payload.get("card") or {}
+            why = " · ".join(x for x in (TRIGGER_KO.get(t.payload.get("trigger"), ""),
+                                         "에이전트가 스스로 정하지 못해 사람에게 넘김",
+                                         ("막은 행동: " + ACTION_KO.get(card["rejected_action"], card["rejected_action"]))
+                                         if card.get("rejected_action") else "") if x)
+        tasks.append({"task_id": t.event_id, "kind": _kind(kind), "raw_kind": kind, "why": why, "case": t.case_id,
                       "who": who(people, t.case_id), "bed": t.payload.get("bed_id"), "bed_ko": bed_ko(t.payload.get("bed_id")),
-                      "due": _hm(due), "due_at": due, "overdue": due < st.now, "created": t.observed_at})
+                      "due": _hm(due), "due_at": due, "overdue": due < st.now, "created": t.observed_at,
+                      "stale": t.observed_at.date() < st.now.date()})
     # 마감 지난 일 먼저, 그다음 마감 이른 순 (새로 생긴 일이 묻히지 않게 같은 마감이면 최신 먼저)
     tasks.sort(key=lambda x: (not x["overdue"], x["due_at"], -x["created"].timestamp()))
     return {"notices": notices, "approvals": pending_approvals(st), "contacts": contacts, "reviews": review_queue(st),
@@ -271,6 +281,9 @@ def ward_view(st) -> dict:
                      "bed_ko": bed_ko(e.payload.get("bed_id")), "notified": _hm(e.observed_at), "step": step,
                      "hold": held.get(e.case_id, ""), "proposal_id": e.payload.get("proposal_id"),
                      "by": "에이전트 확정" if e.payload.get("committed_by") == "agent" else "사람 확정"})
+    bstate = {b["bed"]: b["state_ko"] for b in bed_states(st)}
+    for f in flow:
+        f["bed_state"] = bstate.get(f["bed"], "")
     todo = [f for f in flow if f["step"] == WARD_STEPS[0] or f["hold"]]
     open_ = open_tasks(ev, st.now).values()
     notes = [{"kind": _kind(t.payload.get("kind")), "case": who(people, t.case_id), "bed": bed_ko(t.payload.get("bed_id")),
@@ -312,7 +325,7 @@ def ipc_view(st) -> dict:
         return " · ".join(p for p in parts if p)
     done = {e.payload.get("task_id") for e in ev if e.type is EventType.HUMAN_TASK_DONE}
     alerts = [{"task_id": e.event_id, "checked": e.event_id in done, "case": e.case_id, "who": who(people, e.case_id),
-               **_context(e.case_id),
+               **_context(e.case_id), "alternatives": recommend_beds(st, e.case_id) if e.event_id not in done else [],
                "kind": _kind(e.payload.get("kind")), "time": _hm(e.observed_at),
                "card": _card(e.payload.get("card") or {}, e.payload.get("trigger"))} for e in ev if e.type is EventType.HUMAN_TASK_CREATED
               and (e.payload.get("assignee") == "ipc" or "ipc" in (e.payload.get("also_notify") or []))]
@@ -341,7 +354,7 @@ def manager_view(st) -> dict:
                "isolation": "격리", "preemptive_isolation": "선제 격리", "no_bed": "병상 없음"}
     cards = [{"unit": unit_ko.get(r["unit"], r["unit"]), "mode": "에이전트" if r["mode"] == "auto" else "사람 확인",
               "evidence": (f"사람 결정 {r['human_n']}건 중 {r['human_agreed']}건이 에이전트 판단과 같음"
-                           f" (일치율 95% 하한 {r['agreement_lower95']:.0%})") if r["human_n"] else "근거 부족 · 아직 사람 결정 기록 없음",
+                           f" (통계적으로 보수적으로 잡은 일치율 {r['agreement_lower95']:.0%}, 85% 이상이면 맡길 수 있음)") if r["human_n"] else "근거 부족 · 아직 사람 결정 기록 없음",
               "recommendation": rec_ko[r["recommendation"]], "locked": r["never"]} for r in rows]
     sf = executed_safety(st.gw, ev)
     from turnaround.evaluation.flow import day_flow
@@ -396,6 +409,7 @@ def _question_ko(q) -> tuple[str, str]:
         text = f"사건 코드 '{qid[4:]}'는 어떤 사건인가요?"
     elif qid == "layout":
         text = "병동·병실·병상 번호가 있는 표는 어느 것인가요?"
+        q = type(q)(q.id, q.item, "병상 표를 확신하지 못했습니다. 제안한 표가 맞는지 확인해 주세요", q.proposal, q.options)
     elif qid == "bed_parts":
         text = "병상 번호를 이루는 병동·병실·병상 열은 무엇인가요?"
     elif qid == "fmt:time":
@@ -432,7 +446,9 @@ def onboarding_view(session) -> dict:
     qs = []
     for q in g.questions:
         text, shown = _question_ko(q)
-        qs.append({"id": q.id, "item": text, "why": q.why, "proposal": shown,
+        why = "병상 표를 확신하지 못했습니다. 제안한 표가 맞는지 확인해 주세요" if q.id == "layout" else q.why
+        qs.append({"id": q.id, "item": text, "why": why, "proposal": shown, "raw_proposal": q.proposal,
+                   "raw_options": list(q.options or []),
                    "options": [VAL_KO.get(str(o), str(o)) for o in list(q.options or [])[:4]]})
     return {"stage": g.stage, "stage_ko": STAGE_KO[g.stage], "round": g.round, "questions": qs, "answered": answered,
             "remaining": sum(len(x.questions) for x in session.groups()), "by_stage": by_stage,
@@ -489,3 +505,184 @@ def bed_states(st) -> list[dict]:
 
 __all__ = ["bed_states", "SAFETY_KO", "STAGE_KO", "admission_view", "blocked_decisions", "ipc_view", "manager_view", "onboarding_view", "pending_approvals",
            "ward_view"]
+
+
+# ---------------- 환자 경과·감사 기록 (실사용 화면, UI 3차) ----------------
+
+EVENT_KO = {
+    "ADMISSION_REQUESTED": "입원 예약 접수", "ADMISSION_CANCELLED": "입원 예약 취소", "PREMATCH_CREATED": "병상 사전 매칭",
+    "PREMATCH_RELEASED": "사전 매칭 해제", "MATCH_COMMITTED": "병상 확정", "WARD_ASSIGNMENT_NOTIFIED": "병동·원무에 배정 통보",
+    "PATIENT_CONTACTED": "환자에게 입원 안내 연락", "WARD_PREP_DONE": "병동 준비 완료", "PATIENT_CALL_UP": "호출(환자 올려 보내기)",
+    "PATIENT_ARRIVED": "병동 입실", "ISOLATION_ORDER_ADDED": "격리 오더", "WARD_OBJECTION_RAISED": "병동 이의",
+    "CASE_ROUTED_REVIEW": "담당 검토로 보냄", "MANUAL_OVERRIDE_APPLIED": "원무 직접 수정", "REMATCH_REQUESTED": "병상 다시 찾기",
+    "EXCEPTION_RAISED": "예외 감지", "EXCEPTION_RESOLVED": "예외 종료", "ACTION_APPROVAL_REQUESTED": "사람 승인 요청",
+    "ACTION_APPROVED": "승인", "ACTION_EXECUTED": "실행", "ACTION_REJECTED": "막음·거절", "HUMAN_TASK_CREATED": "작업 생성",
+    "HUMAN_TASK_DONE": "작업 완료", "DISCHARGE_DECIDED": "퇴원 결정", "ORDER_CONFIRMED": "퇴원 오더", "DISCHARGE_RX_ISSUED": "퇴원약 처방",
+    "MEDICATION_READY": "퇴원약 도착", "BILLING_DONE": "수납 완료", "GUARDIAN_ARRIVED": "보호자 도착", "PATIENT_DEPARTED": "퇴실",
+    "CLEANING_REQUEST_ISSUED": "청소 요청", "CLEANING_STARTED": "청소 시작", "CLEANING_DONE": "청소 완료", "BED_READY": "침상 준비 완료",
+    "BED_MARKED_VACANT": "입실 가능 전환", "DISCHARGE_CANCELLED": "퇴원 취소", "PROMISE_AT_RISK": "안내 시각 위험",
+    "PATIENT_INFO_CORRECTED": "환자 정보 정정", "LOUNGE_OFFERED": "라운지 제안", "BED_PREP_DONE": "침상 정리 완료",
+}
+ACTOR_KO = {"agent": "에이전트", "gateway": "실행 게이트웨이", "saga": "시스템", "human": "사람", "his": "병원 전산(HIS)",
+            "timer": "시스템", "equipment": "장비"}
+
+
+def _detail(e) -> str:
+    p = e.payload
+    out = []
+    if p.get("bed_id"):
+        out.append(bed_ko(p["bed_id"]))
+    if p.get("action"):
+        out.append(ACTION_KO.get(p["action"], p["action"]))
+    if p.get("reasons"):
+        out.append(", ".join(REASON_KO.get(r, REVIEW_KO.get(r, r)) for r in p["reasons"]))
+    if p.get("trigger"):
+        out.append(TRIGGER_KO.get(p["trigger"], p["trigger"]))
+    if p.get("kind") and e.type is EventType.HUMAN_TASK_CREATED:
+        out.append(_kind(p["kind"]))
+    if p.get("precautions"):
+        out.append(", ".join(PREC_KO.get(x, x) for x in p["precautions"]))
+    if p.get("note") or p.get("reason") and isinstance(p.get("reason"), str) and e.type in (
+            EventType.WARD_OBJECTION_RAISED, EventType.MANUAL_OVERRIDE_APPLIED):
+        out.append(str(p.get("note") or p.get("reason")))
+    if p.get("committed_by"):
+        out.append("에이전트 확정" if p["committed_by"] == "agent" else "사람 확정")
+    return " · ".join(dict.fromkeys(x for x in out if x))
+
+
+def _actor(e) -> str:
+    if e.payload.get("actor"):
+        return {"bed_manager": "원무", "ward": "병동", "ipc": "감염관리실"}.get(e.payload["actor"], str(e.payload["actor"]))
+    if e.payload.get("by"):
+        return {"admission_office": "원무", "ipc": "감염관리실"}.get(e.payload["by"], str(e.payload["by"]))
+    return ACTOR_KO.get(e.source, e.source)
+
+
+def case_timeline(st, case: str) -> dict:
+    """환자 한 명의 경과: 누가 언제 무엇을 했는지. 기다리는 병상의 퇴원 경과도 함께 보여 준다."""
+    _today(st)
+    ev = st.store.read()
+    people = _people(ev)
+    s = fold(ev)
+    m = s.matches.get(case)
+    rel = {case}
+    if m is not None and m.discharge_id:
+        rel.add(m.discharge_id)
+    rows = [{"time": _hm(e.observed_at), "who": _actor(e), "what": EVENT_KO[e.type.name], "detail": _detail(e),
+             "mine": e.case_id == case}
+            for e in ev if e.case_id in rel and e.type.name in EVENT_KO and e.observed_at <= st.now
+            and not (e.type is EventType.HUMAN_TASK_CREATED and is_notice(e))]
+    folded: list[dict] = []
+    for r in rows:  # 같은 기록이 이어지면 접는다 (계획 주기마다 다시 열리는 담당 검토 등)
+        if folded and folded[-1]["what"] == r["what"] and folded[-1]["detail"] == r["detail"]:
+            folded[-1]["repeat"] = folded[-1].get("repeat", 1) + 1
+            folded[-1]["last"] = r["time"]
+            continue
+        folded.append(dict(r))
+    for r in folded:
+        if r.get("repeat"):
+            r["detail"] = (r["detail"] + " · " if r["detail"] else "") + f"{r['repeat']}회 반복(마지막 {r['last']})"
+    rows = folded
+    p = people.get(case) or {}
+    status = "입실 완료" if m and EventType.PATIENT_ARRIVED in m.facts else "병상 확정" if m and EventType.MATCH_COMMITTED in m.facts \
+        else "사전 매칭" if m and m.active else "배정 대기"
+    return {"who": who(people, case), "department": p.get("department") or "-", "status": status,
+            "bed_ko": bed_ko(m.bed_id) if m and m.active else "-",
+            "isolation": ", ".join(PREC_KO.get(x, x) for x in (p.get("precautions") or [])) or "없음",
+            "discharge": (who(people, m.discharge_id) if m.discharge_id in people else "앞 환자") if m and m.discharge_id else None,
+            "rows": rows}
+
+
+AUDIT_TYPES = {EventType.MATCH_COMMITTED, EventType.ACTION_APPROVED, EventType.ACTION_EXECUTED, EventType.ACTION_REJECTED,
+               EventType.WARD_OBJECTION_RAISED, EventType.MANUAL_OVERRIDE_APPLIED, EventType.HUMAN_TASK_DONE,
+               EventType.PATIENT_CONTACTED, EventType.WARD_PREP_DONE, EventType.CASE_ROUTED_REVIEW}
+
+
+SPOTLIGHT_TYPES = (AUDIT_TYPES - {EventType.CASE_ROUTED_REVIEW}) | {
+    EventType.ISOLATION_ORDER_ADDED, EventType.EXCEPTION_RAISED, EventType.ACTION_APPROVAL_REQUESTED,
+    EventType.HUMAN_TASK_CREATED, EventType.PATIENT_CALL_UP, EventType.PATIENT_ARRIVED, EventType.PATIENT_DEPARTED,
+    EventType.DISCHARGE_CANCELLED, EventType.PROMISE_AT_RISK}
+
+
+def audit_log(st, limit: int = 40, ids: set | None = None, types=None) -> list[dict]:
+    """오늘의 결정 기록: 에이전트·게이트웨이·사람이 한 결정 (감사·되돌아보기용)."""
+    _today(st)
+    ev = st.store.read()
+    people = _people(ev)
+    seen_review: dict[str, tuple] = {}
+    rows = []
+    for e in ev:
+        if e.type not in (types or AUDIT_TYPES) or e.observed_at.date() != st.now.date() or e.observed_at > st.now:
+            continue
+        if ids is not None and e.event_id not in ids:
+            continue
+        if e.type is EventType.CASE_ROUTED_REVIEW:  # 같은 사유의 재검토(계획 주기 반복)는 처음 것만
+            key = tuple(sorted(e.payload.get("reasons") or []))
+            if seen_review.get(e.case_id) == key:
+                continue
+            seen_review[e.case_id] = key
+        rows.append({"time": _hm(e.observed_at), "actor": _actor(e),
+                     "patient": who(people, e.case_id) if e.case_id in people else "-",
+                     "what": EVENT_KO.get(e.type.name, e.type.name), "detail": _detail(e)})
+    return rows[::-1][:limit]
+
+
+def role_counts(st) -> dict[str, int]:
+    """사이드바 배지: 역할마다 지금 할 일 수."""
+    a = admission_view(st)
+    w = ward_view(st)
+    i = ipc_view(st)
+    return {"admission": len(a["approvals"]) + len(a["contacts"]) + len(a["tasks"]), "ward": len(w["todo"]),
+            "ipc": sum(1 for x in i["alerts"] if not x["checked"])}
+
+
+__all__ += ["audit_log", "case_timeline", "role_counts"]
+
+
+def recommend_beds(st, case: str, n: int = 2) -> list[str]:
+    """이 환자에게 지금 규칙 모드가 고를 병상 후보(화면 표시용). 지금 병상은 뺀다. 실제 확정은 승인 뒤 게이트웨이가 한다."""
+    from turnaround.agent.tools import PlanningTools
+    ev = st.store.read()
+    m = fold(ev).matches.get(case)
+    cur = m.bed_id if m is not None and m.active else None
+    try:
+        cands = PlanningTools(st.gw, st.h.wards).candidates(case, st.now, ev)
+    except Exception:  # noqa: BLE001 - 화면 보조 정보라 실패하면 비워 둔다
+        return []
+    out = []
+    for c in cands:
+        if c.bed_id == cur:
+            continue
+        rt = st.gw.room_by_id[st.gw.room_of[c.bed_id]].room_type.value
+        ready = "지금 가능" if c.ready_at <= st.now else f"{_hm(c.ready_at)} 준비 예상"
+        out.append(f"{bed_ko(c.bed_id)}({ROOM_KO.get(rt, '')}, {ready})")
+        if len(out) >= n:
+            break
+    if out:
+        return out
+    # 지금 빈 병상이 없으면(만실) 오늘 퇴원으로 곧 비는 병상 중 배정 기준에 맞는 곳을 준비 예상 시각순으로 보여 준다
+    try:
+        pt = PlanningTools(st.gw, st.h.wards)
+        patient, _ = pt.patient(case, ev)
+        held = pt.held_beds(ev, exclude_case=case)
+        state = fold(ev)
+        soon = []
+        for bed in st.gw.beds:
+            b = bed.id
+            if b == cur or b in held or patient is None:
+                continue
+            ready, disc = pt.ready_at(b, ev, st.now, state)
+            if disc is None or st.gw._shacl(case, patient, b, ev):
+                continue
+            soon.append((ready, b))
+    except Exception:  # noqa: BLE001
+        return ["지금 맞는 빈 병상 없음"]
+    soon.sort()
+    if not soon:
+        return ["배정 기준에 맞는 빈 병상 없음 · 오늘 퇴원으로 비는 자리도 없음 → 대기 유지 또는 다른 병동 검토"]
+    tail = [f"{bed_ko(b)}({ROOM_KO.get(st.gw.room_by_id[st.gw.room_of[b]].room_type.value, '')}, "
+            f"퇴원 후 {_hm(t)} 준비 예상)" for t, b in soon[:n]]
+    return ["지금 맞는 빈 병상 없음 · 곧 비는 병상"] + tail
+
+
+__all__ += ["recommend_beds"]
