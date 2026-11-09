@@ -34,6 +34,7 @@ _BOOL_PAIRS = (("Y", "N"), ("예", "아니오"), ("1", "0"), ("T", "F"), ("true"
                ("True", "False"), ("yes", "no"), ("YES", "NO"), ("유", "무"))
 _SEPS = ("|", "+", ";", ",")
 _MAX_CODES = 15
+IGNORE = "__ignore__"  # 열 질문의 답: 이 열은 쓰지 않는다
 
 
 @dataclass
@@ -373,10 +374,17 @@ def _part_col(cols: list[str], toks) -> str | None:
 
 
 def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft",
-                    hints: dict | None = None) -> MappingDraft:
-    """hints: 사람이 앞선 질문에 답한 구조 정보. {"layout": (표 이름, (병동 열, 병실 열, 병상 열))}"""
-    hints = hints or {}
+                    hints: dict | None = None, lexicon=None) -> MappingDraft:
+    """hints: 사람이 앞선 질문에 답한 구조·형식 정보. {"layout": (표 이름, (병동 열, 병실 열, 병상 열)),
+    "time_format": ..., "list_sep": ..., "bool_values": ...}. lexicon: 회귀 관문을 통과한 공용 학습 사전(agent.lexicon)."""
+    hints = dict(hints or {})
     prof = profile(tables)
+    if lexicon is not None and not hints.get("layout"):
+        for t, info in prof.items():  # 학습한 병상 표 열 이름(병동·병실·병상)이 모두 있으면 그 표를 병상 표로 본다
+            parts = next((ps for ps in lexicon.layouts if all(p in info["columns"] for p in ps)), None)
+            if parts and not any(ci["shape"] == "time" for ci in info["columns"].values()):
+                hints["layout"] = (t, tuple(parts))
+                break
     qs: list[Question] = []
     ev: dict = {"profile": prof}
     # 표 종류: 사건 기록(코드 열 + 시각 열, 시각 열이 하나뿐), 병상 표, 사례 표
@@ -418,10 +426,14 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                 for kk, vv in got.get(k, {}).items():
                     cand[k][kk] = vv
         ev["llm"] = "ok" if not fails else f"partial_failed({len(fails)}/{len(parts)}): {fails[0]}"
+    learned_vals: dict[str, dict[str, str]] = {}
+    if lexicon is not None:
+        cand = lexicon.apply(cand, ctx)
+        learned_vals = lexicon.values
     # 형식: 시각, 참거짓, 목록 구분자, 병상 ID
     all_times = [str(r[c]) for t in tables for r in tables[t] for c in r
                  if prof[t]["columns"][c]["shape"] == "time" and r[c]]
-    time_fmt = _time_format(sorted(set(all_times))[:500])
+    time_fmt = hints.get("time_format") or _time_format(sorted(set(all_times))[:500])
     fmt_known = time_fmt is not None
     if time_fmt is None:
         qs.append(Question("fmt:time", "시각 형식", "값으로 시각 형식(또는 일/월 순서)을 정할 수 없다",
@@ -438,6 +450,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                 if codes and codes <= set(pair) and (not pair[0].isdigit() or hint) and (len(codes) == 2 or hint):
                     found[pair] += 1
     bool_values = found.most_common(1)[0][0] if found else ("Y", "N")
+    if hints.get("bool_values"):
+        bool_values, found = tuple(hints["bool_values"]), Counter({tuple(hints["bool_values"]): 1})
     if len(found) > 1:
         qs.append(Question("fmt:bool", "참거짓 표기", f"여러 표기가 섞여 있다: {sorted(found)}", bool_values))
     elif not found:
@@ -451,8 +465,10 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                     if any(sep in v for v in vals):
                         list_sep, sep_seen = sep, True
                         break
+    if hints.get("list_sep"):
+        list_sep, sep_seen = hints["list_sep"], True
     if not sep_seen:  # 여러 값이 든 칸이 없어 구분자를 볼 수 없다: 추측하지 않고 묻는다(답 전까지 쉼표)
-        qs.append(Question("fmt:sep", "목록 구분자", "여러 값이 든 칸이 없어 구분자를 확인할 수 없다", ","))
+        qs.append(Question("fmt:sep", "목록 구분자", "여러 값이 든 칸이 없어 구분자를 확인할 수 없다", None, list(_SEPS)))
     # 병상 ID 조합: 병상 표에서 병동·병실·병상 열
     bed_parts, style = ("", "", ""), "plain"
     lay = next((t for t, k in kinds.items() if k == "layout"), None)
@@ -500,7 +516,10 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
             if not cs:
                 chosen[(t, c)] = None
                 if ci["fill"] > 0:
-                    qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", "어느 온톨로지 속성인지 모른다"))
+                    if lexicon is not None and c in lexicon.ignore:  # 조용히 버리지 않고 '쓰지 않음' 제안으로 확인만 받는다
+                        qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", "앞선 병원에서 쓰지 않은 열이다(확인)", IGNORE))
+                    else:
+                        qs.append(Question(f"col:{t}:{c}", f"{t}.{c}", "어느 온톨로지 속성인지 모른다"))
                 continue
             if len(cs) > 1 and ci["shape"] == "time" and all(k.startswith("t:") for k in cs[:2]) and \
                     {cs[0], cs[1]} <= set(sum(_AMBIGUOUS_TIME.values(), ())):
@@ -575,7 +594,7 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                                 vals.append(v.split(":", 1)[1])
                     if not vals and vkey == "department":
                         vals = [d for d, toks in _VALUE_LEX["department"].items() if _norm(part) in toks]
-                    if not vals and part in _CONVENTION.get(vkey, {}):
+                    if not vals and part in _CONVENTION.get(vkey, {}) and part not in learned_vals.get(vkey, {}):
                         codes_out[k][part] = _CONVENTION[vkey][part]
                         qs.append(Question(f"code:{k}:{part}", f"{k}={part}", "관례로 추정했다(확인 필요)",
                                            _CONVENTION[vkey][part]))
@@ -583,7 +602,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                     if not vals:
                         qs.append(Question(f"code:{k}:{part}", f"{k}={part}", "코드표에 없는 값이다(병원 코드표 필요)"))
                         continue
-                    lexical = vals[0] == part or any(_norm(part) in toks for toks in _VALUE_LEX.get(vkey, {}).values())
+                    lexical = vals[0] == part or any(_norm(part) in toks for toks in _VALUE_LEX.get(vkey, {}).values()) \
+                        or learned_vals.get(vkey, {}).get(part) == vals[0]
                     if llm is not None and llm.name != "fake" and not lexical:
                         # 글자 근거가 없는 모델 추정(예: MD101 → 감염내과)은 받지 않고 제안으로 묻는다
                         qs.append(Question(f"code:{k}:{part}", f"{k}={part}", "모델 추정이고 글자 근거가 없다(확인 필요)",
@@ -676,7 +696,7 @@ def answer(draft: MappingDraft, answers: dict[str, object]) -> Mapping:
         a = answers[q.id]
         if q.id.startswith("col:"):
             _, t, c = q.id.split(":", 2)
-            if a:
+            if a and a != IGNORE and t in tables:
                 tables[t] = tables[t].model_copy(update={"columns": {**tables[t].columns, c: a}})
         elif q.id.startswith("code:"):
             _, k, v = q.id.split(":", 2)
@@ -735,4 +755,4 @@ def followup_questions(m: Mapping, tables: dict[str, list[dict]]) -> list[Questi
     return out
 
 
-__all__ = ["MappingDraft", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]
+__all__ = ["IGNORE", "MappingDraft", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]

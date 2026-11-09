@@ -34,7 +34,10 @@ class Candidate:
 class PlanningTools:
     def __init__(self, gateway: Gateway, wards, score_overrides: dict[str, float] | None = None):
         self.gw = gateway
-        self.wards = {w.id: w for w in wards}
+        # 병상 구조에 병동 진료과가 없으면(내보내기에 없는 병원) 온보딩 프로필의 진료과 → 병동을 쓴다 (08 계획 3단계)
+        wd = gateway.policy.hospital_profile.ward_departments
+        self.wards = {w.id: (w.model_copy(update={"departments": tuple(wd[w.id])}) if not w.departments and wd.get(w.id)
+                             else w) for w in wards}
         self.w = gateway.policy.scoring
         self.score_overrides = dict(score_overrides or {})  # 평가용 점수 고정 주입
 

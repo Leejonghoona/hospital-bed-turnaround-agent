@@ -16,7 +16,7 @@ def gold_answers(draft, gold) -> dict:
     for q in draft.questions:
         if q.id.startswith("col:"):
             _, t, c = q.id.split(":", 2)
-            out[q.id] = gold.tables[t].columns.get(c)
+            out[q.id] = gold.tables[t].columns.get(c) if t in gold.tables else None
         elif q.id.startswith("code:"):
             _, k, v = q.id.split(":", 2)
             out[q.id] = gold.codes.get(k, {}).get(v, v)
@@ -32,12 +32,12 @@ def gold_answers(draft, gold) -> dict:
     return out
 
 
-def score(tables: dict, gold, canonical_events, h, llm=None) -> dict:
-    d = propose_mapping(tables, llm=llm)
+def score(tables: dict, gold, canonical_events, h, llm=None, lexicon=None) -> dict:
+    d = propose_mapping(tables, llm=llm, lexicon=lexicon)
     first = d
     if any(q.id == "layout" for q in d.questions):  # 사람이 병상 표와 세 열을 알려 주면 다시 만든다
         lay = next(t for t, tm in gold.tables.items() if tm.kind == "layout")
-        d = propose_mapping(tables, llm=llm, hints={"layout": (lay, gold.bed_parts)})
+        d = propose_mapping(tables, llm=llm, hints={"layout": (lay, gold.bed_parts)}, lexicon=lexicon)
         d.questions = [q for q in first.questions if q.id == "layout"] + d.questions
     asked = {q.id for q in d.questions}
     col = {"correct": 0, "wrong": 0, "asked": 0, "missed": 0}
