@@ -62,7 +62,10 @@ class Provenance(BaseModel):
 
 
 # 지침의 금지 조항: 병원 규칙으로 바꿀 수 없다 (POL-2). 위반 코드 -> 고정 단계
-LOCKED_SAFETY_TIERS = {"tb_shared_room": "forbidden"}  # 표준예방지침 5.5.2.4
+LOCKED_SAFETY_TIERS = {
+    "tb_shared_room": "forbidden",  # 표준예방지침 5.5.2.4
+    "gender_room": "forbidden",  # 의료법 시행규칙 제35조의2제2호 (2026-11-09 현행, 단서 없음)
+}
 
 
 class Policy(BaseModel):

@@ -606,3 +606,10 @@ def test_gateway_tb_wait_has_60_min_floor_even_with_shorter_hospital_rule():
     store, gw = make(policy=pol)
     assert gw.aerosol_wait("W71-R01-B1")["aerosol_wait_min"] == 30
     assert gw.aerosol_wait("W71-R01-B1", organism="MTB")["aerosol_wait_min"] == 60
+
+
+def test_gender_room_is_forbidden_by_law_even_with_reason_or_exception():
+    """의료법 시행규칙 제35조의2제2호: 입원실은 남녀별로 구별하여 운영 (현행, 단서 없음). DECISIONS 2026-11-09."""
+    store, gw = make([adm(gender="F")])
+    d = _mo(gw, "A1", "W72-R03-B1", at(12), reason_text="가족 요청", safety_exception_by=("ipc-1", "ipc"))
+    assert d.status == "refused" and d.tier == "forbidden"

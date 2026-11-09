@@ -71,3 +71,13 @@ def test_guideline_prohibition_cannot_be_overridden_by_hospital_rule(tmp_path):
     f.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
     with pytest.raises(ValueError, match="tb_shared_room"):
         lp(f)
+
+
+def test_gender_room_tier_is_locked_forbidden():
+    import pytest, yaml
+    from turnaround.gateway.policy import Policy
+    from turnaround.gateway import policy as pol_mod
+    raw = yaml.safe_load(open(pol_mod.POLICY_PATH if hasattr(pol_mod, "POLICY_PATH") else "config/policy.yaml", encoding="utf-8"))
+    raw["manual_override"]["safety_tiers"]["gender_room"] = "reason_entry"
+    with pytest.raises(Exception):
+        Policy(**raw)

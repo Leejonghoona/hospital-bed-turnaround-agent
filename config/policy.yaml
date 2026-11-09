@@ -34,7 +34,7 @@ manual_override:
     protective_in_cohort: preapproval      # 5.3.2.3 코호트 고위험 금지
     preemptive_in_cohort: preapproval
     isolation_room: reason_entry           # 5.3.2.4 / 5.4.2.5 커튼과 1m 차선책 + 사후 검토
-    gender_room: reason_entry
+    gender_room: forbidden                 # 의료법 시행규칙 제35조의2제2호 "입원실은 남ㆍ여별로 구별하여 운영할 것" (예외 단서는 공포 뒤 반영)
   preapproval_organisms:
     isolation_room: [CRE, CPE]             # 5.2.1 CRE 1인실 우선, 감염관리실무자 결정
 ventilation:                 # 비말·공기주의 퇴실 환기 대기 (LP-23). 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다
@@ -68,7 +68,8 @@ provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. l
   query_fields: {tier: hospital_rule, cite: "개인정보 최소 제공. 청소 협력업체는 병상·시각·청소 유형만"}
   manual_override.roles: {tier: hospital_rule, cite: "병상 배정 권한은 병원 직제에 따름 (합성 병원 가정)"}
   manual_override.safety_exception_roles: {tier: guideline, cite: "표준예방지침 5.5.2.6 감염관리 전문가와 상의. 야간 대행 id_oncall은 설계 가정(MA-01)"}
-  manual_override.safety_tiers: {tier: guideline, cite: "표준예방지침 5.5.2.4, 5.5.2.6, 5.2.1, 5.3.2.3, 5.3.2.4, 5.4.2.5 (LP-24)"}
+  manual_override.safety_tiers: {tier: guideline, cite: "표준예방지침 5.5.2.4, 5.5.2.6, 부록1 A 5.2.1, 5.3.2.3, 5.3.2.4, 5.4.2.5 (LP-24)"}
+  manual_override.safety_tiers.gender_room: {tier: law, cite: "의료법 시행규칙 제35조의2제2호(보건복지부령 제1177호, 2026.6.12 시행) 입원실 남녀 구별. 위반 시 시정명령, 불이행 시 업무정지 15일(의료관계 행정처분 규칙 별표). 중환자실·가족 2인실 예외는 단서 공포 뒤 반영"}
   ventilation: {tier: guideline, cite: "표준예방지침 제5장 부록 3 공기순환 횟수별 제거 시간, 99.9% 열. 병실 순환 횟수 기본값(음압 12, 일반 4)은 설계 가정"}
   scoring: {tier: design_assumption, cite: "SPEC 3절 목표 함수 가중치. 규칙 모드와 에이전트를 같은 목표로 비교"}
   extraction: {tier: design_assumption, cite: "필드·코드는 현직자 설문(docs/검토/현직자_설문_문구.json) 뒤 확정. 상대 날짜·메모 주체는 라벨 절차 검수 합의"}
