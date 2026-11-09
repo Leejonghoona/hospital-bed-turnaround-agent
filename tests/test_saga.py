@@ -589,3 +589,14 @@ def test_bed_hold_releases_prematch_and_frees_bed_on_release():
     store.append(e("D9", "release", EventType.BED_HOLD_RELEASED, at(0, 6), bed_id="W72-R03-B1"))
     SagaRunner(store).step(at(0, 6, 5))
     assert [r.occurred_at for r in saga_events(store, EventType.CLEANING_REQUEST_ISSUED)] == [at(0, 6)]
+
+
+def test_tb_discharge_from_negative_pressure_room_waits_at_least_60_min():
+    """결핵 진료지침 5판: 퇴실 후 일반적으로 1시간 이상 비운다. 표 값(12회 35분)보다 길게."""
+    from turnaround.saga import SagaPolicy
+    from turnaround.sim import generate
+    h = generate(seed=0)
+    p = SagaPolicy.for_layout(h.rooms, h.beds)
+    assert p.aerosol_wait("W71-R01-B1") == 35
+    assert p.aerosol_wait("W71-R01-B1", organism="MTB") == 60
+    assert p.aerosol_wait("W72-R01-B1", organism="MTB") == 104  # 일반실은 표 값이 더 길다

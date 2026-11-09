@@ -597,3 +597,12 @@ def test_bed_of_patient_who_died_on_ward_is_refused_until_body_transfer():
     assert _mo(gw, "A1", "W72-R04-B2", at(4, 5)).reasons == ["after_death_care"]
     store.append(ev("D9", "body", EventType.BODY_TRANSFERRED, at(4, 30), bed_id="W72-R04-B2"))
     assert gw.submit(prop("p2", store=store), at(4, 35)).status == "awaiting_manager"
+
+
+def test_gateway_tb_wait_has_60_min_floor_even_with_shorter_hospital_rule():
+    from turnaround.gateway import load_policy
+    pol = load_policy()
+    pol = pol.model_copy(update={"ventilation": pol.ventilation.model_copy(update={"hospital_wait_min": 30})})
+    store, gw = make(policy=pol)
+    assert gw.aerosol_wait("W71-R01-B1")["aerosol_wait_min"] == 30
+    assert gw.aerosol_wait("W71-R01-B1", organism="MTB")["aerosol_wait_min"] == 60

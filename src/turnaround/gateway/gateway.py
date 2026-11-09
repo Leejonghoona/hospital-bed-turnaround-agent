@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from turnaround.events.corrections import apply_correction, apply_release, correction_direction
 from turnaround.events.models import Event, EventType
 from turnaround.saga.worklist import OperatingCalendar, load_operations
-from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, guideline_delta
+from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, guideline_delta, vacancy_floor
 from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
 from turnaround.saga import fold
@@ -192,13 +192,18 @@ class Gateway:
                         raised.append(bed_id)
         return raised
 
-    def aerosol_wait(self, bed_id: str) -> dict:
-        """환기 대기 분 (SAG-2a). 병원 규칙이 있으면 그 값, 지침과 다르면 차이 표시 (POL-2)."""
+    def aerosol_wait(self, bed_id: str, organism: str | None = None) -> dict:
+        """환기 대기 분 (SAG-2a). 병원 규칙이 있으면 그 값, 지침과 다르면 차이 표시 (POL-2).
+        결핵은 지침 하한 60분 아래로 내리지 않는다 (DECISIONS 2026-11-09)."""
         room = self.room_by_id.get(self.room_of.get(bed_id, ""))
         ach = room.air_changes_per_hour if room else DEFAULT_ACH["multi"]
         v = self.policy.ventilation
         guide = aerosol_wait_min(ach, v.removal_pct)
-        out = {"aerosol_wait_min": v.hospital_wait_min if v.hospital_wait_min is not None else guide}
+        chosen = v.hospital_wait_min if v.hospital_wait_min is not None else guide
+        floor = vacancy_floor(organism)
+        out = {"aerosol_wait_min": max(chosen, floor)}
+        if floor > chosen:
+            out["vacancy_floor"] = {"organism": organism, "min": floor}
         delta = guideline_delta(guide, v.hospital_wait_min)
         if delta:
             out["guideline_delta"] = delta
@@ -531,7 +536,7 @@ class Gateway:
             return Decision("duplicate", "cleaning")
         payload: dict = {"bed_id": d.bed_id, "cleaning_type": "terminal" if d.isolation else cleaning_type}
         if d.isolation and {"droplet", "airborne"} & set(d.precautions):
-            payload.update(self.aerosol_wait(d.bed_id))
+            payload.update(self.aerosol_wait(d.bed_id, d.organism))
         if d.isolation and d.organism == "CDIFF":
             payload["sporicidal"] = True
         reasons = []

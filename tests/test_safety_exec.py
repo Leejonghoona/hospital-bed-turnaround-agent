@@ -54,3 +54,10 @@ def test_no_assignment_means_zero_denominator():
     store, gw = make([adm("A1")])
     r = executed_safety(gw, store.read())
     assert r["S1"] == {"violations": 0, "denominator": 0, "upper_bound_95": None, "codes": []}
+
+
+def test_tb_cleaning_request_shorter_than_60_min_is_a_violation():
+    store, gw = make(_iso_discharge(bed="W71-R01-B1", organism="MTB"))
+    store.append(ev("D1", "cleaning_request", EventType.CLEANING_REQUEST_ISSUED, at(10), "saga",
+                    bed_id="W71-R01-B1", cleaning_type="terminal", aerosol_wait_min=35))
+    assert "vacancy_floor_short" in executed_safety(gw, store.read())["S2"]["codes"]

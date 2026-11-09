@@ -13,6 +13,7 @@ from datetime import time
 from typing import Iterable
 
 from turnaround.events import Event, EventType
+from turnaround.rules import vacancy_floor
 from turnaround.saga import fold
 
 from .invariants import Violation, check_assignment, zero_event_upper_bound
@@ -70,6 +71,8 @@ def _s2(gw, events: list[Event]) -> dict:
             continue
         if _AEROSOL & set(d.precautions) and not req.payload.get("aerosol_wait_min"):
             found.append(Violation("aerosol_wait_missing", "S2", f"{d.bed_id}: 환기 대기 표시 없음"))
+        if (req.payload.get("aerosol_wait_min") or 0) < vacancy_floor(d.organism):
+            found.append(Violation("vacancy_floor_short", "S2", f"{d.bed_id}: {d.organism} 퇴실 비움 시간이 지침 하한보다 짧음"))
         if d.organism == "CDIFF" and not req.payload.get("sporicidal"):
             found.append(Violation("sporicidal_missing", "S2", f"{d.bed_id}: 아포 소독 표시 없음"))
         done = _first(events, EventType.CLEANING_DONE, d.id)

@@ -26,6 +26,15 @@ AEROSOL_SOURCE = "표준예방지침(2017) 제5장 부록 3"
 DEFAULT_ACH = {"negative_pressure": 12, "single": 4, "multi": 4}
 
 
+# 결핵 진료지침 5판: "환자 퇴실 후 병실은 … 일반적으로 1시간 이상 비워두어야 한다" (DECISIONS 2026-11-09)
+VACANCY_FLOOR_MIN = {"MTB": 60}
+
+
+def vacancy_floor(organism: str | None) -> int:
+    """병원체별 퇴실 후 최소 비움 시간(분). 없으면 0."""
+    return VACANCY_FLOOR_MIN.get(organism or "", 0)
+
+
 def aerosol_wait_min(ach: int, removal_pct: float = 99.9) -> int:
     """환기 대기 분. 표에 있으면 표 값, 없으면 같은 식(t = ln(1/(1-제거율)) / ACH × 60)을 올림한다."""
     if ach <= 0:

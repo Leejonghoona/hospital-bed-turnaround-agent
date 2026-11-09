@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from turnaround.events.corrections import correction_direction
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
-from turnaround.rules import DEFAULT_ACH, aerosol_wait_min
+from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, vacancy_floor
 
 
 class SagaPolicy(BaseModel):
@@ -39,10 +39,11 @@ class SagaPolicy(BaseModel):
         ach = {r.id: r.air_changes_per_hour for r in rooms}
         return cls(bed_ach={b.id: ach[b.room_id] for b in beds}, **kw)
 
-    def aerosol_wait(self, bed_id: str | None) -> int:
+    def aerosol_wait(self, bed_id: str | None, organism: str | None = None) -> int:
+        floor = vacancy_floor(organism)  # 결핵 60분 하한 (지침 하한이라 시험용 덮어쓰기보다도 우선)
         if self.aerosol_wait_override_min is not None:
-            return self.aerosol_wait_override_min
-        return aerosol_wait_min(self.bed_ach.get(bed_id or "", DEFAULT_ACH["multi"]), self.removal_pct)
+            return max(self.aerosol_wait_override_min, floor)
+        return max(aerosol_wait_min(self.bed_ach.get(bed_id or "", DEFAULT_ACH["multi"]), self.removal_pct), floor)
     billing_wait: timedelta = timedelta(minutes=60)  # 퇴원약 준비 뒤 수납 대기 기준 (설계 가정)
 
 
@@ -390,7 +391,7 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
     if departed is not None:
         extra = {}
         if d.isolation and {"droplet", "airborne"} & set(d.precautions):
-            extra["aerosol_wait_min"] = p.aerosol_wait(bed)  # 환기 대기 뒤 청소 (LP-23)
+            extra["aerosol_wait_min"] = p.aerosol_wait(bed, d.organism)  # 환기 대기 뒤 청소 (LP-23)
         if d.isolation and d.organism == "CDIFF":
             extra["sporicidal"] = True  # 아포 대응 소독
         out.cmd(d.id, "cleaning_request", EventType.CLEANING_REQUEST_ISSUED, departed, bed_id=bed,

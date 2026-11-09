@@ -2,23 +2,18 @@
 
 이전 대화를 읽지 않고 이어서 작업하기 위한 요약이다. 정답 문서는 CLAUDE.md, `docs/병상턴어라운드_설계.html`, `docs/SPEC.md`다.
 
-## 지금 상태
-- 1단계 MVP 동작. 회귀 30/30, 홀드아웃 2회차 10/10. 상세는 README "상태", `docs/RESULTS.md`.
-- 결정과 MVP 뒤 검토할 가정: `docs/DECISIONS.md` (MA-01 ~ MA-14).
-- 모델 점검: `docs/모델_성능점검표.md` (결과표는 `python -m turnaround.evaluation.model_report`가 `evals/results/model_check/*.json`에서 만든다).
+## 지금 상태 (2026-11-09)
+- 1단계 MVP 동작. 회귀 30/30, 홀드아웃 4회차 누적 13/13(H01~H05 승인, H06~H13 초안). 점수판 v3 최신 행과 긴 테스트 표는 `docs/RESULTS.md`.
+- 안전: 실행 상태 안전(시스템이 실행한 배정·청소 요청) 50 시드 실행 S1 0/410, S2 0/58. 예전 0/6,000 등은 생성기 자료 점검이다(RESULTS "2026-11-09 정정").
+- 결정: `docs/DECISIONS.md` (MA-01~MA-15, U 결정, 2026-11-09 항목들: U8 코드 반영, 응급실 범위, AGT-4 3항, 안전 지표 재정의, 결핵 60분 하한, P4, MA-07 정정).
+- 기획 문서: `docs/기획/00~06`, 검수 기록 `docs/기획/검수/`(라운드별 의견과 조치).
+- 모델 점검: `docs/모델_성능점검표.md` (`python -m turnaround.evaluation.model_report`가 결과 폴더에서 만든다). 원내 Qwen 7B dev 50: 추출 E1 0.92, 계획 30/30.
 
 ## 남은 일
-1. **Claude 측정**: 환경 변수 `ANTHROPIC_API_KEY`가 있으면 아래를 돌리고 결과표를 다시 만든다. 키는 저장소에 넣지 않는다.
-   ```bash
-   export TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only
-   python -m turnaround.evaluation.model_check --models anthropic:<모델 ID> --reps 3 --split dev
-   python -m turnaround.evaluation.model_check --models anthropic:<모델 ID> --reps 0 --split holdout
-   python -m turnaround.evaluation.model_report
-   ```
-2. 원내 모델 실측(EXAONE 홀드아웃, Qwen 3B·7B)이 결과 폴더에 없으면 다시 돈다. llama.cpp 빌드(`pip install llama-cpp-python`)와 GGUF 다운로드(`models/`, 저장소 제외)가 필요하다. Hugging Face 파일은 `us.aws.cdn.hf.co`를 거친다(환경 허용 호스트에 추가됨).
-3. 점검표 5절(원내 장비 추정)과 결론 작성. 인젝션 짝 변화가 무작위성인지 문항별 대조.
-4. 사용자 요청: 전문가 PM·PO 시각으로 기획 단계 산출물(요구사항 명세서, PRD 등)을 분석하고, 잘 쓴 공개 예시를 인용해 이 프로젝트에 맞춘 문서를 `docs/`에 작성.
-5. MVP 뒤 사용자 검토: MA 가정 목록, 홀드아웃 H06~H10 라벨, 추출 문장 200 라벨.
+1. 현직자 설문 답 대기(구글 폼 발송됨). 답이 오면 U1·U2·U4·U10·U11 확정, 추출 라벨 v3 확정, 응급실 후속 질문(`docs/검토/현직자_후속질문_응급실.txt`) 발송, 응급실발 입원 최소판.
+2. 구독 경유 Claude 측정: 사용자 노트북에서 `scripts/run_claudesub.bat` 또는 `/claude-measure`(가이드 `docs/가이드/구독측정_가이드.md`). 결과가 올라오면 점검표에 반영.
+3. 사용자 검토: 홀드아웃 H06~H13 라벨(`docs/검토/라벨검토_H06-H13.md`), 출시 단계 1 나가는 조건 축소안(04 PRD 7절).
+4. GPU 임대 측정(원내 후보), 최종 모델 결정. 저장소 이름 wardloop로 변경은 작업을 마친 뒤.
 
 ## 규칙 요약
 브랜치 `claude/gallant-keller-0lrkwf`에만 푸시. 테스트 먼저, 작게 커밋, 한국어 한 줄 커밋 메시지. 합성 데이터만. 외부 API에는 합성 데이터만 보낸다. Grok 키는 환경 프록시가 넣는다(`xai:<모델>`).
