@@ -95,6 +95,15 @@ class Lexicon(BaseModel):
         return None
 
 
+_NEVER_LEARN = {"patient.name", "patient.patient_id", "case"}  # 식별자 열은 배우지 않는다 (3단계 개인정보 검수)
+
+
+def source_id(hospital: str) -> str:
+    """출처 병원은 이름 대신 불투명한 지문으로만 남긴다 (3단계 개인정보 검수 A-3)."""
+    import hashlib
+    return "src:" + hashlib.sha256(hospital.encode()).hexdigest()[:10]
+
+
 def learn(session) -> Lexicon:
     """끝난 온보딩 세션에서 사람이 답한 항목을 후보 사전으로 뽑는다(아직 공용 아님)."""
     ent = []
@@ -102,6 +111,8 @@ def learn(session) -> Lexicon:
         a = session.answers.get(q.id)
         if q.id.startswith("col:"):
             c = q.id.split(":", 2)[2]
+            if a in _NEVER_LEARN:
+                continue
             ent.append(("ignore", c, True) if a in (None, IGNORE) else ("column", c, a))
         elif q.id.startswith("code:"):
             _, k, v = q.id.split(":", 2)
@@ -126,7 +137,8 @@ def learn(session) -> Lexicon:
             clash.add(key)
             continue
         seen[(kind, key)] = v
-    return Lexicon().plus([(k, key, v) for (k, key), v in seen.items() if key not in clash], source=session.hospital)
+    return Lexicon().plus([(k, key, v) for (k, key), v in seen.items() if key not in clash],
+                          source=source_id(session.hospital))
 
 
 # ---------------- 회귀 관문 ----------------
@@ -141,6 +153,44 @@ def _canonical(seed: int):
     h = generate(seed=seed, config=GeneratorConfig.realistic())
     ev = [e.model_copy(update={"observed_at": e.occurred_at}) for e in hospital_to_events(h, seed=seed)]
     return h, ev
+
+
+@lru_cache(maxsize=4)
+def _gate_vocab(formats: tuple, seeds: tuple) -> dict:
+    """관문 형식에 실제로 나오는 열 이름·값·사건 코드. 여기 없는 항목은 관문이 판정할 수 없다."""
+    from turnaround.sim.exports import export, gold_mapping
+    cols, vals, evts, tables = set(), set(), set(), []
+    for f in formats:
+        gold = gold_mapping(f)
+        for sd in seeds:
+            h, ev = _canonical(sd)
+            for t, rows in export(h, ev, f).items():
+                names = set(rows[0]) if rows else set()
+                cols |= names
+                tables.append(names)
+                tm = gold.tables.get(t)
+                for r in rows:
+                    for c, v in r.items():
+                        vk = _CODE_KEYS.get(tm.columns.get(c, "")) if tm is not None else None
+                        if vk:  # 값은 그 값 어휘의 열에서 나온 것만 '판정 가능'으로 본다
+                            for part in {str(v), *re.split(r"[|+;,]", str(v))}:
+                                vals.add((vk, part))
+                    if tm is not None and tm.kind == "events":
+                        evts.add(str(r.get(tm.event_columns[1])))
+    return {"cols": cols, "vals": vals, "evts": evts, "tables": tables}
+
+
+def _exercised(entry, vocab) -> bool:
+    kind, key, v = entry
+    if kind in ("column", "ignore"):
+        return key in vocab["cols"]
+    if kind == "value":
+        return tuple(key.split("|", 1)) in vocab["vals"]
+    if kind == "event":
+        return key in vocab["evts"]
+    if kind == "layout":
+        return any(set(v) <= names for names in vocab["tables"])
+    return False
 
 
 def _gate_one(lex: Lexicon, fmt: str, seed: int) -> tuple[list[str], int]:
@@ -180,6 +230,10 @@ def _gate(lex: Lexicon, formats, seeds, base_counts: dict | None = None) -> tupl
     return bad, counts
 
 
+def _opaque(src):
+    return None if not src else src if str(src).startswith("src:") else source_id(str(src))
+
+
 def promote(shared: Lexicon, candidate: Lexicon, formats=None, seeds=GATE_SEEDS) -> tuple[Lexicon, dict]:
     """후보 항목을 회귀 관문에 통과시켜 공용 사전에 넣는다. (새 공용 사전, 보고)"""
     from turnaround.sim.exports import FORMATS, HOLDOUT_FORMATS
@@ -193,6 +247,10 @@ def promote(shared: Lexicon, candidate: Lexicon, formats=None, seeds=GATE_SEEDS)
             conflicts.append(f"{kind}:{key}")
         elif cur is None:
             new.append((kind, key, v))
+    # 관문 형식에 나오지 않는 항목은 판정할 수 없다: 공용에 넣지 않고 그 병원 안에서만 쓴다 (3단계 검수 A-3·B-1·B-2)
+    vocab = _gate_vocab(formats, tuple(seeds))
+    local_only = [e for e in new if not _exercised(e, vocab)]
+    new = [e for e in new if _exercised(e, vocab)]
     accepted, rejected, reasons = [], [], {}
     base = {"counts": _gate(shared, formats, seeds)[1]}
 
@@ -213,10 +271,11 @@ def promote(shared: Lexicon, candidate: Lexicon, formats=None, seeds=GATE_SEEDS)
         split(batch[mid:])
 
     split(new)
-    src = {f"{k}:{key}": candidate.provenance.get(f"{k}:{key}") for k, key, _ in accepted}
+    src = {f"{k}:{key}": _opaque(candidate.provenance.get(f"{k}:{key}")) for k, key, _ in accepted}
     out = shared.plus(accepted)
     out = out.model_copy(update={"provenance": {**out.provenance, **{k: v for k, v in src.items() if v}}})
     return out, {"accepted": len(accepted), "rejected": len(rejected), "conflicts": conflicts, "reasons": reasons,
+                 "local_only": len(local_only), "local_entries": local_only,
                  "gate": {"formats": list(formats), "seeds": list(seeds)}}
 
 

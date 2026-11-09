@@ -80,9 +80,41 @@ def profile(tables: dict[str, list[dict]]) -> dict:
                     "distinct": len(distinct)}
             if shape != "time" and 0 < len(distinct) <= _MAX_CODES:
                 info["codes"] = distinct
+                info["counts"] = {v: vals.count(v) for v in distinct}
             cols[c] = info
         out[t] = {"rows": len(rows), "columns": cols}
     return out
+
+
+_ID_LIKE = re.compile(r"\d{6,}|\d{2,4}-\d{3,4}-\d{4}")
+
+
+def llm_profile(prof: dict) -> dict:
+    """외부 모델에 보낼 표 모양 (3단계 개인정보 검수 A-1). 원천 값은 두 번 이상 나온 짧은 코드만 남긴다.
+    한 번만 나온 값(이름·번호·메모일 수 있다)과 번호·전화 모양은 보내지 않는다. 작은 표도 같다."""
+    out = {}
+    for t, info in prof.items():
+        cols = {}
+        for c, ci in info["columns"].items():
+            x = {k: ci[k] for k in ("shape", "fill", "distinct")}
+            keep = [v for v in ci.get("codes", []) if ci.get("counts", {}).get(v, 0) >= 2 and len(v) <= 20
+                    and not _ID_LIKE.search(v)]
+            if keep:
+                x["codes"] = keep
+            cols[c] = x
+        out[t] = {"rows": info["rows"], "columns": cols}
+    return out
+
+
+def check_external(llm, data_class: str, policy=None) -> None:
+    """외부 모델 전송 관문 (3단계 개인정보 검수 A-2). 정책 external_llm이 deny이면 합성 데이터만 보낸다."""
+    if not getattr(llm, "external", False):
+        return
+    if policy is None:
+        from turnaround.gateway import load_policy
+        policy = load_policy()
+    if data_class != "synthetic" and policy.external_llm == "deny":
+        raise PermissionError("정책 external_llm=deny: 병원 데이터는 외부 모델로 보내지 않는다(원내 모델이나 가짜 LLM을 쓴다)")
 
 
 # ---------------- 가짜 LLM: 어휘 사전 ----------------
@@ -374,10 +406,11 @@ def _part_col(cols: list[str], toks) -> str | None:
 
 
 def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft",
-                    hints: dict | None = None, lexicon=None) -> MappingDraft:
+                    hints: dict | None = None, lexicon=None, data_class: str = "hospital", policy=None) -> MappingDraft:
     """hints: 사람이 앞선 질문에 답한 구조·형식 정보. {"layout": (표 이름, (병동 열, 병실 열, 병상 열)),
     "time_format": ..., "list_sep": ..., "bool_values": ...}. lexicon: 회귀 관문을 통과한 공용 학습 사전(agent.lexicon)."""
     hints = dict(hints or {})
+    check_external(llm, data_class, policy)
     prof = profile(tables)
     if lexicon is not None and not hints.get("layout"):
         for t, info in prof.items():  # 학습한 병상 표 열 이름(병동·병실·병상)이 모두 있으면 그 표를 병상 표로 본다
@@ -411,7 +444,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
     else:
         # 표마다(사건 코드는 따로) 나눠 부른다: 응답이 길면 상류 시간 제한에 걸린다
         cand = {"columns": {}, "values": {}, "event_codes": {}}
-        parts = [{"tables": {t: info}} for t, info in ctx["tables"].items()]
+        safe = llm_profile(ctx["tables"])
+        parts = [{"tables": {t: info}} for t, info in safe.items()]
         if event_codes:
             parts.append({"tables": {}, "event_codes": event_codes})
         fails = []
@@ -755,4 +789,4 @@ def followup_questions(m: Mapping, tables: dict[str, list[dict]]) -> list[Questi
     return out
 
 
-__all__ = ["IGNORE", "MappingDraft", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]
+__all__ = ["IGNORE", "MappingDraft", "check_external", "llm_profile", "followup_questions", "Question", "answer", "fake_propose", "profile", "propose_mapping"]

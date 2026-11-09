@@ -93,8 +93,8 @@ def test_finalize_gives_replay_proof_and_frozen_version():
     assert pkg.status == "proposed" and len(pkg.version) == 12
     assert pkg.verify()
     assert "hospital_profile" in pkg.profile_yaml
-    ok = pkg.approve(by="의료정보팀")
-    assert ok.status == "approved" and ok.approved_by == "의료정보팀" and ok.version == pkg.version
+    ok = pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    assert ok.status == "approved" and ok.approved_by == "medical_informatics" and ok.version == pkg.version
     tampered = ok.__class__(**{**ok.__dict__, "mapping": ok.mapping.model_copy(update={"time_format": "%Y"})})
     assert not tampered.verify()
 
@@ -139,7 +139,7 @@ def test_drift_detects_new_column_new_code_and_bad_time_then_requestions():
     tables = export(h, ev, "emr_a")
     s = OnboardingSession(tables, hospital="H")
     _run(s, gold_mapping("emr_a"))
-    pkg = s.finalize(day=3).approve(by="의료정보팀")
+    pkg = s.finalize(day=3).approve(by="medical_informatics", acknowledge_profile_questions=True)
     assert detect_drift(pkg, tables) == []
     changed = {t: [dict(r) for r in rows] for t, rows in tables.items()}
     t0 = next(t for t, tm in pkg.mapping.tables.items() if tm.kind == "cases")
@@ -161,7 +161,7 @@ def test_drift_answers_make_a_new_version_that_needs_new_approval():
     tables = export(h, ev, "emr_b")
     s = OnboardingSession(tables, hospital="H")
     _run(s, gold_mapping("emr_b"))
-    pkg = s.finalize(day=3).approve(by="의료정보팀")
+    pkg = s.finalize(day=3).approve(by="medical_informatics", acknowledge_profile_questions=True)
     changed = {t: [dict(r) for r in rows] for t, rows in tables.items()}
     t0 = next(t for t, tm in pkg.mapping.tables.items() if tm.kind == "cases")
     for r in changed[t0]:

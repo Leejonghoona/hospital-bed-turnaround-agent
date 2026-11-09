@@ -33,11 +33,12 @@ def gold_answers(draft, gold) -> dict:
 
 
 def score(tables: dict, gold, canonical_events, h, llm=None, lexicon=None) -> dict:
-    d = propose_mapping(tables, llm=llm, lexicon=lexicon)
+    d = propose_mapping(tables, llm=llm, lexicon=lexicon, data_class="synthetic")
     first = d
     if any(q.id == "layout" for q in d.questions):  # 사람이 병상 표와 세 열을 알려 주면 다시 만든다
         lay = next(t for t, tm in gold.tables.items() if tm.kind == "layout")
-        d = propose_mapping(tables, llm=llm, hints={"layout": (lay, gold.bed_parts)}, lexicon=lexicon)
+        d = propose_mapping(tables, llm=llm, hints={"layout": (lay, gold.bed_parts)}, lexicon=lexicon,
+                             data_class="synthetic")
         d.questions = [q for q in first.questions if q.id == "layout"] + d.questions
     asked = {q.id for q in d.questions}
     col = {"correct": 0, "wrong": 0, "asked": 0, "missed": 0}

@@ -200,6 +200,7 @@ def _fake_parse(q: str) -> dict:
 
 @dataclass
 class _HttpLLM:
+    external = True  # 국외 서버로 간다
     model: str
     name: str = ""
     usage: Usage = field(default_factory=Usage)
@@ -299,6 +300,7 @@ class LocalLLM:
 
 @dataclass
 class ClaudeSubLLM:
+    external = True
     """구독(Pro·Max) 계정으로 로그인한 Claude Code를 claude-agent-sdk로 부른다 (개인 평가용, 대리 측정).
 
     사용자가 약관에서 개인 평가 용도 허용을 확인함(2026-11-09). 한계: 온도를 고정할 수 없고,
