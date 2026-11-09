@@ -35,14 +35,17 @@ def test_unknown_profile_is_an_error():
 
 
 def test_responsibility_actions_cannot_be_made_automatic(tmp_path):
-    """환자 연락, 공식 확정, 안전 예외 승인은 코드 상수로 잠근다 (사람만)."""
+    """환자 연락, 안전 예외 승인은 코드 상수로 잠근다 (사람만). 공식 확정은 정책 자율 단계다 (DECISIONS 2026-11-09)."""
     raw = yaml.safe_load(DEFAULT_POLICY.read_text(encoding="utf-8"))
     raw.setdefault("autonomy", {})["contact_patient"] = "auto"
     f = tmp_path / "p.yaml"
     f.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
     with pytest.raises(ValueError, match="contact_patient"):
         load_policy(f)
-    assert {"contact_patient", "official_commit", "approve_safety_exception"} <= LOCKED_HUMAN_ACTIONS
+    assert {"contact_patient", "approve_safety_exception"} <= LOCKED_HUMAN_ACTIONS
+    assert "official_commit" not in LOCKED_HUMAN_ACTIONS
+    assert load_policy().autonomy["official_commit"] == "human"  # legacy 기본은 지금 동작
+    assert load_policy(profile="field_default").autonomy["official_commit"] == "auto"
 
 
 def test_profile_values_have_provenance():

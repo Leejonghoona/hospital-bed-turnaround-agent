@@ -472,6 +472,10 @@ class Gateway:
             if "single_room_preference" in reasons and room.room_type is not RoomType.MULTI:
                 self._task(prop.case, prop.proposal_id, "fee_consent", now, prop.bed_id)  # LP-22
             return Decision("awaiting_review", "proposal", "review", reasons)
+        if self._agent_commits():
+            # 검토 사유 없는 평범한 사례: 확정 직전 재확인을 거쳐 에이전트가 확정하고 통보한다 (DECISIONS 2026-11-09)
+            d = self.commit(prop.proposal_id, self.location_version(prop.bed_id), now, actor="agent")
+            return Decision(d.status, d.stage, "auto" if d.status == "committed" else d.tier, d.reasons)
         promoted = self.policy.autonomy_stage >= 2 and patient.department in self.policy.promoted_departments
         if promoted:
             self._ask_ward(prop, now)
@@ -483,6 +487,10 @@ class Gateway:
     def _notify_mode(self) -> bool:
         """통보형 병동 확인 (DECISIONS 2026-11-09 C): 병동에 묻지 않고 확정 뒤 통보한다."""
         return self.policy.hospital_profile.ward_confirmation.mode == "notify"
+
+    def _agent_commits(self) -> bool:
+        """공식 확정 자율 단계가 auto이고 통보형이면 검토 사유 없는 사례를 에이전트가 확정한다."""
+        return self._notify_mode() and self.policy.autonomy.get("official_commit", "human") != "human"
 
     def _ask_ward(self, prop: Proposal, now: datetime) -> None:
         if self._notify_mode():
@@ -553,7 +561,7 @@ class Gateway:
         prop = self._proposal(pid, events)
         if prop is None:
             return Decision("unknown", "commit")
-        d = self._check_commit(prop, approved_version, events, now, attempt)
+        d = self._check_commit(prop, approved_version, events, now, attempt, actor)
         self._audit(key, prop.case, now, "commit", pid, d, approved_version=approved_version, actor=actor)
         return d
 
@@ -562,7 +570,7 @@ class Gateway:
             self._emit(prop.case, f"gw:{prop.proposal_id}:ward_notified", EventType.WARD_NOTIFIED, now,
                        bed_id=prop.bed_id, reason=reason, proposal_id=prop.proposal_id)
 
-    def _check_commit(self, prop: Proposal, version: int, events, now, attempt: int) -> Decision:
+    def _check_commit(self, prop: Proposal, version: int, events, now, attempt: int, actor: str = "원무") -> Decision:
         stage = "commit"
         tag = f"{stage}" if attempt == 1 else f"{stage}{attempt}"
         if self._pinned(prop.case, events):
@@ -603,14 +611,19 @@ class Gateway:
         violations = self._shacl(prop.case, patient, prop.bed_id, events)
         if violations:
             return self._reject_commit(prop, violations, now, tag)
+        by = "agent" if actor == "agent" else "human"
         self._emit(prop.case, f"gw:{prop.proposal_id}:committed", EventType.MATCH_COMMITTED, now,
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id, version=version,
-                   discharge_id=prop.discharge_id)
+                   discharge_id=prop.discharge_id, committed_by=by)
         if self._notify_mode():
             wc = self.policy.hospital_profile.ward_confirmation
+            # 에이전트 확정은 원무 배정 담당에게도 근거와 함께 사후 보고한다 (되돌릴 수 있게)
+            to = ["ward", "bed_manager"] if by == "agent" else ["ward"]
+            basis = {"score": prop.scores.get(prop.bed_id or ""), "rationale": prop.rationale, "review_reasons": [],
+                     "alternatives": prop.alternatives[:2], "basis_seq": prop.basis_seq}
             self._emit(prop.case, f"gw:{prop.proposal_id}:ward_assignment_notified", EventType.WARD_ASSIGNMENT_NOTIFIED,
-                       now, bed_id=prop.bed_id, proposal_id=prop.proposal_id,
-                       objection_until=(now + timedelta(minutes=wc.objection_window_min)).isoformat())
+                       now, bed_id=prop.bed_id, proposal_id=prop.proposal_id, committed_by=by, notify_to=to,
+                       basis=basis, objection_until=(now + timedelta(minutes=wc.objection_window_min)).isoformat())
         # 재매칭으로 다른 병상을 확정했으면 이전 사전 매칭을 푼다
         for m in fold(events).matches.values():
             if m.admission_id == prop.case and m.active and m.bed_id != prop.bed_id:

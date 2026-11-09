@@ -22,7 +22,10 @@ ACCOUNTABLE = {EventType.WARD_ACCEPTED: "ward_reply", EventType.WARD_REJECTED: "
 
 def human_load(events: list[Event], rubber_stamp_s: float = 30.0) -> dict:
     admissions = {e.case_id for e in events if e.type is EventType.ADMISSION_REQUESTED}
-    committed = {e.case_id for e in events if e.type is EventType.MATCH_COMMITTED and e.case_id in admissions}
+    commits = [e for e in events if e.type is EventType.MATCH_COMMITTED and e.case_id in admissions]
+    committed = {e.case_id for e in commits}
+    # 공식 확정은 사람이 한 것만 책임 개입이다. 에이전트 확정은 통보만 받는다 (DECISIONS 2026-11-09)
+    human_committed = {e.case_id for e in commits if e.payload.get("committed_by", "human") != "agent"}
     judge: Counter = Counter()
     acct: Counter = Counter()
     kinds: Counter = Counter()
@@ -33,9 +36,10 @@ def human_load(events: list[Event], rubber_stamp_s: float = 30.0) -> dict:
         elif e.type in ACCOUNTABLE and e.case_id in admissions:
             acct[e.case_id] += 1
             kinds[ACCOUNTABLE[e.type]] += 1
-    for c in committed:
-        acct[c] += 1  # 공식 확정(원무가 HIS에 기록)은 책임 개입
-    kinds["official_commit"] = len(committed)
+    for c in human_committed:
+        acct[c] += 1  # 사람이 한 공식 확정(원무가 HIS에 기록)은 책임 개입
+    kinds["official_commit"] = len(human_committed)
+    kinds["agent_commit"] = len(committed - human_committed)
     asked: dict[str, datetime] = {}
     waits = []
     for e in events:

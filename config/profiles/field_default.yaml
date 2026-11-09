@@ -23,3 +23,5 @@ hospital_profile:
   admission_window: ["14:00", "17:00"]   # 서울성모 14~17, 해운대백 15~17 피크
 brain:
   enabled: true
+autonomy:
+  official_commit: auto            # 검토 사유 없는 사례는 에이전트가 확정, 병동·원무에 통보 (DECISIONS 2026-11-09)

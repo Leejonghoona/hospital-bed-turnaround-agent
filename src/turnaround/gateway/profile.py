@@ -10,8 +10,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# 사람만 하는 행동: 정책으로 자동화할 수 없다 (책임 순간, DECISIONS "U8 확장")
-LOCKED_HUMAN_ACTIONS = frozenset({"contact_patient", "official_commit", "approve_safety_exception"})
+# 사람만 하는 행동: 정책으로 자동화할 수 없다 (책임 순간, DECISIONS "U8 확장").
+# 공식 확정(official_commit)은 정책 자율 단계로 둔다 (DECISIONS 2026-11-09 "공식 확정을 책임 순간에서 뺀다")
+LOCKED_HUMAN_ACTIONS = frozenset({"contact_patient", "approve_safety_exception"})
 Autonomy = Literal["auto", "post_report", "human"]
 
 

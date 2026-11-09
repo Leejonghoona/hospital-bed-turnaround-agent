@@ -63,9 +63,9 @@ exception_actions:           # 예외(사가 감지) → 머리가 고를 수 �
   late_isolation:
     allowed: [rematch_now, wait_for_ipc, escalate, propose_surveillance_hold]
     fallback: escalate
-autonomy:                    # 행동별 자율 단계 auto | post_report | human. 환자 연락·공식 확정·안전 예외 승인은 코드로 human 고정
+autonomy:                    # 행동별 자율 단계 auto | post_report | human. 환자 연락·안전 예외 승인은 코드로 human 고정
   contact_patient: human
-  official_commit: human
+  official_commit: human     # legacy. auto면 검토 사유 없는 사례를 에이전트가 확정하고 병동·원무에 통보 (DECISIONS 2026-11-09)
   approve_safety_exception: human
   escalate: auto             # 올리는 것 자체는 자동 (사람이 받는다)
   rematch_now: auto          # 제안만 자동. 확정은 기존 확인 등급
