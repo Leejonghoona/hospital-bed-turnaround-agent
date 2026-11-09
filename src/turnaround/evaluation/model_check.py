@@ -187,7 +187,7 @@ def planning_eval(spec: str, reps: int = 1) -> dict:
     shared = make_llm(spec)
     rec = Recorder(shared) if shared is not None else None
     old = dict(rg.AGENT_CONFIG)
-    rg.AGENT_CONFIG.update(llm_factory=(lambda: rec) if rec else FakeLLM, mode="rule" if rec is None else "agent")
+    rg.AGENT_CONFIG.update(llm_factory=(lambda: rec) if rec else FakeLLM, mode="rule" if rec is None else "select")  # 점검은 LLM 선택 능력을 잰다
     try:
         runs: dict[str, list[bool]] = {s.id: [] for s in scenarios}
         fails: dict[str, list[str]] = {}

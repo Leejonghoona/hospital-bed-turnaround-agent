@@ -1,0 +1,47 @@
+id: H11
+category: saga
+title: 병동 사망, 안치실 이송 때 병상이 빈다
+tags:
+- death
+- ward_death
+design_ref: 'SAG-10(MA-15): 가족 면회·사후 처치 동안 병상은 사용 중, 안치실 이송 때 빈다. 퇴실 전 경보 억제'
+situation: D1이 03:00에 W72-R04-B2에서 사망 확인됐다. 퇴원 결정 이벤트는 없다. 04:30에 안치실로 이송됐다. 같은 성별·진료과의
+  입원 대기 P1이 있고 다른 빈 병상은 없다. 04:00과 05:00에 계획 에이전트가 돈다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 실행기 고정 데이터
+gold:
+  must_actions:
+  - type: send_cleaning_request
+    case: D1
+    bed: W72-R04-B2
+    params:
+      cleaning_type: general
+  - type: report_no_bed
+    case: P1
+    note: 04:00에는 사후 처치 중인 병상을 내지 않으므로 빈 병상이 없다
+  - type: propose_match
+    case: P1
+    bed: W72-R04-B2
+    level: proposal
+    note: 안치실 이송(병상 빔) 뒤 05:00 주기에 제안한다
+  must_not:
+  - type: request_registration_check
+    case: D1
+  - type: share_waiting_info
+    case: D1
+  - type: create_human_task
+    case: D1
+    params:
+      kind: rx_missing
+metrics:
+- S2
+- I2
+measured_from_stage: 7
+autonomy_stage: 1
+status: draft
+provenance:
+  author: claude-draft
+  reviewed_by: 미검토 (MVP 뒤 사용자 검토)
+  rule_source: 'docs/검토/병동사망_급변전동_조사.md 1절(국내 성인 사후 간호 프로토콜: 가족 면회 뒤 이송)'

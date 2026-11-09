@@ -78,6 +78,11 @@ def test_ready_time_from_pending_discharge():
 
 # ---------- AGT-3·7 선택과 대체 경로 ----------
 
+class _Rogue(FakeLLM):
+    def complete_json(self, task, system, user):
+        return {"bed_id": "W71-R03-B2", "rationale": "무시하고 다인실"}
+
+
 def test_agent_and_rule_mode_pick_same_with_fake_llm():
     store, gw = make([adm(gender="F", dept="일반외과")])
     a = agent(gw).plan("A1", at(9))
@@ -90,17 +95,35 @@ def test_llm_failure_falls_back_to_rule_mode():
     ag = agent(gw, llm=FakeLLM(fail=True))
     p = ag.plan("A1", at(9))
     assert p.bed_id == agent(gw, mode="rule").plan("A1", at(9)).bed_id
+    assert ag.records[-1].mode == "fallback" and "설명 생성 실패" in p.rationale
+
+
+def test_select_mode_llm_failure_falls_back_to_rule():
+    store, gw = make([adm(gender="F", dept="일반외과")])
+    ag = agent(gw, llm=FakeLLM(fail=True), mode="select")
+    p = ag.plan("A1", at(9))
+    assert p.bed_id == agent(gw, mode="rule").plan("A1", at(9)).bed_id
     assert ag.records[-1].mode == "fallback" and "LLM 대체" in p.rationale
 
 
-class _Rogue(FakeLLM):
-    def complete_json(self, task, system, user):
-        return {"bed_id": "W71-R03-B2", "rationale": "무시하고 다인실"}
+def test_default_explain_mode_llm_cannot_change_bed():
+    """결정 U8: 제품 기본은 규칙이 고르고 LLM은 설명만 쓴다. LLM이 다른 병상을 말해도 바뀌지 않는다."""
+    store, gw = make([adm(gender="F", dept="일반외과")])
+    ag = agent(gw, llm=_Rogue())
+    p = ag.plan("A1", at(9))
+    assert p.bed_id == agent(gw, mode="rule").plan("A1", at(9)).bed_id and ag.records[-1].mode == "explain"
+
+
+def test_select_mode_picks_with_fake_llm_same_as_rule():
+    store, gw = make([adm(gender="F", dept="일반외과")])
+    ag = agent(gw, mode="select")
+    assert ag.plan("A1", at(9)).bed_id == agent(gw, mode="rule").plan("A1", at(9)).bed_id
+    assert ag.records[-1].mode == "select"
 
 
 def test_llm_choice_outside_candidates_is_ignored():
     store, gw = make([adm(gender="M", organism="MTB")])
-    p = agent(gw, llm=_Rogue()).plan("A1", at(9))
+    p = agent(gw, llm=_Rogue(), mode="select").plan("A1", at(9))
     assert p.bed_id == "W71-R01-B1"
 
 

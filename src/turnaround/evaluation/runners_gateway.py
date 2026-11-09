@@ -23,7 +23,7 @@ from .scoring import Produced, ScoreResult, actions_from_events, score
 
 STAGE = 7
 # 에이전트 실행 설정. 평가 하네스(EVL-4)가 바꿔 끼운다: 규칙 모드, 실제 모델
-AGENT_CONFIG: dict = {"llm_factory": FakeLLM, "mode": "agent"}
+AGENT_CONFIG: dict = {"llm_factory": FakeLLM, "mode": "explain"}  # 제품 동작(U8). 모델 점검은 "select"
 
 DAY0 = datetime(2026, 3, 2)
 _LAYOUT = generate(seed=0)
@@ -529,7 +529,34 @@ def run_h10(s):
     return r.score(s)
 
 
+def run_h11(s):
+    """병동 사망: 면회·사후 처치 동안 병상은 사용 중, 안치실 이송 때 빈다 (SAG-10)."""
+    r = _GwRun(P, census=_fill_except("W72-R04-B2"))
+    r.feed([_adm_event("FX-P1", gender="F", dept="일반외과"),
+            _ev("FX-D1", "death", EventType.DEATH_CONFIRMED, at(3), bed_id="W72-R04-B2", isolation_order=False)])
+    r.saga_until(at(3), at(4))
+    r.agent_cycle(at(4), commit=False)  # 안치실 이송 전: 이 병상을 내면 안 된다
+    r.feed([_ev("FX-D1", "body_transferred", EventType.BODY_TRANSFERRED, at(4, 30), bed_id="W72-R04-B2")])
+    r.saga_until(at(4, 30), at(5))
+    r.agent_cycle(at(5), commit=False)
+    return r.score(s)
+
+
+def run_h12(s):
+    """급변 전동 + 병상 잡아 두기: 사전 매칭을 풀고 다른 병상으로 재매칭, 잡아 둔 병상은 내지 않는다 (SAG-10)."""
+    r = _GwRun(P, census=_fill_except("W72-R04-B1"))
+    r.feed([_adm_event("FX-P1", gender="F", dept="일반외과"),
+            _ev("FX-P1", "prematch_created:W72-R04-B2", EventType.PREMATCH_CREATED, at(17, 40, day=-1), "agent",
+                bed_id="W72-R04-B2", discharge_id="FX-D1"),
+            _ev("FX-D1", "icu_transfer", EventType.UNPLANNED_TRANSFER_OUT, at(2), bed_id="W72-R04-B2",
+                destination="icu", hold=True)])
+    r.saga_until(at(2), at(3))
+    r.agent_cycle(at(8), commit=False)
+    return r.score(s)
+
+
 HOLDOUT_RUNNERS: dict[str, Callable[[Scenario], ScoreResult]] = {
     "H01": run_h01, "H02": run_h02, "H03": run_h03, "H04": run_h04, "H05": run_h05,
     "H06": run_h06, "H07": run_h07, "H08": run_h08, "H09": run_h09, "H10": run_h10,
+    "H11": run_h11, "H12": run_h12,
 }

@@ -83,6 +83,12 @@ class FakeLLM:
                 return {"bed_id": None, "rationale": "조건에 맞는 병상 없음"}
             best = max(cands, key=lambda c: (c["score"], -cands.index(c)))
             return {"bed_id": best["bed_id"], "rationale": f"점수 1순위 {best['bed_id']} ({best['score']:.1f})"}
+        if task == "explain_choice":
+            c = next((x for x in data.get("candidates", []) if x["bed_id"] == data.get("chosen_bed_id")), None)
+            if c is None:
+                raise LLMError("선택 병상 없음")
+            parts = ", ".join(f"{k} {v:+.0f}" for k, v in (c.get("parts") or {}).items()) or "감점 없음"
+            return {"rationale": f"{c['bed_id']}: 점수 {c['score']:.1f} ({parts})"}
         if task == "extract":
             return _fake_extract(data.get("text", ""), data.get("reference_time"))
         if task == "parse_question":

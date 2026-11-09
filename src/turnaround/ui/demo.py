@@ -35,7 +35,7 @@ class DemoState:
 
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
-               policy=None, step_min: int = 15, mode: str = "agent") -> DemoState:
+               policy=None, step_min: int = 15, mode: str = "explain") -> DemoState:
     h = generate(seed=seed)
     events = hospital_to_events(h, seed=seed)
     entries = 0

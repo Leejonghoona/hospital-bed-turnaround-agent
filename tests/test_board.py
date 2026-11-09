@@ -33,7 +33,7 @@ def test_scenario_set_hash_is_stable_and_content_sensitive(tmp_path):
 def test_board_marks_unimplemented_scenarios_and_reports_safety():
     r = run_board(DEV, seeds=range(0, 10), commit="test")
     assert r["split"] == "dev"
-    assert r["llm"] == "fake/agent"  # 기본: 결정적 가짜 LLM
+    assert r["llm"] == "fake/explain"  # 기본: 결정적 가짜 LLM
     assert r["scenarios"]["total"] == 30
     assert r["scenarios"]["passed"] == 30  # 7단계 계획 에이전트까지 채점
     assert r["scenarios"]["not_implemented"] == 0

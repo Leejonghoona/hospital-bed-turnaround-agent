@@ -587,3 +587,13 @@ def test_held_bed_is_refused_everywhere_until_released():
     assert _mo(gw, "A1", "W72-R04-B2", at(9, 5)).reasons == ["bed_on_hold"]
     store.append(ev("D9", "release", EventType.BED_HOLD_RELEASED, at(10), bed_id="W72-R04-B2"))
     assert gw.submit(prop("p2", store=store), at(10, 5)).status == "awaiting_manager"
+
+
+def test_bed_of_patient_who_died_on_ward_is_refused_until_body_transfer():
+    """설계(SAG-10): 가족 면회·사후 처치 동안 병상은 사용 중. 안치실 이송 전에는 배정하지 않는다."""
+    death = ev("D9", "death", EventType.DEATH_CONFIRMED, at(3), bed_id="W72-R04-B2", isolation_order=False)
+    store, gw = make([adm(), death])
+    assert gw.submit(prop(store=store), at(4)).reasons == ["after_death_care"]
+    assert _mo(gw, "A1", "W72-R04-B2", at(4, 5)).reasons == ["after_death_care"]
+    store.append(ev("D9", "body", EventType.BODY_TRANSFERRED, at(4, 30), bed_id="W72-R04-B2"))
+    assert gw.submit(prop("p2", store=store), at(4, 35)).status == "awaiting_manager"

@@ -26,21 +26,28 @@ SYSTEM = (
 )
 
 
+EXPLAIN_SYSTEM = (
+    "너는 병상 배정 검토 카드의 설명을 쓴다. 병상은 결정적 도구가 이미 골랐다(chosen_bed_id). 바꾸지 말고, "
+    "점수 구성(parts)과 후보 비교로 왜 그 병상인지 한국어 한두 문장으로 설명한다. 사실을 지어내지 않는다. "
+    'JSON 객체 하나만 출력한다: {"rationale": "<설명>"}'
+)
+
+
 @dataclass
 class PlanRecord:
     case: str
-    mode: str  # agent | rule | fallback
+    mode: str  # explain | select | rule | fallback
     bed_id: str | None
     candidates: list[str] = field(default_factory=list)
     llm_input: str = ""  # 구조 검사용 (자유 서술이 없는지, SEC-3)
 
 
 class PlanningAgent:
-    def __init__(self, gateway: Gateway, wards, llm: LLM | None = None, mode: str = "agent",
+    def __init__(self, gateway: Gateway, wards, llm: LLM | None = None, mode: str = "explain",
                  score_overrides: dict[str, float] | None = None, top_k: int = 5):
         self.gw = gateway
         self.tools = PlanningTools(gateway, wards, score_overrides)
-        self.llm, self.mode, self.top_k = llm, mode, top_k
+        self.llm, self.mode, self.top_k = llm, ("select" if mode == "agent" else mode), top_k
         self.records: list[PlanRecord] = []
 
     # ---------- 선택 ----------
@@ -62,13 +69,31 @@ class PlanningAgent:
         }
 
     def choose(self, case: str, cands: list[Candidate], now: datetime, events) -> tuple[Candidate | None, str, str]:
-        """(선택 후보, 근거, 모드)."""
+        """(선택 후보, 근거, 모드).
+
+        모드 (결정 U8, 2026-11-09):
+        - "explain" (기본, 제품 동작): 병상은 규칙 모드(도구 1순위)가 고르고, LLM은 검토 카드 설명만 쓴다.
+        - "select" (평가용): LLM이 도구가 거른 후보 중에서 고른다. 모델 점검(P1, 계획 일치율)에서만 쓴다.
+        - "rule": LLM 없이 규칙 모드. LLM 장애 때의 대체 경로이기도 하다.
+        """
         rule = cands[0] if cands else None
         rule_text = f"규칙 모드: 점수 1순위 {rule.bed_id} ({rule.score:.1f})" if rule else "조건에 맞는 병상 없음"
         if self.mode == "rule" or self.llm is None or not cands:
             self.records.append(PlanRecord(case, "rule", rule.bed_id if rule else None, [c.bed_id for c in cands]))
             return rule, rule_text, "rule"
-        ctx = json.dumps(self._context(case, cands, now, events), ensure_ascii=False)
+        ctx_obj = self._context(case, cands, now, events)
+        if self.mode == "explain":
+            ctx_obj["chosen_bed_id"] = rule.bed_id
+            ctx = json.dumps(ctx_obj, ensure_ascii=False)
+            try:
+                out = self.llm.complete_json("explain_choice", EXPLAIN_SYSTEM, ctx)
+                text = str(out.get("rationale") or "")[:300] or rule_text
+                self.records.append(PlanRecord(case, "explain", rule.bed_id, [c.bed_id for c in cands], ctx))
+                return rule, text, "explain"
+            except (LLMError, KeyError, TypeError, ValueError) as e:
+                self.records.append(PlanRecord(case, "fallback", rule.bed_id, [c.bed_id for c in cands], ctx))
+                return rule, f"{rule_text} (설명 생성 실패: {str(e)[:80]})", "fallback"
+        ctx = json.dumps(ctx_obj, ensure_ascii=False)
         try:
             out = self.llm.complete_json("choose_bed", SYSTEM, ctx)
             pick = out.get("bed_id")
@@ -76,8 +101,8 @@ class PlanningAgent:
             if chosen is None:
                 raise LLMError(f"후보 밖 선택: {pick}")
             text = str(out.get("rationale") or "")[:300]
-            self.records.append(PlanRecord(case, "agent", chosen.bed_id, [c.bed_id for c in cands], ctx))
-            return chosen, text, "agent"
+            self.records.append(PlanRecord(case, "select", chosen.bed_id, [c.bed_id for c in cands], ctx))
+            return chosen, text, "select"
         except (LLMError, KeyError, TypeError, ValueError) as e:
             self.records.append(PlanRecord(case, "fallback", rule.bed_id, [c.bed_id for c in cands], ctx))
             return rule, f"{rule_text} (LLM 대체: {str(e)[:80]})", "fallback"
