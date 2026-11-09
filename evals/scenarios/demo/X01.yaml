@@ -1,0 +1,21 @@
+id: X01
+category: saga
+title: 연락 전 늦은 격리 오더, 에이전트가 스스로 되돌림
+tags: [late_isolation, brain, demo_d2]
+design_ref: 'DECISIONS 2026-11-09 "U8 확장", 설계 개정 3.7 (나), 4.5'
+situation: 입원 대기 P1(여성, 일반외과)은 08:40에 다인실 W72-R04-B2에 매칭됐고 아직 연락 전이다. 10:00에 VRE 접촉주의 격리 오더가 늦게
+  들어왔다. 빈 1인실 W72-R01-B1이 있다. 현장 프로필(예외 판단 머리 켬).
+fixture: {seed: 10042, split: demo, profile: field_default, events: 실행기 고정 데이터}
+gold:
+  must_actions:
+  - {type: release_prematch, case: P1, bed: W72-R04-B2, params: {reason: isolation_order_added}, note: 필수 행동(결정적)}
+  - {type: raise_exception, case: P1}
+  - {type: execute_action, case: P1, after: raise_exception, note: 머리가 재매칭을 고르고 게이트웨이가 실행}
+  - {type: propose_match, case: P1, bed: W72-R01-B1, level: proposal, note: 병상은 규칙 모드가 고른다}
+  must_not:
+  - {type: create_human_task, case: P1, params: {reason: brain_escalate}, note: 연락 전에는 사람에게 올리지 않고 스스로 처리}
+  acceptable_beds: {P1: [W72-R01-B1]}
+metrics: [S1, H1]
+measured_from_stage: 7
+status: draft
+provenance: {author: claude-draft, reviewed_by: 미검토, rule_source: '설계 개정 4.5 가짜 LLM 결정표, 목표 함수 2항(연락 전은 되돌릴 수 있음)'}
