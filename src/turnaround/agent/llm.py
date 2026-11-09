@@ -109,7 +109,7 @@ def _fake_exception_action(ctx: dict) -> dict:
         if "propose_rematch" in allowed and ex.get("stage") != "after_arrival":
             return {"action": "propose_rematch", "params": {}, "rationale": "연락 뒤: 다시 찾은 추천안을 사람이 승인, 재연락은 원무"}
         return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "연락 뒤: 사람에게"}
-    if st0.get("scarce_room") and "propose_rematch" in allowed:
+    if (st0.get("scarce_room") or st0.get("precaution") == "airborne") and "propose_rematch" in allowed:
         # 음압실처럼 부족한 자원: 자동으로 잡지 않고 추천안으로 승인 (사용자 검토 XD-007·012)
         return {"action": "propose_rematch", "params": {}, "rationale": "부족 자원: 추천안을 사람이 승인"}
     trig, st = ex.get("trigger"), ctx.get("case_state") or {}
@@ -117,7 +117,7 @@ def _fake_exception_action(ctx: dict) -> dict:
         # 1차: 같은 등급으로 다시 요청(독촉 1회). 2차: 기다리는 입원이 있으면 추천안(사람 승인), 없으면 병동에 올림
         if ex.get("stage") != "second" and "re_request_cleaning" in allowed:
             return {"action": "re_request_cleaning", "params": {}, "rationale": "청소 지연: 같은 등급으로 재요청"}
-        if st.get("next_admission_waiting") and "propose_rematch" in allowed:
+        if (st.get("next_admission_waiting") or st.get("waiting_matches")) and "propose_rematch" in allowed:
             return {"action": "propose_rematch", "params": {}, "rationale": "재요청 뒤에도 지연: 다른 병상 추천안을 사람 승인"}
         return {"action": "escalate", "params": {"role": "ward"}, "rationale": "재요청 뒤에도 지연: 병동에 올림"}
     if trig == "no_bed":
@@ -125,13 +125,13 @@ def _fake_exception_action(ctx: dict) -> dict:
             return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "중환자실 하향: 원무에 근거 카드와 함께"}
         if "wait_for_next_ready" in allowed:
             return {"action": "wait_for_next_ready", "params": {}, "rationale": "곧 준비될 병상: 늦은 퇴원 재촉과 함께 기다림"}
-    if trig == "discharge_order_late" and "nudge_order" in allowed:
-        return {"action": "nudge_order", "params": {}, "rationale": "처방 없음: 병동·주치의에게 재촉"}
-    if trig == "guardian_after_ready":
-        if st.get("next_admission_waiting") and "offer_lounge" in allowed:
+    if trig == "sequence_stalled" and "remind_owner" in allowed:
+        return {"action": "remind_owner", "params": {}, "rationale": "처방 없음: 병동·주치의에게 재촉"}
+    if trig == "guardian_delay_same_day":
+        if (st.get("next_admission_waiting") or st.get("waiting_matches")) and "offer_lounge" in allowed:
             return {"action": "offer_lounge", "params": {}, "rationale": "다음 입원 대기: 라운지 제안으로 병상 먼저 비움"}
-        if "wait_for_guardian" in allowed:
-            return {"action": "wait_for_guardian", "params": {}, "rationale": "기다리는 입원 없음: 보호자 도착까지 둠"}
+        if "wait" in allowed:
+            return {"action": "wait", "params": {}, "rationale": "기다리는 입원 없음: 보호자 도착까지 둠"}
     if "rematch_now" in allowed:
         return {"action": "rematch_now", "params": {}, "rationale": "연락 전: 규칙 모드로 다시 찾음"}
     return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게"}

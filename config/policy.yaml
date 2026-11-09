@@ -65,14 +65,14 @@ exception_actions:           # 예외(사가 감지) → 머리가 고를 수 �
     fallback: escalate
     companions:              # 기다리는 동안 함께 (현장 조사 예외3건_현장대응.md XD-009, 원문 대조 전: 설계 가정)
       wait_for_ipc: [[provisional_precautions_check, ward], [ipc_reminder, ipc]]
-  discharge_order_late:      # E2 퇴원 당일 정책 시각까지 처방 없음 (로드맵 07 M2). 오더는 사람(주치의)이 낸다
-    allowed: [nudge_order, escalate]
+  sequence_stalled:          # E2 단계 정체(정답 세트 이름). 지금은 퇴원 당일 처방 없음(로드맵 07 M2). 오더는 사람(주치의)이 낸다
+    allowed: [remind_owner, escalate]
     fallback: escalate
-  guardian_after_ready:      # E3 준비 완료 뒤 보호자가 한참 뒤 도착. 라운지 이동은 환자·보호자 동의로 병동이 한다
-    allowed: [offer_lounge, wait_for_guardian, escalate]
+  guardian_delay_same_day:      # E3 준비 완료 뒤 보호자가 한참 뒤 도착. 라운지 이동은 환자·보호자 동의로 병동이 한다
+    allowed: [offer_lounge, wait, escalate]
     fallback: escalate
     companions:
-      wait_for_guardian: [[guardian_eta_reconfirm, ward]]
+      wait: [[guardian_eta_reconfirm, ward]]
   cleaning_overdue:          # E4 청소 지연 (XD-019, 현장 조사 예외3건). 종말소독 하향·취소는 목록에 없다
     allowed: [re_request_cleaning, request_bed_prep_first, rematch_now, propose_rematch, wait, escalate]
     fallback: escalate
@@ -95,9 +95,8 @@ autonomy:                    # 행동별 자율 단계 auto | post_report | huma
   propose_rematch: human     # 다시 찾아 추천안 제시, 사람 승인 뒤 다시 찾기 (연락 뒤·부족 자원. 사용자 검토 XD-007·012·028)
   wait_for_ipc: post_report
   propose_surveillance_hold: human   # 감염관리실 승인
-  nudge_order: auto          # 병동·주치의에게 근거(다음 입원 대기)를 붙인 알림. 오더는 사람이 낸다
+  remind_owner: auto          # 병동·주치의에게 근거(다음 입원 대기)를 붙인 알림. 오더는 사람이 낸다
   offer_lounge: auto         # 병동에 라운지 제안. 이동은 환자 동의로 병동이 한다
-  wait_for_guardian: post_report
   re_request_cleaning: auto  # 청소 요청 재확인(같은 등급). 청소 인력 지정은 범위 밖
   request_bed_prep_first: auto   # 격리 퇴실은 게이트웨이가 거부(종말소독 전)
   wait: post_report

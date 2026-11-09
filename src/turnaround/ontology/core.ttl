@@ -145,9 +145,8 @@ ta:act_rematch_now a ta:ActionType ; ta:autonomyKey "rematch_now" ; ta:gatewayMe
 ta:act_propose_rematch a ta:ActionType ; ta:autonomyKey "propose_rematch" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
 ta:act_wait_for_ipc a ta:ActionType ; ta:autonomyKey "wait_for_ipc" ; ta:gatewayMethod "submit_action" .
 ta:act_propose_surveillance_hold a ta:ActionType ; ta:autonomyKey "propose_surveillance_hold" ; ta:gatewayMethod "submit_action" ; ta:by ta:ipc .
-ta:act_nudge_order a ta:ActionType ; ta:autonomyKey "nudge_order" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
+ta:act_remind_owner a ta:ActionType ; ta:autonomyKey "remind_owner" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
 ta:act_offer_lounge a ta:ActionType ; ta:autonomyKey "offer_lounge" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
-ta:act_wait_for_guardian a ta:ActionType ; ta:autonomyKey "wait_for_guardian" ; ta:gatewayMethod "submit_action" .
 ta:act_re_request_cleaning a ta:ActionType ; ta:autonomyKey "re_request_cleaning" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward ;
     rdfs:comment "청소 요청을 같은 등급으로 다시 낸다(하향 없음)" .
 ta:act_request_bed_prep_first a ta:ActionType ; ta:autonomyKey "request_bed_prep_first" ; ta:gatewayMethod "submit_action" ;

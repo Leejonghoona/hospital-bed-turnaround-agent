@@ -124,7 +124,7 @@ class ReactiveReplay:
         for e in events:
             if e.case_id not in self.discharges:
                 continue
-            if e.type is EventType.ACTION_EXECUTED and e.payload.get("action") == "nudge_order":
+            if e.type is EventType.ACTION_EXECUTED and e.payload.get("action") == "remind_owner":
                 nudge.setdefault(e.case_id, e.observed_at)
             elif e.type is EventType.LOUNGE_OFFERED:
                 lounge.setdefault(e.case_id, e.observed_at)

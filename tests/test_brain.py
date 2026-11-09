@@ -176,3 +176,32 @@ def test_stage_lock_cannot_be_unlocked_by_hospital_policy():
     raw["exception_actions"]["late_isolation"]["stage_allowed"] = {"after_contact": ["rematch_now", "escalate"]}
     with pytest.raises(ValueError, match="잠금"):
         Policy.model_validate(raw)
+
+
+# ---- 예외 판단 입력을 정답 세트와 맞춤 (측정 조건 = 운영 조건, 2026-11-09) ----
+
+def test_brain_input_has_common_case_state_and_tool_outputs_for_late_isolation():
+    store, gw = _setup()
+    brain = ExceptionBrain(gw, FakeLLM(), FIELD)
+    ex = brain.open_exceptions(store.read())[0]
+    ctx = brain._input(ex, store.read(), at(10, 10))
+    cs, to = ctx["case_state"], ctx["tool_outputs"]
+    assert {"now_local", "shift", "day_type", "contacted", "committed"} <= set(cs)
+    assert cs["now_local"] == "10:10" and cs["shift"] == "day" and cs["contacted"] is False
+    assert {"rematch_candidates", "best_candidate_room_type", "best_ready_in_min", "negative_pressure_free"} <= set(to)
+
+
+def test_brain_input_keys_are_within_gold_set_vocabulary():
+    """운영 입력의 키가 정답 세트 입력에 쓰인 키 안에 있어야 측정 조건과 같다."""
+    import json
+    keys = {"case_state": set(), "tool_outputs": set()}
+    for line in open("evals/model_eval/exception_decisions_v2_1.jsonl", encoding="utf-8"):
+        d = json.loads(line)
+        if d["trigger"] == "late_isolation":
+            keys["case_state"] |= set(d["input"]["case_state"])
+            keys["tool_outputs"] |= set(d["input"].get("tool_outputs") or {})
+    store, gw = _setup()
+    brain = ExceptionBrain(gw, FakeLLM(), FIELD)
+    ctx = brain._input(brain.open_exceptions(store.read())[0], store.read(), at(10, 10))
+    assert set(ctx["tool_outputs"]) <= keys["tool_outputs"]
+    assert set(ctx["case_state"]) - {"scarce_room"} <= keys["case_state"] | {"organism", "precaution"}

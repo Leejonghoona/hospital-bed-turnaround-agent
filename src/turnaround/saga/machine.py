@@ -478,9 +478,10 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
                     EventType.DISCHARGE_RX_ISSUED, EventType.MEDICATION_READY, EventType.PATIENT_DEPARTED)):
                 if p.exceptions_enabled:  # 무엇을 할지(재촉, 올림)는 머리가 고른다 (로드맵 07 M2)
                     out.cmd(d.id, "exception:order_late", EventType.EXCEPTION_RAISED, rx_due,
-                            exception_id=f"E2:{d.id}", trigger="discharge_order_late", bed_id=bed,
+                            exception_id=f"E2:{d.id}", trigger="sequence_stalled", bed_id=bed,
                             stage="before_departure", deadline=(rx_due + p.exception_deadline).isoformat(),
-                            context={"next_admission_waiting": _bed_awaited(s, bed)})
+                            context={"next_admission_waiting": _bed_awaited(s, bed), "step": "discharge_order",
+                                     "step_owner": "physician"})
                 else:
                     out.cmd(d.id, "rx_missing", EventType.HUMAN_TASK_CREATED, rx_due, bed_id=bed, kind="rx_missing",
                             assignee="ward")
@@ -492,7 +493,7 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
             if cleared is not None:
                 out.cmd(d.id, "exception_resolved:order_late", EventType.EXCEPTION_RESOLVED, cleared,
                         exception_id=f"E2:{d.id}", how="condition_cleared")
-        if any(k.endswith("exception:guardian_after_ready") for k in d.commands):
+        if any(k.endswith("exception:guardian_delay_same_day") for k in d.commands):
             cleared = d.seen(EventType.GUARDIAN_ARRIVED) or d.seen(EventType.PATIENT_DEPARTED)
             if cleared is not None:
                 out.cmd(d.id, "exception_resolved:guardian", EventType.EXCEPTION_RESOLVED, cleared,
@@ -504,8 +505,8 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
             ready = max(ready_parts)
             if now >= ready and d.guardian_eta > ready + p.guardian_lounge_margin and \
                     not by(EventType.GUARDIAN_ARRIVED, ready) and not by(EventType.PATIENT_DEPARTED, ready):
-                out.cmd(d.id, "exception:guardian_after_ready", EventType.EXCEPTION_RAISED, ready,
-                        exception_id=f"E3:{d.id}", trigger="guardian_after_ready", bed_id=bed,
+                out.cmd(d.id, "exception:guardian_delay_same_day", EventType.EXCEPTION_RAISED, ready,
+                        exception_id=f"E3:{d.id}", trigger="guardian_delay_same_day", bed_id=bed,
                         stage="before_departure", deadline=d.guardian_eta.isoformat(),
                         context={"next_admission_waiting": _bed_awaited(s, bed),
                                  "guardian_wait_min": int((d.guardian_eta - ready).total_seconds() // 60)})

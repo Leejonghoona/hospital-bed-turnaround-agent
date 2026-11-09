@@ -143,7 +143,7 @@ class PlanningAgent:
             out += self._rematch(now)
         if self.gw.policy.brain.enabled:  # 예외 판단 머리 (U8 확장). 꺼져 있으면 지금 동작 그대로
             from .brain import ExceptionBrain
-            out += ExceptionBrain(self.gw, self.llm).step(now)
+            out += ExceptionBrain(self.gw, self.llm, wards=self.tools.wards.values()).step(now)
         return out
 
     def _rematch(self, now: datetime) -> list[Decision]:

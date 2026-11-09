@@ -37,8 +37,9 @@ class ActionChoice(BaseModel):
 
 
 class ExceptionBrain:
-    def __init__(self, gw, llm: LLM, policy=None):
+    def __init__(self, gw, llm: LLM, policy=None, wards=()):
         self.gw, self.llm = gw, llm
+        self.wards = tuple(wards)
         self.policy = policy or gw.policy
         self.records: list[str] = []  # LLM에 넣은 입력 (감사·시험용)
 
@@ -55,8 +56,67 @@ class ExceptionBrain:
         return {"exception": {"trigger": ex.payload["trigger"], "stage": ex.payload.get("stage"),
                               "elapsed_min": int((now - ex.observed_at).total_seconds() // 60),
                               "deadline_in_min": int((deadline - now).total_seconds() // 60), "attempts": attempts},
-                "case_state": dict(ex.payload.get("context") or {}),
+                "case_state": self._case_state(ex, events, now),
+                "tool_outputs": self._tool_outputs(ex, events, now),
                 "allowed_actions": [{"id": a, "autonomy": self.policy.autonomy.get(a, "human")} for a in allowed]}
+
+    # ---- 입력: 정답 세트와 같은 구조 (측정 조건 = 운영 조건, 2026-11-09). 숫자는 결정적 도구가 계산한다 ----
+
+    def _case_state(self, ex: Event, events: list[Event], now: datetime) -> dict:
+        from turnaround.saga import fold
+        raw = dict(ex.payload.get("context") or {})
+        # 사가 맥락 → 정답 세트 이름 (세트에 없는 내부 키는 카드에만 남기고 LLM 입력에는 넣지 않는다)
+        st = {k: v for k, v in raw.items() if k not in (
+            "waiting_admissions", "next_admission_waiting", "pending_discharges_today", "scarce_room", "guardian_wait_min")}
+        if "waiting_admissions" in raw or "next_admission_waiting" in raw:
+            st["waiting_matches"] = len(raw.get("waiting_admissions") or []) or int(bool(raw.get("next_admission_waiting")))
+        if "scarce_room" in raw:
+            st["precaution"] = "airborne" if raw["scarce_room"] else st.get("precaution", "contact")
+        h = now.hour
+        st.update(now_local=now.strftime("%H:%M"), shift="day" if 7 <= h < 15 else "evening" if 15 <= h < 23 else "night",
+                  day_type="weekend" if now.weekday() >= 5 else "weekday")
+        adm = ex.payload.get("admission_id") or (ex.case_id if ex.payload.get("trigger") == "no_bed" else None)
+        if adm:
+            m = fold(events).matches.get(adm)
+            facts = m.facts if m is not None else {}
+            st.update(contacted=EventType.PATIENT_CONTACTED in facts, committed=EventType.MATCH_COMMITTED in facts)
+            payload = next((e.payload for e in events if e.type is EventType.ADMISSION_REQUESTED
+                            and e.case_id == adm), {})
+            if payload.get("organism"):
+                st.setdefault("organism", payload.get("organism"))
+        return st
+
+    def _tool_outputs(self, ex: Event, events: list[Event], now: datetime) -> dict:
+        from turnaround.agent.tools import PlanningTools
+        from turnaround.sim.models import RoomType
+        trig, ctx = ex.payload.get("trigger"), ex.payload.get("context") or {}
+        tools = PlanningTools(self.gw, self.wards)
+        room_type = lambda b: self.gw.room_by_id[self.gw.room_of[b]].room_type  # noqa: E731
+        mins = lambda t: max(0, int((t - now).total_seconds() // 60))  # noqa: E731
+        free_np = sum(1 for b in self.gw.beds if room_type(b.id) is RoomType.NEGATIVE_PRESSURE
+                      and b.id not in self.gw._occupants(events) and not self.gw._out_of_service(b.id, events))
+        out: dict = {}
+        adm = ex.payload.get("admission_id") or (ex.case_id if trig == "no_bed" else None)
+        waiting = list(ctx.get("waiting_admissions") or [])
+        target = adm or (waiting[0] if waiting else None)
+        if target:
+            cands = tools.candidates(target, now, events)
+            out["rematch_candidates"] = len(cands)
+            if trig == "late_isolation":
+                out["best_candidate_room_type"] = room_type(cands[0].bed_id).value if cands else None
+                out["best_ready_in_min"] = mins(cands[0].ready_at) if cands else None
+                out["negative_pressure_free"] = free_np
+            if trig == "no_bed":
+                ready = sorted((tools.ready_at(d["bed_id"], events, now)[0], d["bed_id"])
+                               for d in ctx.get("pending_discharges_today") or [])
+                out["earliest_ready_bed"] = ready[0][1] if ready else None
+                out["earliest_ready_p50_min"] = mins(ready[0][0]) if ready else None
+                out["negative_pressure_free"] = free_np
+        if "guardian_wait_min" in ctx:
+            out["guardian_eta_in_min"] = ctx["guardian_wait_min"]
+        if trig in ("cleaning_overdue", "guardian_delay_same_day", "sequence_stalled") and ex.payload.get("bed_id"):
+            out["ready_p50_min"] = mins(tools.ready_at(ex.payload["bed_id"], events, now)[0])
+        return out
 
     def choose(self, ex: Event, events: list[Event], now: datetime) -> ActionChoice:
         ctx = self._input(ex, events, now)

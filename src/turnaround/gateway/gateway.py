@@ -407,10 +407,10 @@ class Gateway:
         elif choice.action in ("rematch_now", "propose_rematch"):
             # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
             self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
-        elif choice.action == "nudge_order":
+        elif choice.action == "remind_owner":
             # 오더는 주치의가 낸다. 시스템은 근거(이 병상을 기다리는 입원)를 붙여 병동에 알린다 (사유·근거 통지 원칙)
             ctx = raised.payload.get("context") or {}
-            self._emit(case, f"{exid}:task:order_nudge", EventType.HUMAN_TASK_CREATED, now, reason="discharge_order_late",
+            self._emit(case, f"{exid}:task:order_nudge", EventType.HUMAN_TASK_CREATED, now, reason="sequence_stalled",
                        kind="order_nudge", assignee="ward", bed_id=raised.payload.get("bed_id"),
                        next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
         elif choice.action == "offer_lounge":

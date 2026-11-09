@@ -92,10 +92,10 @@ def _types(store, t):
 def test_order_late_raises_exception_in_field_and_brain_nudges_with_impact():
     store, gw = make(_dc_events(), policy=FIELD)
     SagaRunner(store, SagaPolicy.from_policy(FIELD, H.rooms, H.beds)).step(at(9, 5))
-    raised = [e for e in _types(store, EventType.EXCEPTION_RAISED) if e.payload["trigger"] == "discharge_order_late"]
+    raised = [e for e in _types(store, EventType.EXCEPTION_RAISED) if e.payload["trigger"] == "sequence_stalled"]
     assert len(raised) == 1
     ExceptionBrain(gw, FakeLLM(), FIELD).step(at(9, 10))
-    assert [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)] == ["nudge_order"]
+    assert [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)] == ["remind_owner"]
     task = [t for t in _types(store, EventType.HUMAN_TASK_CREATED) if t.payload.get("kind") == "order_nudge"]
     assert task and task[0].payload["assignee"] == "ward" and "next_admission_waiting" in task[0].payload
 
@@ -112,18 +112,18 @@ def test_guardian_after_ready_offers_lounge_only_when_someone_waits_for_the_bed(
     evs = _dc_events(order_at=at(8, 0), guardian_eta=at(13), ready=True)
     store, gw = make(evs, policy=FIELD)
     SagaRunner(store, SagaPolicy.from_policy(FIELD, H.rooms, H.beds)).step(at(10, 5))
-    raised = [e for e in _types(store, EventType.EXCEPTION_RAISED) if e.payload["trigger"] == "guardian_after_ready"]
+    raised = [e for e in _types(store, EventType.EXCEPTION_RAISED) if e.payload["trigger"] == "guardian_delay_same_day"]
     assert len(raised) == 1 and raised[0].payload["context"]["next_admission_waiting"] is False
     ExceptionBrain(gw, FakeLLM(), FIELD).step(at(10, 10))
-    assert [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)] == ["wait_for_guardian"]
+    assert [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)] == ["wait"]
     assert not _types(store, EventType.LOUNGE_OFFERED)
 
 
 def test_guardian_after_ready_with_waiting_patient_offers_lounge():
     from turnaround.agent.llm import _fake_exception_action
-    out = _fake_exception_action({"exception": {"trigger": "guardian_after_ready"},
+    out = _fake_exception_action({"exception": {"trigger": "guardian_delay_same_day"},
                                   "case_state": {"next_admission_waiting": True},
-                                  "allowed_actions": [{"id": "offer_lounge"}, {"id": "wait_for_guardian"}]})
+                                  "allowed_actions": [{"id": "offer_lounge"}, {"id": "wait"}]})
     assert out["action"] == "offer_lounge"
 
 
@@ -139,7 +139,7 @@ def test_reactive_feed_retimes_only_pending_events_after_a_nudge():
     nudge = datetime.combine(d.actual.order_confirmed_at.date(), time(9, 0))
     feed.deliver(store, nudge)
     before = {e.event_id for e in store.read()}
-    store.append(ev(d.id, "x:executed", EventType.ACTION_EXECUTED, nudge, "gateway", action="nudge_order",
+    store.append(ev(d.id, "x:executed", EventType.ACTION_EXECUTED, nudge, "gateway", action="remind_owner",
                     exception_id=f"E2:{d.id}"))
     feed.react(store, nudge)
     pend = {e.event_id: e for e in feed.pending if e.case_id == d.id}
@@ -201,7 +201,7 @@ def test_wait_for_ipc_also_alerts_ward_and_reminds_ipc():
     assert _types(store, EventType.RECHECK_SCHEDULED)
 
 
-def test_wait_for_guardian_asks_ward_to_reconfirm_eta():
+def test_wait_asks_ward_to_reconfirm_eta():
     evs = _dc_events(order_at=at(8, 0), guardian_eta=at(13), ready=True)
     store, gw = make(evs, policy=FIELD)
     SagaRunner(store, SagaPolicy.from_policy(FIELD, H.rooms, H.beds)).step(at(10, 5))
