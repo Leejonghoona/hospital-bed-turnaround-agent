@@ -50,7 +50,7 @@ def run_x02(s: Scenario) -> ScoreResult:
             _ev("FX-P1", "patient_contacted", EventType.PATIENT_CONTACTED, at(9, 30), "human"),
             _iso("FX-P1", at(10))])
     r.saga_until(at(10), at(10, 5))
-    r.agent_cycle(at(10, 5), commit=False, rounds=1)
+    r.agent_cycle(at(10, 5), approve=False, commit=False, rounds=1)  # 장면은 사람에게 넘기는 데서 끝난다
     return r.score(s)
 
 
