@@ -27,6 +27,10 @@ class LLMError(RuntimeError):
     """모델 장애, 형식 오류. 호출한 쪽은 규칙 모드로 내려간다 (NFR-4)."""
 
 
+class QuotaExceeded(LLMError):
+    """계정 잔액·한도 소진 (HTTP 402·429 중 잔액 관련). 평가에서는 오답이 아니라 중단으로 센다."""
+
+
 @dataclass
 class Usage:
     calls: int = 0
@@ -135,6 +139,8 @@ class _HttpLLM:
             raise LLMError(f"연결 실패: {e}") from e
         self.usage.latency_s += time.monotonic() - t0
         self.usage.calls += 1
+        if r.status_code in (402, 429) and any(w in r.text.lower() for w in ("quota", "credit", "balance", "billing", "spend")):
+            raise QuotaExceeded(f"HTTP {r.status_code}: {r.text[:200]}")
         if r.status_code != 200:
             raise LLMError(f"HTTP {r.status_code}: {r.text[:200]}")
         return r.json()

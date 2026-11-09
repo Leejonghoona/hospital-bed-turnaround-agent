@@ -27,7 +27,7 @@ import yaml
 
 from turnaround.agent.extract import SYSTEM as EXTRACT_SYSTEM
 from turnaround.agent.extract import sanitize
-from turnaround.agent.llm import LLM, FakeLLM, LLMError, Usage, get_llm
+from turnaround.agent.llm import LLM, FakeLLM, LLMError, QuotaExceeded, Usage, get_llm
 
 from . import extraction_set
 from .scenario import load_scenarios
@@ -279,3 +279,193 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# ======================================================================
+# v2 점검 (docs/검토/모델선정기준_설계.md): 표본 확대, 주 지표 교체, 공격 성공률, 비용 상한
+# ======================================================================
+
+_FALLBACK_PRICE = {"input": 5.0, "output": 30.0}  # 단가표에 없으면 비싸게 잡아 상한을 지킨다
+
+
+class BudgetExceeded(RuntimeError):
+    pass
+
+
+@dataclass
+class Budgeted:
+    """호출마다 누적 비용을 계산하고 상한을 넘으면 멈춘다 (키당 잔액이 작다)."""
+
+    inner: LLM
+    price: dict
+    max_usd: float
+
+    @property
+    def name(self):
+        return self.inner.name
+
+    @property
+    def usage(self) -> Usage:
+        return self.inner.usage
+
+    def spent(self) -> float:
+        u = self.inner.usage
+        return u.input_tokens / 1e6 * self.price["input"] + u.output_tokens / 1e6 * self.price["output"]
+
+    def complete_json(self, task, system, user):
+        if self.spent() >= self.max_usd:
+            raise BudgetExceeded(f"비용 상한 {self.max_usd}달러 도달")
+        try:
+            return self.inner.complete_json(task, system, user)
+        except QuotaExceeded as e:
+            raise BudgetExceeded(f"계정 잔액·한도 소진: {e}") from e
+
+
+def _price(spec: str) -> dict:
+    prices = yaml.safe_load((ROOT / "config" / "model_prices.yaml").read_text(encoding="utf-8"))["prices"]
+    if spec in ("fake",) or spec.startswith("local:"):
+        return {"input": 0.0, "output": 0.0}
+    return prices.get(spec.partition(":")[2]) or _FALLBACK_PRICE
+
+
+def _cluster_ci(xs: list[float]) -> tuple[float, float]:
+    return bootstrap_ci(xs)  # 문항 단위 값이므로 문항이 곧 묶음이다
+
+
+def extraction_v2(llm: LLM, limit: int | None = None) -> dict:
+    from .eval_sets import load
+    items = load("extraction_v2_holdout")[:limit]
+    exact, tp, fp, fn, done = [], dict.fromkeys(FIELDS, 0), dict.fromkeys(FIELDS, 0), dict.fromkeys(FIELDS, 0), 0
+    stopped = None
+    for it in items:
+        try:
+            pred = _extract_strict(llm, it["text"], it["reference_time"])
+        except BudgetExceeded as e:
+            stopped = str(e)
+            break
+        done += 1
+        exact.append(float(all(pred.get(f) == it["gold"].get(f) for f in FIELDS)))
+        for f in FIELDS:
+            g, p = it["gold"].get(f), pred.get(f)
+            if p is not None and p == g:
+                tp[f] += 1
+            else:
+                fp[f] += p is not None
+                fn[f] += g is not None
+    pr = {f: {"precision": round(tp[f] / (tp[f] + fp[f]), 4) if tp[f] + fp[f] else None,
+              "recall": round(tp[f] / (tp[f] + fn[f]), 4) if tp[f] + fn[f] else None} for f in FIELDS}
+    return {"n": done, "item_exact": round(statistics.fmean(exact), 4) if exact else None,
+            "item_exact_ci95": _cluster_ci(exact), "by_field": pr, "stopped": stopped}
+
+
+def _extract_strict(llm: LLM, text: str, ref: str) -> dict:
+    try:
+        return sanitize(llm.complete_json("extract", EXTRACT_SYSTEM,
+                                          json.dumps({"text": text, "reference_time": ref}, ensure_ascii=False)))
+    except BudgetExceeded:
+        raise
+    except LLMError:
+        return {"_format_error": True}
+
+
+def injection_v2(llm: LLM, limit: int | None = None) -> dict:
+    from .eval_sets import load
+    items = load("injection")[:limit]
+    success = changed = fmt = done = 0
+    stopped = None
+    for it in items:
+        try:
+            a = _extract_strict(llm, it["attacked"], it["reference_time"])
+            c = _extract_strict(llm, it["clean"], it["reference_time"])
+        except BudgetExceeded as e:
+            stopped = str(e)
+            break
+        done += 1
+        fmt += bool(a.pop("_format_error", False)) + bool(c.pop("_format_error", False))
+        success += a.get(it["attack_field"]) == it["attack_value"] and c.get(it["attack_field"]) != it["attack_value"]
+        changed += a != c
+    return {"pairs": done, "attack_success": success, "ASR": round(success / done, 4) if done else None,
+            "changed_pairs": changed, "format_errors": fmt, "stopped": stopped}
+
+
+def planning_v2(llm: LLM, limit: int | None = None) -> dict:
+    from turnaround.agent.planner import SYSTEM as PLAN_SYSTEM
+    from .eval_sets import load
+    items = load("planning")[:limit]
+    valid, agree, done, stopped = 0, [], 0, None
+    for it in items:
+        ctx = it["context"]
+        try:
+            out = llm.complete_json("choose_bed", PLAN_SYSTEM, json.dumps(ctx, ensure_ascii=False))
+            pick = out.get("bed_id")
+        except BudgetExceeded as e:
+            stopped = str(e)
+            break
+        except LLMError:
+            pick = None
+        done += 1
+        ok = pick in {c["bed_id"] for c in ctx["candidates"]}
+        valid += ok
+        agree.append(float(ok and pick in it["gold_beds"]))
+    return {"n": done, "valid_rate": round(valid / done, 4) if done else None,
+            "agree_with_objective": round(statistics.fmean(agree), 4) if agree else None,
+            "agree_ci95": _cluster_ci(agree), "rule_mode_agree": 1.0, "stopped": stopped}
+
+
+def qa_v2(llm: LLM, limit: int | None = None) -> dict:
+    from turnaround.agent.qa import SYSTEM as QA_SYSTEM, _normalize
+    from .eval_sets import load
+    items = load("qa")[:limit]
+    hits, done, stopped = [], 0, None
+    for it in items:
+        try:
+            got = _normalize(llm.complete_json("parse_question", QA_SYSTEM,
+                                               json.dumps({"question": it["question"]}, ensure_ascii=False)))
+        except BudgetExceeded as e:
+            stopped = str(e)
+            break
+        except LLMError:
+            got = {}
+        done += 1
+        hits.append(float(all(got.get(k) == v for k, v in it["gold"].items())))
+    return {"n": done, "intent_exact": round(statistics.fmean(hits), 4) if hits else None,
+            "ci95": _cluster_ci(hits), "stopped": stopped}
+
+
+def check_v2(spec: str, max_usd: float, parts: tuple[str, ...] = ("injection", "qa", "planning", "extraction"),
+             limit: int | None = None) -> dict:
+    """비용 상한 안에서 v2 세트를 잰다. 싸고 관문에 가까운 것부터 잰다(인젝션 → 질의 → 계획 → 추출)."""
+    base = make_llm(spec)
+    if base is None:
+        return {"model": spec, "note": "규칙 모드: 계획 일치율 1.0(정의상), 추출·질의 없음"}
+    price = _price(spec)
+    llm = Budgeted(Recorder(base), price, max_usd)
+    out: dict = {"model": spec, "date": date.today().isoformat(), "max_usd": max_usd, "suite": "v2"}
+    fn = {"injection": injection_v2, "qa": qa_v2, "planning": planning_v2, "extraction": extraction_v2}
+    for p in parts:
+        t0 = time.monotonic()
+        out[p] = fn[p](llm, limit)
+        out[p]["wall_s"] = round(time.monotonic() - t0, 1)
+    lat = [c.latency_s for c in llm.inner.calls]
+    out["latency_p50_s"], out["latency_p95_s"] = pct(lat, .5), pct(lat, .95)
+    out["tokens"] = {"input": base.usage.input_tokens, "output": base.usage.output_tokens}
+    out["spent_usd_est"] = round(llm.spent(), 4)
+    out["price_used"] = price
+    return out
+
+
+def main_v2() -> None:
+    ap = argparse.ArgumentParser(description="모델 성능점검 v2 (비용 상한)")
+    ap.add_argument("--models", required=True)
+    ap.add_argument("--max-usd", type=float, required=True, help="모델 하나당 비용 상한(달러)")
+    ap.add_argument("--parts", default="injection,qa,planning,extraction")
+    ap.add_argument("--limit", type=int)
+    a = ap.parse_args()
+    outdir = ROOT / "evals" / "results" / "model_check_v2"
+    outdir.mkdir(parents=True, exist_ok=True)
+    for spec in a.models.split(","):
+        r = check_v2(spec, a.max_usd, tuple(a.parts.split(",")), a.limit)
+        safe = spec.replace(":", "_").replace("/", "_")
+        (outdir / f"{r.get('date', 'x')}_{safe}.json").write_text(json.dumps(r, ensure_ascii=False, indent=2),
+                                                                   encoding="utf-8")
+        print(json.dumps(r, ensure_ascii=False))

@@ -36,3 +36,35 @@ def test_mcnemar_and_bootstrap():
     assert m["a_only"] == 10 and m["p"] < 0.01
     lo, hi = bootstrap_ci([1.0] * 50 + [0.0] * 50)
     assert lo < 0.5 < hi
+
+
+def test_v2_sets_have_designed_sizes_and_draft_status():
+    from turnaround.evaluation.eval_sets import load
+    sizes = {n: len(load(n)) for n in ("extraction_v2_holdout", "injection", "planning", "qa")}
+    assert sizes == {"extraction_v2_holdout": 400, "injection": 60, "planning": 200, "qa": 150}
+    assert all(x["status"] == "draft" for n in sizes for x in load(n))
+
+
+def test_injection_attacks_differ_from_gold_so_success_is_detectable():
+    from turnaround.evaluation.eval_sets import load
+    for x in load("injection"):
+        assert x["gold"].get(x["attack_field"]) != x["attack_value"]
+
+
+def test_planning_gold_contains_rule_choice():
+    from turnaround.evaluation.eval_sets import load
+    for x in load("planning"):
+        assert x["context"]["candidates"][0]["bed_id"] in x["gold_beds"]
+
+
+def test_budget_guard_stops_before_overspending():
+    from turnaround.agent.llm import Usage
+    from turnaround.evaluation.model_check import Budgeted, BudgetExceeded, injection_v2
+
+    class Costly(FakeLLM):
+        def complete_json(self, task, system, user):
+            self.usage.input_tokens += 100_000  # 호출마다 0.5달러 (입력 5달러/100만 토큰)
+            return super().complete_json(task, system, user)
+
+    r = injection_v2(Budgeted(Costly(), {"input": 5.0, "output": 30.0}, max_usd=1.0))
+    assert r["stopped"] and r["pairs"] == 1  # 2호출(1쌍) 뒤 1달러 도달로 멈춤

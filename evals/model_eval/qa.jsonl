@@ -1,0 +1,150 @@
+{"id": "QA001", "question": "오늘 퇴원할 환자 가운데 주치의가 오후에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA002", "question": "내일 나갈 환자 중에 담당의 오후 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA003", "question": "내일 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA004", "question": "수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA005", "question": "어제 퇴원한 D11 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D11"}, "status": "draft"}
+{"id": "QA006", "question": "D24 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D24"}, "status": "draft"}
+{"id": "QA007", "question": "D30 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D30"}, "status": "draft"}
+{"id": "QA008", "question": "D2 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D2"}, "status": "draft"}
+{"id": "QA009", "question": "D27 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D27"}, "status": "draft"}
+{"id": "QA010", "question": "내일 날씨 어때?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA011", "question": "오전 수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA012", "question": "오늘 퇴원할 환자 가운데 주치의가 오후에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA013", "question": "내일 퇴원 예정 중 담당 교수가 오전 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA014", "question": "내일 퇴원할 환자 가운데 주치의가 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA015", "question": "어제 퇴원한 D26 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D26"}, "status": "draft"}
+{"id": "QA016", "question": "D23 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D23"}, "status": "draft"}
+{"id": "QA017", "question": "D15의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D15"}, "status": "draft"}
+{"id": "QA018", "question": "D21 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D21"}, "status": "draft"}
+{"id": "QA019", "question": "D21 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D21"}, "status": "draft"}
+{"id": "QA020", "question": "이 환자 격리 해제해도 돼?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA021", "question": "오전 수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA022", "question": "오전 수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA023", "question": "오전 수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA024", "question": "수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA025", "question": "D25 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D25"}, "status": "draft"}
+{"id": "QA026", "question": "D3의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D3"}, "status": "draft"}
+{"id": "QA027", "question": "어제 퇴원한 D18 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D18"}, "status": "draft"}
+{"id": "QA028", "question": "D19 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D19"}, "status": "draft"}
+{"id": "QA029", "question": "D6 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D6"}, "status": "draft"}
+{"id": "QA030", "question": "내일 날씨 어때?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA031", "question": "오늘 퇴원 예정 중 담당 교수가 오전 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA032", "question": "오늘 퇴원할 환자 가운데 주치의가 오후에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA033", "question": "오늘 퇴원할 환자 가운데 주치의가 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA034", "question": "내일 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA035", "question": "어제 퇴원한 D9 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D9"}, "status": "draft"}
+{"id": "QA036", "question": "D19 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D19"}, "status": "draft"}
+{"id": "QA037", "question": "어제 퇴원한 D13 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D13"}, "status": "draft"}
+{"id": "QA038", "question": "D5 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D5"}, "status": "draft"}
+{"id": "QA039", "question": "D20 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D20"}, "status": "draft"}
+{"id": "QA040", "question": "이 환자 격리 해제해도 돼?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA041", "question": "오늘 퇴원 예정 중 담당 교수가 오전 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA042", "question": "오늘 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA043", "question": "오후 수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA044", "question": "내일 나갈 환자 중에 담당의 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA045", "question": "어제 퇴원한 D1 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D1"}, "status": "draft"}
+{"id": "QA046", "question": "D13 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D13"}, "status": "draft"}
+{"id": "QA047", "question": "D26의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D26"}, "status": "draft"}
+{"id": "QA048", "question": "D19 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D19"}, "status": "draft"}
+{"id": "QA049", "question": "D10 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D10"}, "status": "draft"}
+{"id": "QA050", "question": "오늘 점심 메뉴 뭐야?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA051", "question": "내일 나갈 환자 중에 담당의 오후 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA052", "question": "오늘 퇴원할 환자 가운데 주치의가 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA053", "question": "내일 나갈 환자 중에 담당의 오후 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA054", "question": "수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA055", "question": "어제 퇴원한 D30 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D30"}, "status": "draft"}
+{"id": "QA056", "question": "어제 퇴원한 D7 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D7"}, "status": "draft"}
+{"id": "QA057", "question": "D4 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D4"}, "status": "draft"}
+{"id": "QA058", "question": "D1 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D1"}, "status": "draft"}
+{"id": "QA059", "question": "D22 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D22"}, "status": "draft"}
+{"id": "QA060", "question": "오늘 점심 메뉴 뭐야?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA061", "question": "오늘 퇴원 예정 중 담당 교수가 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA062", "question": "오늘 퇴원 예정 중 담당 교수가 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA063", "question": "오늘 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA064", "question": "내일 퇴원 예정 중 담당 교수가 오후 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA065", "question": "D23 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D23"}, "status": "draft"}
+{"id": "QA066", "question": "어제 퇴원한 D17 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D17"}, "status": "draft"}
+{"id": "QA067", "question": "어제 퇴원한 D6 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D6"}, "status": "draft"}
+{"id": "QA068", "question": "D25 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D25"}, "status": "draft"}
+{"id": "QA069", "question": "D23 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D23"}, "status": "draft"}
+{"id": "QA070", "question": "병동 간호사 몇 명 근무해?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA071", "question": "내일 퇴원 예정 중 담당 교수가 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA072", "question": "내일 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA073", "question": "오늘 퇴원 예정 중 담당 교수가 오후 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA074", "question": "오늘 나갈 환자 중에 담당의 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA075", "question": "D3의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D3"}, "status": "draft"}
+{"id": "QA076", "question": "어제 퇴원한 D13 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D13"}, "status": "draft"}
+{"id": "QA077", "question": "D20의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D20"}, "status": "draft"}
+{"id": "QA078", "question": "D14 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D14"}, "status": "draft"}
+{"id": "QA079", "question": "D11 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D11"}, "status": "draft"}
+{"id": "QA080", "question": "오늘 점심 메뉴 뭐야?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA081", "question": "오늘 나갈 환자 중에 담당의 오후 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA082", "question": "오늘 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA083", "question": "오후 수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA084", "question": "내일 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA085", "question": "D7 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D7"}, "status": "draft"}
+{"id": "QA086", "question": "D5의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D5"}, "status": "draft"}
+{"id": "QA087", "question": "D5 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D5"}, "status": "draft"}
+{"id": "QA088", "question": "D27 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D27"}, "status": "draft"}
+{"id": "QA089", "question": "D27 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D27"}, "status": "draft"}
+{"id": "QA090", "question": "환자 진단명 알려줘", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA091", "question": "내일 퇴원 예정 중 담당 교수가 오전 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA092", "question": "오늘 퇴원 예정 중 담당 교수가 오후 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA093", "question": "내일 퇴원할 환자 가운데 주치의가 오후에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA094", "question": "내일 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA095", "question": "어제 퇴원한 D14 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D14"}, "status": "draft"}
+{"id": "QA096", "question": "D27 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D27"}, "status": "draft"}
+{"id": "QA097", "question": "D24 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D24"}, "status": "draft"}
+{"id": "QA098", "question": "D15 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D15"}, "status": "draft"}
+{"id": "QA099", "question": "D10 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D10"}, "status": "draft"}
+{"id": "QA100", "question": "내일 날씨 어때?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA101", "question": "내일 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA102", "question": "오후 수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA103", "question": "수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA104", "question": "오늘 나갈 환자 중에 담당의 오후 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA105", "question": "D11의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D11"}, "status": "draft"}
+{"id": "QA106", "question": "D28의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D28"}, "status": "draft"}
+{"id": "QA107", "question": "D22 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D22"}, "status": "draft"}
+{"id": "QA108", "question": "D15 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D15"}, "status": "draft"}
+{"id": "QA109", "question": "D2 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D2"}, "status": "draft"}
+{"id": "QA110", "question": "보험 청구 금액 얼마야?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA111", "question": "수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA112", "question": "오늘 퇴원할 환자 가운데 주치의가 오후에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA113", "question": "오늘 나갈 환자 중에 담당의 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA114", "question": "수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA115", "question": "D20의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D20"}, "status": "draft"}
+{"id": "QA116", "question": "D18 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D18"}, "status": "draft"}
+{"id": "QA117", "question": "D18의 재입원 예정이 있나?", "gold": {"intent": "readmission_plan", "case": "D18"}, "status": "draft"}
+{"id": "QA118", "question": "D10 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D10"}, "status": "draft"}
+{"id": "QA119", "question": "D3 병상 청소 끝났어?", "gold": {"intent": "cleaning_status", "case": "D3"}, "status": "draft"}
+{"id": "QA120", "question": "오늘 점심 메뉴 뭐야?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA121", "question": "내일 퇴원 예정 중 담당 교수가 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA122", "question": "오늘 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA123", "question": "오후 수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA124", "question": "내일 퇴원할 환자 가운데 주치의가 오후에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA125", "question": "어제 퇴원한 D5 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D5"}, "status": "draft"}
+{"id": "QA126", "question": "D12 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D12"}, "status": "draft"}
+{"id": "QA127", "question": "D25 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D25"}, "status": "draft"}
+{"id": "QA128", "question": "D18 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D18"}, "status": "draft"}
+{"id": "QA129", "question": "D10 퇴실 병상 청소 상태 알려줘", "gold": {"intent": "cleaning_status", "case": "D10"}, "status": "draft"}
+{"id": "QA130", "question": "병동 간호사 몇 명 근무해?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA131", "question": "오늘 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA132", "question": "내일 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA133", "question": "오늘 퇴원 예정 중 담당 교수가 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "any"}, "status": "draft"}
+{"id": "QA134", "question": "수술 있는 교수님 환자 중 내일 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "any"}, "status": "draft"}
+{"id": "QA135", "question": "D29 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D29"}, "status": "draft"}
+{"id": "QA136", "question": "어제 퇴원한 D30 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D30"}, "status": "draft"}
+{"id": "QA137", "question": "어제 퇴원한 D1 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D1"}, "status": "draft"}
+{"id": "QA138", "question": "D15 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D15"}, "status": "draft"}
+{"id": "QA139", "question": "D29 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D29"}, "status": "draft"}
+{"id": "QA140", "question": "보험 청구 금액 얼마야?", "gold": {"intent": "unknown"}, "status": "draft"}
+{"id": "QA141", "question": "내일 퇴원 예정 중 담당 교수가 오후 수술인 건?", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "pm"}, "status": "draft"}
+{"id": "QA142", "question": "오늘 퇴원할 환자 가운데 주치의가 오전에 수술 들어가는 사례 알려줘", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "am"}, "status": "draft"}
+{"id": "QA143", "question": "오후 수술 있는 교수님 환자 중 오늘 퇴원하는 사람?", "gold": {"intent": "discharges_with_attending_surgery", "day": "today", "period": "pm"}, "status": "draft"}
+{"id": "QA144", "question": "내일 나갈 환자 중에 담당의 오전 수술 일정 겹치는 건 몇 건이야", "gold": {"intent": "discharges_with_attending_surgery", "day": "tomorrow", "period": "am"}, "status": "draft"}
+{"id": "QA145", "question": "D19 재입원 계획 있는지 봐줘", "gold": {"intent": "readmission_plan", "case": "D19"}, "status": "draft"}
+{"id": "QA146", "question": "D9 환자 다시 입원 잡혀 있어?", "gold": {"intent": "readmission_plan", "case": "D9"}, "status": "draft"}
+{"id": "QA147", "question": "어제 퇴원한 D1 재입원 예약 확인해줘", "gold": {"intent": "readmission_plan", "case": "D1"}, "status": "draft"}
+{"id": "QA148", "question": "D29 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D29"}, "status": "draft"}
+{"id": "QA149", "question": "D22 청소 언제 끝나?", "gold": {"intent": "cleaning_status", "case": "D22"}, "status": "draft"}
+{"id": "QA150", "question": "보험 청구 금액 얼마야?", "gold": {"intent": "unknown"}, "status": "draft"}

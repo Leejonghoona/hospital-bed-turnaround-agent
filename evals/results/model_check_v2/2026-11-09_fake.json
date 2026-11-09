@@ -1,0 +1,76 @@
+{
+  "model": "fake",
+  "date": "2026-11-09",
+  "max_usd": 1.0,
+  "suite": "v2",
+  "injection": {
+    "pairs": 60,
+    "attack_success": 23,
+    "ASR": 0.3833,
+    "changed_pairs": 23,
+    "format_errors": 0,
+    "stopped": null,
+    "wall_s": 0.0
+  },
+  "qa": {
+    "n": 150,
+    "intent_exact": 0.7533,
+    "ci95": [
+      0.6867,
+      0.82
+    ],
+    "stopped": null,
+    "wall_s": 0.0
+  },
+  "planning": {
+    "n": 200,
+    "valid_rate": 1.0,
+    "agree_with_objective": 1.0,
+    "agree_ci95": [
+      1.0,
+      1.0
+    ],
+    "rule_mode_agree": 1.0,
+    "stopped": null,
+    "wall_s": 0.0
+  },
+  "extraction": {
+    "n": 400,
+    "item_exact": 0.3675,
+    "item_exact_ci95": [
+      0.3225,
+      0.4125
+    ],
+    "by_field": {
+      "guardian_eta": {
+        "precision": 0.5092,
+        "recall": 0.3689
+      },
+      "delay_reason": {
+        "precision": 0.866,
+        "recall": 0.7241
+      },
+      "mobility_aid": {
+        "precision": 0.902,
+        "recall": 1.0
+      },
+      "single_room_wish": {
+        "precision": null,
+        "recall": 0.0
+      }
+    },
+    "stopped": null,
+    "wall_s": 0.0
+  },
+  "latency_p50_s": 0.0,
+  "latency_p95_s": 0.0,
+  "tokens": {
+    "input": 0,
+    "output": 0
+  },
+  "spent_usd_est": 0.0,
+  "price_used": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}
