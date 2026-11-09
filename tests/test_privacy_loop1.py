@@ -209,3 +209,30 @@ def test_source_id_is_salted_hmac(monkeypatch):
     salted = source_id("서울가상병원")
     assert salted.startswith("src:") and salted not in (dev, plain)
     assert salted == "src:" + hmac.new("합성-시험-솔트".encode(), "서울가상병원".encode(), hashlib.sha256).hexdigest()[:10]
+
+
+# ---------------- 6. 성별 코드: 3·4 관례, other·unknown ----------------
+
+def test_gender_codes_3_4_are_convention_and_other_unknown_are_allowed():
+    from turnaround.agent.mapping_agent import followup_questions, propose_mapping
+    from turnaround.ontology.mapping import _dec
+    rows = [{"case": f"C{i}", "sex": s, "dsch": f"2026-11-09 1{i % 10}:00"} for i, s in enumerate("12341234UO")]
+    d = propose_mapping({"c": rows})
+    q = {x.id: x for x in d.questions}
+    assert q["code:patient.gender:3"].proposal == "M" and q["code:patient.gender:4"].proposal == "F"
+    assert "관례" in q["code:patient.gender:3"].why
+    m = d.mapping
+    assert m.codes["patient.gender"]["U"] == "unknown" and m.codes["patient.gender"]["O"] == "other"
+    assert not [x for x in followup_questions(m, {"c": rows}) if x.id.startswith("code:patient.gender")]
+    # 환자 성별을 모름·기타로 받으면 비워 둔다(성별 입력 누락으로 사람 확인)
+    assert _dec(m, "patient.gender", "U") is None and _dec(m, "patient.gender", "O") is None
+    assert _dec(m, "patient.gender", "3") == "M"
+
+
+def test_room_gender_does_not_accept_other_or_unknown():
+    from turnaround.agent.mapping_agent import followup_questions
+    from turnaround.ontology.mapping import Mapping, TableMap
+    m = Mapping(hospital="H", time_format="%Y-%m-%d %H:%M", list_sep=",", bool_values=("Y", "N"),
+                bed_parts=("", "", ""), bed_part_style="plain", codes={"gender": {"U": "unknown"}},
+                tables={"b": TableMap(kind="layout", columns={"room_sex": "gender"})})
+    assert [q.id for q in followup_questions(m, {"b": [{"room_sex": "U"}]})] == ["code:gender:U"]

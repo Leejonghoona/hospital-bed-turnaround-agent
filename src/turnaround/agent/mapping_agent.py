@@ -237,7 +237,8 @@ _COL_NOT = {"t:billing_review_done": ("reopen", "재심사"),"guardian_eta_set.e
 _AMBIGUOUS_TIME = {("dsch", "퇴원", "discharge"): ("t:billing_done", "t:patient_departed")}
 
 _VALUE_LEX: dict[str, dict[str, tuple[str, ...]]] = {
-    "gender": {"M": ("m", "남", "male"), "F": ("f", "여", "female")},
+    "gender": {"M": ("m", "남", "male"), "F": ("f", "여", "female"), "other": ("o", "other", "기타"),
+               "unknown": ("u", "unknown", "미상", "모름")},
     "precautions": {"contact": ("c", "접촉", "contact"), "droplet": ("d", "비말", "droplet"),
                     "airborne": ("a", "공기", "airborne")},
     "room_type": {"negative_pressure": ("np", "음압", "iso-np", "negative"), "single": ("sr", "1인", "priv", "single"),
@@ -254,7 +255,8 @@ _VALUE_LEX: dict[str, dict[str, tuple[str, ...]]] = {
                    "일반외과": ("gs", "일반외과"), "정형외과": ("os", "정형외과"), "소아청소년과": ("ped", "소아청소년과"),
                    "신경과": ("nr", "neuro", "신경과")},
 }
-_CONVENTION = {"gender": {"1": "M", "2": "F"}}  # 관례 추정(주민등록번호 뒷자리 관례): 늘 묻는다
+# 관례 추정(주민등록번호 뒷자리 첫 숫자: 1·3 남, 2·4 여, 3·4는 2000년 이후 출생): 늘 묻는다
+_CONVENTION = {"gender": {"1": "M", "2": "F", "3": "M", "4": "F"}}
 _CODE_KEYS = {"patient.gender": "gender", "gender": "gender", "patient.precautions": "precautions",
               "room_type": "room_type", "cleaning_requested.cleaning_type": "cleaning_type",
               "cleaning_done.cleaning_type": "cleaning_type", "patient.precaution_status": "precaution_status",
@@ -830,11 +832,14 @@ def answer(draft: MappingDraft, answers: dict[str, object]) -> Mapping:
     return m.model_copy(update={"tables": tables, "codes": codes})
 
 
-_VALID = {"gender": {"M", "F"}, "precautions": {"contact", "droplet", "airborne"},
+_VALID = {"gender": {"M", "F", "other", "unknown"}, "precautions": {"contact", "droplet", "airborne"},
           "room_type": {"negative_pressure", "single", "multi"}, "cleaning_type": {"general", "terminal"},
           "precaution_status": {"confirmed", "suspected", "preemptive"}, "isolation_ordered_by": {"physician", "ipc"},
           "reason": {"discharge_hold", "dose_change", "add_medication"}, "discharge_type": {"ama"},
           "destination": {"icu"}, "department": set(_VALUE_LEX["department"])}
+
+
+_PATIENT_ONLY_GENDER = {"other", "unknown"}  # 환자 성별에만 쓴다(병실 성별 운영은 남·여·혼용(빈 값))
 
 
 def allowed_values(code_master: dict | None = None) -> dict[str, set]:
@@ -872,7 +877,7 @@ def followup_questions(m: Mapping, tables: dict[str, list[dict]], allowed: dict 
                 for part in parts:
                     val = m.codes.get(key, {}).get(part, part)
                     ok = val in wards if key == "admission_requested.preferred_ward_id" and wards else \
-                        val in valid.get(vkey, {val})
+                        val in valid.get(vkey, {val}) and not (key == "gender" and val in _PATIENT_ONLY_GENDER)
                     if not ok and (key, part) not in seen:
                         seen.add((key, part))
                         out.append(Question(f"code:{key}:{part}", f"{key}={part}", "온톨로지가 허용하지 않는 값이다(코드표 필요)"))

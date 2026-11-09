@@ -68,7 +68,10 @@ def _dec(m: Mapping, key: str, raw):
         return datetime.strptime(raw, m.time_format)
     if base in _INTS:
         return int(raw)
-    return code.get(raw, raw)
+    val = code.get(raw, raw)
+    if key == "patient.gender" and val in ("other", "unknown"):
+        return None  # 남녀 병실 구별에 쓸 수 없다: 성별 입력 누락으로 사람이 확인한다 (2026-11-09)
+    return val
 
 
 def _records(m: Mapping, tables: dict[str, list[dict]]) -> dict[str, dict]:
