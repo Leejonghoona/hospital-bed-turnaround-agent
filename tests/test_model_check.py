@@ -106,7 +106,7 @@ def test_manifest_hashes_sets_and_prompts():
     from turnaround.evaluation.model_check import manifest
     m = manifest()
     assert set(m["sets"]) >= {"extraction_v2_holdout", "injection", "planning", "qa"}
-    assert set(m["prompts"]) == {"extract", "plan", "qa"}
+    assert set(m["prompts"]) == {"extract", "plan", "qa", "exception", "explain"}
 
 
 def test_extraction_v3_draft_covers_new_forms_and_fixed_rules():

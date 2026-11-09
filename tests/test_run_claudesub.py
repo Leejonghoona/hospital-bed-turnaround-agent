@@ -33,3 +33,8 @@ def test_api_key_is_removed_and_ack_set(monkeypatch, tmp_path):
     import os
     assert rc.main(["--models", "", "--no-git"]) == 0  # 잴 모델이 없으면 바로 끝난다
     assert "ANTHROPIC_API_KEY" not in os.environ and os.environ["TURNAROUND_EXTERNAL_LLM_ACK"] == "synthetic-only"
+
+
+def test_other_parts_do_not_overwrite_default_result_file():
+    assert rc.result_name("2026-11-09", "claudesub:claude-opus-5-5", rc.PARTS.split(",")) ==         "2026-11-09_claudesub_claude-opus-5-5.json"
+    assert rc.result_name("2026-11-09", "claudesub:claude-opus-5-5", ["exception", "explain"]) ==         "2026-11-09_claudesub_claude-opus-5-5_exception-explain.json"

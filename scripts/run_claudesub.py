@@ -3,6 +3,7 @@
 사용 (노트북, 저장소 폴더에서):
     python scripts/run_claudesub.py            # 세 모델, 인젝션·질의·계획
     python scripts/run_claudesub.py --dry-run  # 5문항만 시험 (커밋 안 함)
+    python scripts/run_claudesub.py --parts exception,explain  # M5 역할별 선정 (docs/검토/모델선정_사전등록.md)
 
 - 구독 한도에 걸려 멈춘 모델은 다음 실행 때 다시 잰다. 끝까지 잰 모델은 건너뛴다.
 - ANTHROPIC_API_KEY가 있으면 API로 과금되므로 이 프로세스에서만 지운다.
@@ -28,6 +29,12 @@ PARTS = "injection,qa,planning"  # 추출은 설문 뒤 라벨 확정 후
 
 def _safe(spec: str) -> str:
     return spec.replace(":", "_").replace("/", "_")
+
+
+def result_name(day: str, spec: str, parts: list[str]) -> str:
+    """기본 묶음이 아니면 부분 이름을 붙인다. 같은 날 다른 묶음을 재도 앞 결과 파일을 덮어쓰지 않는다."""
+    tail = "" if parts == PARTS.split(",") else "_" + "-".join(parts)
+    return f"{day}_{_safe(spec)}{tail}.json"
 
 
 def _stopped(r: dict) -> bool:
@@ -80,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         if a.dry_run:
             print(json.dumps({k: r.get(k) for k in parts}, ensure_ascii=False)[:800])
             continue
-        f = OUT / f"{r.get('date', 'x')}_{_safe(spec)}.json"
+        f = OUT / result_name(r.get("date", "x"), spec, parts)
         f.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
         saved.append(f)
         if _stopped(r):
