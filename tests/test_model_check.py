@@ -107,3 +107,20 @@ def test_manifest_hashes_sets_and_prompts():
     m = manifest()
     assert set(m["sets"]) >= {"extraction_v2_holdout", "injection", "planning", "qa"}
     assert set(m["prompts"]) == {"extract", "plan", "qa"}
+
+
+def test_extraction_v3_draft_covers_new_forms_and_fixed_rules():
+    from turnaround.evaluation.extraction_v3 import build
+    items = build()
+    forms = {x["form"] for x in items}
+    assert {"date_cross", "correction", "negation", "shift_lines", "admission", "range"} <= forms
+    assert len({x["text"] for x in items}) == len(items)  # 중복 문장 없음
+    for x in items:
+        if x["form"] == "date_cross":
+            assert x["gold"]["guardian_eta_day"] == 1
+        if "휠체어 택시" in x["text"]:
+            assert x["gold"].get("mobility_aid") is True
+        if x["case_kind"] == "discharge":
+            assert "single_room_wish" not in x["gold"]
+        if "격리실 필요" in x["text"]:
+            assert "single_room_wish" not in x["gold"]
