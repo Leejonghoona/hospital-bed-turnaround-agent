@@ -26,3 +26,9 @@ REALISTIC_STAGE_OVERRIDES: dict[str, StageDistribution] = {
     "medication": StageDistribution(median_min=60, p90_min=150),  # B: 보라매·양산부산대 불출 시각
     "billing": StageDistribution(median_min=30, p90_min=75),  # B: 인천성모 심사 29 + 연락 6 + 수납 9
 }
+# 청소 두 갈래 (현실 프리셋, 08 계획 1단계). 값은 설계 가정
+SPLIT_CLEANING: dict[str, StageDistribution] = {
+    "cleaning_bed_unit": StageDistribution(median_min=20, p90_min=35),  # 다인실 침상 단위(침대·주변 표면·커튼)
+    "bed_prep": StageDistribution(median_min=15, p90_min=30),  # 병원 직원 리넨·침대·의료기구 정리
+    "bed_prep_response": StageDistribution(median_min=15, p90_min=40),  # 퇴실(또는 종말소독 완료)부터 정리 시작
+}

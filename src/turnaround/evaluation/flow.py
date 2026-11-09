@@ -37,6 +37,8 @@ def day_flow(h, events: list[Event], day: int) -> dict:
         w = max(0.0, (r - a.requested_at).total_seconds() / 60) if r else 0.0
         waits.append(w)
         on_time += w == 0
+    arrived = {e.case_id: e.observed_at for e in events if e.type is EventType.PATIENT_ARRIVED}
+    entry = [(arrived[a.id] - a.requested_at).total_seconds() / 60 for a in adm if a.id in arrived]
     noon = datetime.combine(the_date, time(12, 0))
     two = datetime.combine(the_date, time(14, 0))
     return {
@@ -46,6 +48,9 @@ def day_flow(h, events: list[Event], day: int) -> dict:
         "admissions": len(adm), "bed_ready_on_arrival": on_time,
         "bed_wait_mean_min": round(statistics.mean(waits), 1) if waits else None,
         "bed_wait_total_min": round(sum(waits), 1),
+        # 입실 구간: 수속(입원 예정 시각)부터 입실까지 분 (병상·병동 준비·호출·입실 이동 포함)
+        "arrived": len(entry), "entry_wait_mean_min": round(statistics.mean(entry), 1) if entry else None,
+        "entry_wait_p90_min": round(sorted(entry)[int(0.9 * (len(entry) - 1))], 1) if entry else None,
     }
 
 

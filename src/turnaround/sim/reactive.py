@@ -77,12 +77,29 @@ def retime(d: Discharge, lv: Levers, fx: ReactiveEffects) -> DischargeTimeline:
     clean_start = max(requested + m(dur["cleaning_response"] + extra), departed + m(d.aerosol_wait_min))
     clean_done = clean_start + m(dur["cleaning"])
     ready_at = clean_done + m(dur["bed_make"])
+    extra_seq: dict = {}
+    if t.bed_prep_done_at is not None:  # 현실 프리셋: 청소 두 갈래 (생성기와 같은 의존 관계)
+        clean_done = clean_start + (t.cleaning_done_at - t.cleaning_started_at)  # 범위(침상 단위·병실)는 원래 길이
+        if d.cleaning_type.value == "terminal":
+            prep_start = clean_done + (t.bed_prep_started_at - t.cleaning_done_at)
+        else:
+            prep_start = departed + (t.bed_prep_started_at - t.departed_at)
+        prep_done = prep_start + (t.bed_prep_done_at - t.bed_prep_started_at)
+        ready_at = max(clean_done, prep_done)
+        extra_seq.update(bed_prep_started_at=min(prep_start, t.bed_prep_started_at),
+                         bed_prep_done_at=min(prep_done, t.bed_prep_done_at))
+    if t.billing_review_done_at is not None:  # 현장형 퇴원 순서: 오더 재촉 만큼 앞당기고 퇴실을 넘지 않게
+        cap = lambda x: min(x, departed)  # noqa: E731
+        extra_seq.update(billing_review_done_at=cap(t.billing_review_done_at + shift),
+                         notice_given_at=cap(t.notice_given_at + shift),
+                         receipt_checked_at=cap(t.receipt_checked_at + shift),
+                         medication_handed_at=cap(t.medication_handed_at + shift))
     new = t.model_copy(update=dict(
         order_confirmed_at=order, rx_issued_at=rx_issued, rx_revised_at=rx_rev, rx_dispensed_at=rx_disp,
         medication_ready_at=med, education_done_at=edu, billing_done_at=billing, departed_at=departed,
         baseline_cleaning_requested_at=departed + m(dur["baseline_cleaning_request_delay"]),
         cleaning_started_at=min(clean_start, t.cleaning_started_at), cleaning_done_at=min(clean_done, t.cleaning_done_at),
-        bed_ready_at=min(ready_at, t.bed_ready_at)))
+        bed_ready_at=min(ready_at, t.bed_ready_at), **extra_seq))
     return t if new == t else new
 
 

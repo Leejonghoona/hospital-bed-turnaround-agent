@@ -7,7 +7,7 @@ from datetime import datetime, time, timedelta
 
 from turnaround.rules import aerosol_wait_min
 
-from .distributions import DEFAULT_STAGE_DISTRIBUTIONS, REALISTIC_STAGE_OVERRIDES
+from .distributions import DEFAULT_STAGE_DISTRIBUTIONS, REALISTIC_STAGE_OVERRIDES, SPLIT_CLEANING
 from .models import (
     RX_REVISION_REASONS,
     AdmissionRequest,
@@ -168,6 +168,7 @@ class _Gen:
         regular = ({i for i in range(n) if i not in unregistered and dtype.get(i) is None
                     and mix_rng.random() < cfg.regular_discharge_rate} if real else set())
         slots = _GUARDIAN_SLOTS_REALISTIC if real else _GUARDIAN_SLOTS
+        seq_rng = random.Random(f"seq-{self.cfg.days}-{n}")  # 현장형 순서·청소 두 갈래 전용 (기존 값 불변)
         result = []
         for i, (day, bed, iso) in enumerate(plan):
             room = self.room_by_id[bed.room_id]
@@ -220,6 +221,24 @@ class _Gen:
             clean_start = max(requested + m(d["cleaning_response"] + extra), departed + m(wait))  # 환기 대기 (LP-20)
             clean_done = clean_start + m(d["cleaning"])
             ready = clean_done + m(d["bed_make"])
+            seq = {}
+            if real:  # 현장형 퇴원 순서와 청소 두 갈래. 별도 난수열(seq_rng)만 쓴다: 다른 값은 그대로
+                mm = lambda k: max(1, round(SPLIT_CLEANING[k].sample(seq_rng)))  # noqa: E731
+                review = min(order + m(seq_rng.randint(20, 60)), billing - m(6))
+                review = max(review, order)
+                notice = min(review + m(5), billing)
+                tail = max(3, int((departed - billing).total_seconds() // 60))
+                receipt = billing + m(max(1, tail // 3))
+                handed = max(receipt + m(max(1, tail // 3)), med)
+                seq = dict(billing_review_done_at=review, notice_given_at=notice, receipt_checked_at=receipt,
+                           medication_handed_at=min(handed, departed))
+                if cleaning_type is CleaningType.GENERAL and room.room_type is RoomType.MULTI:
+                    clean_done = clean_start + m(mm("cleaning_bed_unit"))  # 다인실은 침상 단위
+                prep_from = clean_done if cleaning_type is CleaningType.TERMINAL else departed  # 격리: 소독 뒤 (H34)
+                prep_start = prep_from + m(mm("bed_prep_response"))
+                prep_done = prep_start + m(mm("bed_prep"))
+                ready = max(clean_done, prep_done)
+                seq.update(bed_prep_started_at=prep_start, bed_prep_done_at=prep_done)
 
             result.append(Discharge(
                 id=f"SYN-D{i + 1:03d}", day=day, bed_id=bed.id, patient=patient,
@@ -234,7 +253,7 @@ class _Gen:
                     billing_done_at=billing, guardian_arrived_at=guardian_arrived, departed_at=departed,
                     baseline_cleaning_requested_at=requested, cleaning_started_at=clean_start,
                     cleaning_done_at=clean_done, bed_ready_at=ready,
-                    rx_issued_at=rx_issued, rx_revised_at=rx_revised_at, rx_dispensed_at=rx_dispensed,
+                    rx_issued_at=rx_issued, rx_revised_at=rx_revised_at, rx_dispensed_at=rx_dispensed, **seq,
                 ),
             ))
         return tuple(result)

@@ -27,7 +27,8 @@ DISCHARGE_KEYS = ("discharge_decided", "discharge_registered", "guardian_eta_set
                   "rx_revised", "rx_dispensed", "medication_ready", "education_done", "billing_done",
                   "guardian_eta_updated", "guardian_arrived", "patient_departed", "cleaning_requested",
                   "cleaning_started", "cleaning_done", "bed_ready", "death_confirmed", "body_transferred",
-                  "eol_transfer", "unplanned_transfer_out")
+                  "eol_transfer", "unplanned_transfer_out", "billing_review_done", "discharge_notice_given",
+                  "receipt_checked", "medication_handed_over", "bed_prep_done")
 ADMISSION_KEYS = ("admission_requested", "admission_cancelled")
 
 
@@ -143,6 +144,11 @@ _COLS = {  # 정규 키: (emr_a, emr_b, emr_c 사례 마스터)
     "t:body_transferred": ("MORGUE_DT", "안치실이송일시", None),
     "t:eol_transfer": ("EOL_DT", "임종실전실일시", None),
     "t:unplanned_transfer_out": ("TRF_DT", "급변전동일시", None),
+    "t:billing_review_done": ("REV_END_DT", "심사완료일시", None),
+    "t:discharge_notice_given": ("PAY_NOTI_DT", "수납안내일시", None),
+    "t:receipt_checked": ("RCPT_CHK_DT", "영수증확인일시", None),
+    "t:medication_handed_over": ("MED_GIVE_DT", "퇴원약전달일시", None),
+    "t:bed_prep_done": ("BED_PREP_DT", "침상정리완료일시", None),
     "t:admission_requested": ("ADM_RSV_DT", "입원예약일시", None),
     "t:admission_cancelled": ("ADM_CNCL_DT", "입원취소일시", None),
 }
@@ -152,7 +158,9 @@ _EVENT_CODES_C = {  # emr_c 사건 기록 코드. 함정: DSCH = 수납 완료, 
     "medication_ready": "RX_WARD", "education_done": "DC_EDU", "billing_done": "DSCH",
     "guardian_eta_updated": "GRD_ETA_CHG", "guardian_arrived": "GRD_ARRIVE", "patient_departed": "WARD_OUT",
     "cleaning_requested": "ENV_REQ", "cleaning_started": "ENV_START", "cleaning_done": "ENV_DONE",
-    "bed_ready": "BED_READY", "death_confirmed": "EXPIRE", "body_transferred": "MORGUE",
+    "bed_ready": "BED_READY", "billing_review_done": "BILL_REVIEW_END", "discharge_notice_given": "PAY_NOTICE",
+    "receipt_checked": "RECEIPT_CHK", "medication_handed_over": "MED_HANDOVER", "bed_prep_done": "BED_PREP_END",
+    "death_confirmed": "EXPIRE", "body_transferred": "MORGUE",
     "eol_transfer": "EOL_ROOM", "unplanned_transfer_out": "TRF_ICU", "admission_requested": "ADM_RSV",
     "admission_cancelled": "ADM_CANCEL"}
 _LAYOUT = {  # 병상 단위 표: 정규 키 → (emr_a, emr_b, emr_c)
@@ -216,7 +224,9 @@ _D_COLS = {
     "t:cleaning_done": "clean_completed_time", "t:bed_ready": "bed_available_time", "t:death_confirmed": "expired_time",
     "t:body_transferred": "morgue_time", "t:eol_transfer": "comfort_room_time",
     "t:unplanned_transfer_out": "rapid_transfer_time", "t:admission_requested": "booking_time",
-    "t:admission_cancelled": "booking_cancelled_time"}
+    "t:admission_cancelled": "booking_cancelled_time", "t:billing_review_done": "billing_review_completed_time",
+    "t:discharge_notice_given": "payment_notice_time", "t:receipt_checked": "receipt_verified_time",
+    "t:medication_handed_over": "meds_handed_to_patient_time", "t:bed_prep_done": "bed_stripped_made_time"}
 _D_LAYOUT = {"ward_id": "unit", "room_id": "room_number", "bed_id": "bed_number", "room_type": "room_category",
              "capacity": "licensed_beds", "gender": "room_sex", "air_changes_per_hour": "ach",
              "cohort_key": "cohort_group", "near_nurse_station": "near_nurse_station", "ward_name": "unit_name",
@@ -261,7 +271,9 @@ _E_EVENTS = {
     "guardian_eta_updated": "보호자예정변경", "guardian_arrived": "보호자도착", "patient_departed": "병실퇴실",
     "cleaning_requested": "청소요청", "cleaning_started": "청소시작", "cleaning_done": "청소종료",
     "bed_ready": "침상준비완료", "death_confirmed": "사망", "body_transferred": "안치", "eol_transfer": "임종실",
-    "unplanned_transfer_out": "중환자실전동", "admission_requested": "입원예약", "admission_cancelled": "예약취소"}
+    "unplanned_transfer_out": "중환자실전동", "admission_requested": "입원예약", "admission_cancelled": "예약취소",
+    "billing_review_done": "심사완료", "discharge_notice_given": "수납안내", "receipt_checked": "영수증확인",
+    "medication_handed_over": "퇴원약전달", "bed_prep_done": "침상정리완료"}
 _E_LAYOUT = {"ward_id": "병동코드", "room_id": "호실", "bed_id": "침상번호", "room_type": "병실형태",
              "capacity": "정원", "gender": "남녀구분", "air_changes_per_hour": "시간당환기", "cohort_key": "코호트균",
              "near_nurse_station": "스테이션인접", "ward_name": "병동이름", "specialty": "병동성격",

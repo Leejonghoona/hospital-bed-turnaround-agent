@@ -92,7 +92,13 @@ class _Builder:
             self.add(c, "rx_dispensed", EventType.DISCHARGE_RX_DISPENSED, t.rx_dispensed_at)
         self.add(c, "medication_ready", EventType.MEDICATION_READY, t.medication_ready_at)
         self.add(c, "education_done", EventType.EDUCATION_DONE, t.education_done_at, "human")
+        if t.billing_review_done_at is not None:  # 현장형 순서 (현실 프리셋)
+            self.add(c, "billing_review_done", EventType.BILLING_REVIEW_DONE, t.billing_review_done_at)
+            self.add(c, "discharge_notice_given", EventType.DISCHARGE_NOTICE_GIVEN, t.notice_given_at, "human")
         self.add(c, "billing_done", EventType.BILLING_DONE, t.billing_done_at)
+        if t.receipt_checked_at is not None:
+            self.add(c, "receipt_checked", EventType.RECEIPT_CHECKED, t.receipt_checked_at, "human")
+            self.add(c, "medication_handed_over", EventType.MEDICATION_HANDED_OVER, t.medication_handed_at, "human")
         if d.guardian_delayed:
             self.add(c, "guardian_eta_updated", EventType.GUARDIAN_ETA_UPDATED, d.guardian_expected_at - 30 * _M,
                      "human", eta=_ceil_half_hour(t.guardian_arrived_at).isoformat())
@@ -111,6 +117,8 @@ class _Builder:
         self.add(c, "cleaning_started", EventType.CLEANING_STARTED, t.cleaning_started_at, "human", bed_id=bed)
         self.add(c, "cleaning_done", EventType.CLEANING_DONE, t.cleaning_done_at, "human", bed_id=bed,
                  cleaning_type=ctype)
+        if t.bed_prep_done_at is not None:  # 청소 두 갈래: 병원 직원 침상 정리 완료
+            self.add(c, "bed_prep_done", EventType.BED_PREP_DONE, t.bed_prep_done_at, "human", bed_id=bed)
         self.add(c, "bed_ready", EventType.BED_READY, t.bed_ready_at, "human", bed_id=bed)
 
     def admission(self, a: AdmissionRequest) -> None:

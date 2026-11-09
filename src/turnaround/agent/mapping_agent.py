@@ -135,6 +135,11 @@ _COL_LEX: dict[str, tuple[str, ...]] = {
     "t:body_transferred": ("morgue", "안치"),
     "t:eol_transfer": ("eol", "임종"),
     "t:unplanned_transfer_out": ("trf", "급변전동", "transfer"),
+    "t:billing_review_done": ("rev_end", "bill_review", "review_end", "billing_review", "심사완료"),
+    "t:discharge_notice_given": ("pay_noti", "payment_notice", "pay_notice", "수납안내"),
+    "t:receipt_checked": ("rcpt", "receipt", "영수증"),
+    "t:medication_handed_over": ("med_give", "handover", "handed", "퇴원약전달", "약전달"),
+    "t:bed_prep_done": ("bed_prep", "침상정리", "stripped", "bed_made"),
     "t:admission_requested": ("adm_rsv", "입원예약"),
     "t:admission_cancelled": ("cncl", "취소", "cancel"),
     # 병상 표

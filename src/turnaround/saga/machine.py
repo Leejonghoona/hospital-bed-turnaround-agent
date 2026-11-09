@@ -45,6 +45,8 @@ class SagaPolicy(BaseModel):
     exception_deadline: timedelta = timedelta(minutes=120)
     # 퇴원 병목 (로드맵 07 M2): 환자 준비가 끝났는데 보호자 도착 예정이 이만큼 넘게 남으면 라운지 판단을 올린다
     lounge_enabled: bool = False
+    cleaning_split: bool = False  # 청소 두 갈래: 병원 직원 침상 정리 요청을 함께 낸다 (현장 프로필)
+    call_up_enabled: bool = False  # 입실 구간: 병상·병동 준비와 수속이 갖춰지면 "올려주세요" (현장 프로필)
     guardian_lounge_margin: timedelta = timedelta(minutes=30)  # 설계 가정
 
     @classmethod
@@ -62,6 +64,7 @@ class SagaPolicy(BaseModel):
                     isolation_alert_to=tuple(hp.isolation.alert_to),
                     isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min),
                     exceptions_enabled=policy.brain.enabled, lounge_enabled=hp.guardian.lounge_enabled,
+                    cleaning_split=hp.cleaning.split, call_up_enabled=hp.ward_confirmation.mode == "notify",
                     exception_deadline=timedelta(minutes=policy.brain.max_wait_min))
         vals.update(kw)
         return cls.for_layout(rooms, beds, **vals) if rooms is not None else cls(**vals)
@@ -181,7 +184,7 @@ class SagaState:
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
                 EventType.PREMATCH_RELEASED, EventType.CASE_RECLASSIFIED_REVIEW, EventType.WARD_ACCEPTED,
-                EventType.PATIENT_ARRIVED}
+                EventType.PATIENT_ARRIVED, EventType.WARD_PREP_DONE, EventType.PATIENT_CALL_UP}
 
 
 _PIN_TRIGGERS = {EventType.ISOLATION_ORDER_ADDED, EventType.PATIENT_INFO_CORRECTED, EventType.ISOLATION_RELEASED}
@@ -333,6 +336,7 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
     decide_late_isolation_admission(s, out, policy)
     decide_contact_trace(s, out, policy)
     decide_no_bed(s, out, policy)
+    decide_call_up(s, out, policy, now)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \
@@ -427,6 +431,27 @@ def decide_no_bed(s: SagaState, out, p) -> None:
         if m is not None and m.active and min(m.facts.values()) >= e.observed_at:
             out.cmd(case, "exception_resolved:no_bed", EventType.EXCEPTION_RESOLVED, min(m.facts.values()),
                     exception_id=exid, how="condition_cleared")
+
+
+def decide_call_up(s: SagaState, out, p, now: datetime) -> None:
+    """입실 구간 (08 계획 1단계): 확정된 매칭이 병상 준비·병동 준비·수속(입원 예정 시각)을 모두 갖추면 원무에
+    "올려주세요"를 알린다. 이송 인력 배정은 범위 밖이다(CLAUDE.md 4번): 알림과 입실 신호 추적까지만."""
+    if not p.call_up_enabled:
+        return
+    for m in sorted(s.matches.values(), key=lambda x: x.admission_id):
+        if EventType.MATCH_COMMITTED not in m.facts or EventType.PATIENT_ARRIVED in m.facts or not m.active:
+            continue
+        prep = m.facts.get(EventType.WARD_PREP_DONE)
+        req = (s.admission_payload.get(m.admission_id) or {}).get("requested_at")
+        if prep is None or not req:
+            continue
+        due = datetime.fromisoformat(req)
+        d = next((x for x in s.discharges.values() if x.bed_id == m.bed_id), None)
+        bed_ok = d is None or d.seen(EventType.BED_MARKED_VACANT) or d.seen(EventType.BED_READY)
+        if not bed_ok or now < due:
+            continue
+        at = max(due, prep, bed_ok if isinstance(bed_ok, datetime) else due)
+        out.cmd(m.admission_id, "call_up", EventType.PATIENT_CALL_UP, at, bed_id=m.bed_id, to="admission_office")
 
 
 def _bed_awaited(s: SagaState, bed: str | None) -> bool:
@@ -580,6 +605,15 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
                         and EventType.PATIENT_ARRIVED not in m.facts:
                     out.cmd(m.admission_id, f"task:late_iso_next:{bed}", EventType.HUMAN_TASK_CREATED, iso_at,
                             bed_id=bed, reason="late_isolation_next_committed", assignee="bed_manager")
+        if p.cleaning_split:
+            # 청소 두 갈래 (08 계획 1단계): 병원 직원 침상 정리 요청. 격리 퇴실은 종말소독 완료 뒤 (H34)
+            prep_at = (done if d.isolation else departed)
+            if prep_at is not None:
+                out.cmd(d.id, "bed_prep_request", EventType.BED_PREP_REQUESTED, prep_at, bed_id=bed,
+                        after_terminal=d.isolation)
+            prep_done = d.seen(EventType.BED_PREP_DONE)
+            if ready is None and prep_done is not None and (done or d.seen(EventType.CLEANING_DONE)) is not None:
+                ready = max(prep_done, done or d.seen(EventType.CLEANING_DONE))  # 두 갈래 모두 끝 = 입실 가능
         if ready is not None:
             if done is not None or not d.isolation:
                 out.cmd(d.id, vacant_key, EventType.BED_MARKED_VACANT, max(ready, done or ready), bed_id=bed)

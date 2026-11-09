@@ -117,6 +117,16 @@ ta:ev_cleaning_done a ta:EventKind ; ta:key "cleaning_done" ; ta:eventType "clea
     ta:of ta:DischargeCase ; ta:carries "bed_id", "cleaning_type" ; rdfs:comment "청소 완료 신호" .
 ta:ev_bed_ready a ta:EventKind ; ta:key "bed_ready" ; ta:eventType "bed_ready" ; ta:source "human" ;
     ta:of ta:DischargeCase ; ta:carries "bed_id" ; rdfs:comment "침상 정리까지 끝나 입실 가능" .
+ta:ev_billing_review_done a ta:EventKind ; ta:key "billing_review_done" ; ta:eventType "billing_review_done" ; ta:source "his" ;
+    ta:of ta:DischargeCase ; rdfs:comment "진료비 심사 완료(조제와 나란히 진행). 수납 안내의 기준점" .
+ta:ev_discharge_notice_given a ta:EventKind ; ta:key "discharge_notice_given" ; ta:eventType "discharge_notice_given" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; rdfs:comment "간호사가 환자에게 수납 안내" .
+ta:ev_receipt_checked a ta:EventKind ; ta:key "receipt_checked" ; ta:eventType "receipt_checked" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; rdfs:comment "수납 영수증 확인" .
+ta:ev_medication_handed_over a ta:EventKind ; ta:key "medication_handed_over" ; ta:eventType "medication_handed_over" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; rdfs:comment "퇴원약 전달·복약 교육(병동 도착과 다르다)" .
+ta:ev_bed_prep_done a ta:EventKind ; ta:key "bed_prep_done" ; ta:eventType "bed_prep_done" ; ta:source "human" ;
+    ta:of ta:DischargeCase ; ta:carries "bed_id" ; rdfs:comment "병원 직원 침상 정리 완료(청소 두 갈래 중 하나)" .
 ta:ev_admission_requested a ta:EventKind ; ta:key "admission_requested" ; ta:eventType "admission_requested" ; ta:source "his" ;
     ta:of ta:AdmissionRequest ; ta:carries "patient", "day", "requested_at", "preferred_ward_id", "from_icu", "wants_single_room" ;
     rdfs:comment "입원 예약(대기 등록)" .
@@ -171,6 +181,13 @@ ta:ev_cleaning_started ta:notAfter ta:ev_cleaning_done .
 ta:ev_cleaning_done ta:notAfter ta:ev_bed_ready .
 ta:ev_death_confirmed ta:notAfter ta:ev_body_transferred .
 ta:ev_admission_requested ta:notAfter ta:ev_admission_cancelled .
+ta:ev_order_confirmed ta:notAfter ta:ev_billing_review_done .
+ta:ev_billing_review_done ta:notAfter ta:ev_discharge_notice_given .
+ta:ev_discharge_notice_given ta:notAfter ta:ev_billing_done .
+ta:ev_billing_done ta:notAfter ta:ev_receipt_checked .
+ta:ev_receipt_checked ta:notAfter ta:ev_medication_handed_over .
+ta:ev_medication_handed_over ta:notAfter ta:ev_patient_departed .
+ta:ev_bed_prep_done ta:notAfter ta:ev_bed_ready .
 
 # ---------------- 매핑 안전 규칙 ----------------
 # 안전 속성(L2)과 병실 종류 코드표는 확신과 상관없이 사람이 확인한다.

@@ -173,6 +173,14 @@ class DischargeTimeline(_Frozen):
     rx_issued_at: datetime | None = None  # 퇴원처방 발행 (DAT-7)
     rx_revised_at: datetime | None = None  # 퇴원처방 수정 (수정 사례만)
     rx_dispensed_at: datetime | None = None  # 약제부 조제 완료. 병동 도착은 medication_ready_at
+    # 현장형 퇴원 순서 (현실 프리셋만, DECISIONS D·08 계획 1단계): 심사·조제 병행 → 수납 안내 → 수납 → 영수증 → 약 전달
+    billing_review_done_at: datetime | None = None  # 진료비 심사 완료
+    notice_given_at: datetime | None = None  # 간호사가 환자에게 수납 안내
+    receipt_checked_at: datetime | None = None  # 영수증 확인
+    medication_handed_at: datetime | None = None  # 퇴원약 전달·복약 교육
+    # 청소 두 갈래 (현실 프리셋만): 병원 직원 침상 정리. 입실 가능 = 미화 청소와 침상 정리 둘 다 끝
+    bed_prep_started_at: datetime | None = None
+    bed_prep_done_at: datetime | None = None
 
 
 class Discharge(_Frozen):

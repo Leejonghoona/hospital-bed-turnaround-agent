@@ -86,6 +86,37 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
 _CAL = load_operations().calendar
 
 
+# 입실 구간의 사람 응답 (08 계획 1단계). 시간은 설계 가정: 원무 연락은 확정 뒤 20분(운영 시간), 병동 준비는 통보 뒤
+# 30분, "올려주세요" 뒤 입실 15분(이송 인력 배정은 범위 밖이라 입실 신호만 흉내 낸다)
+_CONTACT_AFTER, _WARD_PREP_AFTER, _ARRIVE_AFTER = 20, 30, 15
+
+
+def _entry_humans(st: DemoState, now: datetime, ev) -> None:
+    gw = st.gw
+    seen = {(e.case_id, e.type) for e in ev}
+    for e in ev:
+        case = e.case_id
+        if e.type is EventType.MATCH_COMMITTED and e.observed_at + _CONTACT_AFTER * _M <= now and \
+                (case, EventType.PATIENT_CONTACTED) not in seen and _CAL.in_office(now):
+            st.store.append(_human_event(case, "patient_contacted", EventType.PATIENT_CONTACTED, now,
+                                         bed_id=e.payload.get("bed_id"), by="admission_office"))
+            seen.add((case, EventType.PATIENT_CONTACTED))
+        if e.type is EventType.WARD_ASSIGNMENT_NOTIFIED and e.observed_at + _WARD_PREP_AFTER * _M <= now and \
+                (case, EventType.WARD_PREP_DONE) not in seen:
+            st.store.append(_human_event(case, "ward_prep_done", EventType.WARD_PREP_DONE, now, bed_id=e.payload.get("bed_id")))
+            seen.add((case, EventType.WARD_PREP_DONE))
+        if e.type is EventType.PATIENT_CALL_UP and e.observed_at + _ARRIVE_AFTER * _M <= now and \
+                (case, EventType.PATIENT_ARRIVED) not in seen:
+            st.store.append(_human_event(case, "patient_arrived", EventType.PATIENT_ARRIVED, now, bed_id=e.payload.get("bed_id")))
+            seen.add((case, EventType.PATIENT_ARRIVED))
+
+
+def _human_event(case, key, etype, now, **payload):
+    from turnaround.events import Event
+    return Event(event_id=f"{case}:{key}", case_id=case, type=etype, occurred_at=now, observed_at=now, source="human",
+                 payload=payload)
+
+
 def _humans(st: DemoState, now: datetime) -> None:
     ev = st.store.read()
     by = lambda t: {e.payload.get("proposal_id"): e for e in ev if e.type is t}  # noqa: E731
@@ -125,6 +156,8 @@ def _humans(st: DemoState, now: datetime) -> None:
                     e.observed_at + 10 * _M <= now and rv.objects(pid):
                 st.gw.ward_objection(pid, "ward_judgement", now)
         ev = st.store.read()
+    _entry_humans(st, now, ev)
+    ev = st.store.read()
     replied = by(EventType.WARD_ACCEPTED) | by(EventType.WARD_REJECTED)
     for pid, e in by(EventType.WARD_ACCEPTANCE_ASKED).items():
         if pid not in replied and e.observed_at + 20 * _M <= now:

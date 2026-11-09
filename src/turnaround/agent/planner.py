@@ -137,7 +137,7 @@ class PlanningAgent:
     def step(self, now: datetime) -> list[Decision]:
         """한 주기: 대기 건마다 제안, 청소 지연 사전 매칭은 재매칭 판단."""
         out = []
-        for case in self.tools.pending_admissions(self.tools.events()):
+        for case in self.tools.pending_admissions(self.tools.events(), now):
             out.append(self.gw.submit(self.plan(case, now), now))
         if not self.gw.policy.brain.enabled:  # 머리가 켜져 있으면 청소 지연 재매칭도 머리(E4)가 고른다
             out += self._rematch(now)

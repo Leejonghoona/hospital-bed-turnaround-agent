@@ -63,8 +63,11 @@ class PlanningTools:
                  if p["case"] != exclude_case and p.get("bed_id")}
         return held
 
-    def pending_admissions(self, events: list[Event]) -> list[str]:
-        """에이전트가 병상을 찾아야 하는 입원 대기: 취소·확정·고정·사전 매칭·진행 중 제안이 없는 건."""
+    def pending_admissions(self, events: list[Event], now: datetime | None = None) -> list[str]:
+        """에이전트가 병상을 찾아야 하는 입원 대기: 취소·확정·고정·사전 매칭·진행 중 제안이 없는 건.
+
+        병원 프로필이 당일 오전 배정(same_day_morning)이면 입원 예정일 당일, 배정 창 시작(08:00) 뒤에만 찾는다
+        (공개 병원 안내 14곳, 08 계획 1단계). 입원 예정 시각이 없는 요청은 지금처럼 바로 찾는다."""
         s = fold(events)
         cancelled = {e.case_id for e in events if e.type is EventType.ADMISSION_CANCELLED}
         assigned = set(self.gw._assignments(events))
@@ -83,6 +86,13 @@ class PlanningTools:
                 if self.gw._pinned(c, events):
                     continue
                 out.append(c)
+        a = self.gw.policy.hospital_profile.assignment
+        if now is not None and a.timing == "same_day_morning":
+            h, m = (int(x) for x in a.window[0].split(":"))
+            req = {e.case_id: e.payload.get("requested_at") for e in events if e.type is EventType.ADMISSION_REQUESTED}
+            out = [c for c in out if not req.get(c) or (datetime.fromisoformat(req[c]).date() == now.date()
+                                                       and now.time() >= time(h, m))
+                   or datetime.fromisoformat(req[c]).date() < now.date()]
         return self._by_priority(out, events)
 
     _PRIORITY_FLAGS = {"icu_stepdown": "from_icu"}  # 우선순위 코드 → 입원 요청 필드
