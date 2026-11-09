@@ -87,18 +87,66 @@ def profile(tables: dict[str, list[dict]]) -> dict:
 
 
 _ID_LIKE = re.compile(r"\d{6,}|\d{2,4}-\d{3,4}-\d{4}")
+_HANGUL_NAME = re.compile(r"^[가-힣]{2,4}$")
+_ICD_LIKE = re.compile(r"[A-Za-z]\d{2}(?:\.\d{1,4})?(?!\d)")
+_MIN_REPEAT = 2  # k: 값이 이만큼 반복돼야 코드로 본다
+# 열 이름이 이 뜻이면 값 전체를 보내지 않는다(이름·진단·메모·연락처·주소·주민번호)
+_SENSITIVE_COL = ("pt_nm", "nm", "name", "성명", "이름", "환자명", "dx", "diag", "diagnosis", "진단", "상병",
+                  "memo", "note", "notes", "remark", "comment", "메모", "비고", "특이사항", "tel", "phone", "mobile",
+                  "hp", "contact_no", "연락처", "전화", "휴대폰", "addr", "address", "주소", "rrn", "ssn", "jumin", "주민")
+
+
+_NAME_TOKS = ("pt_nm", "nm", "name", "성명", "이름", "환자명")
+_STRUCT_TOKS = ("ward", "unit", "room", "bed", "dept", "병동", "병실", "병상", "호실", "진료과")
+_CODE_SUFFIX = ("과", "병동", "센터")  # 진료과·병동 이름 꼴 (사람 이름은 이렇게 끝나지 않는다고 본다, 설계 가정)
+
+
+def _known_code_words() -> set[str]:
+    words = {tok for lex in _VALUE_LEX.values() for toks in lex.values() for tok in toks}
+    return words | {v.lower() for pair in _BOOL_PAIRS for v in pair}
+
+
+def _struct_col(col: str) -> bool:
+    name = _norm(col)
+    return any(_has(tok, name) for tok in _STRUCT_TOKS)
+
+
+def _sensitive_col(col: str) -> bool:
+    """이름·진단·메모·연락처 뜻의 열. 병동·병실·진료과 이름 열(ward_nm 등)은 사람 이름 열이 아니다."""
+    name = _norm(col)
+    if not any(_has(tok, name) for tok in _SENSITIVE_COL):
+        return False
+    other = [tok for tok in _SENSITIVE_COL if tok not in _NAME_TOKS and _has(tok, name)]
+    return bool(other) or not _struct_col(col)
+
+
+def _safe_code(v: str, known: set[str], struct: bool = False) -> bool:
+    """허용 목록: 이름 모양(한글 2~4자, 어휘의 코드 낱말·진료과 꼴은 예외), ICD 모양(병동·병실 열 제외),
+    숫자 3자 이상, 공백 포함 자유 서술은 뺀다."""
+    if len(v) > 20 or _ID_LIKE.search(v) or any(ch.isspace() for ch in v):
+        return False
+    if sum(ch.isdigit() for ch in v) >= 3 or (_ICD_LIKE.search(v) and not struct):
+        return False
+    if _HANGUL_NAME.match(v) and _norm(v) not in known and not v.endswith(_CODE_SUFFIX):
+        return False
+    return True
 
 
 def llm_profile(prof: dict) -> dict:
-    """외부 모델에 보낼 표 모양 (3단계 개인정보 검수 A-1). 원천 값은 두 번 이상 나온 짧은 코드만 남긴다.
-    한 번만 나온 값(이름·번호·메모일 수 있다)과 번호·전화 모양은 보내지 않는다. 작은 표도 같다."""
+    """외부 모델에 보낼 표 모양 (3단계 개인정보 검수 A-1, 2026-11-09 허용 목록 전환).
+    원천 값은 (a) 코드 속성 후보 열(고유값 ≤ max(2, 행 수의 절반))에서 k번 이상 반복된 값이고, (b) 이름·진단·번호·
+    자유 서술 모양이 아닌 값만 보낸다. 열 이름이 이름·진단·메모·연락처 뜻이면 값을 하나도 보내지 않는다."""
+    known = _known_code_words()
     out = {}
     for t, info in prof.items():
         cols = {}
+        limit = max(2, info["rows"] // 2)
         for c, ci in info["columns"].items():
             x = {k: ci[k] for k in ("shape", "fill", "distinct")}
-            keep = [v for v in ci.get("codes", []) if ci.get("counts", {}).get(v, 0) >= 2 and len(v) <= 20
-                    and not _ID_LIKE.search(v)]
+            keep = []
+            if not _sensitive_col(c) and ci["distinct"] <= limit:
+                keep = [v for v in ci.get("codes", []) if ci.get("counts", {}).get(v, 0) >= _MIN_REPEAT
+                        and _safe_code(v, known, _struct_col(c))]
             if keep:
                 x["codes"] = keep
             cols[c] = x
