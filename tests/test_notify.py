@@ -114,3 +114,11 @@ def test_human_commit_mode_keeps_one_human_action():
     assert gw.submit(prop(store=store), at(9)).status == "awaiting_manager"
     assert gw.manager_approve("p1", at(9, 5)).status == "committed"
     assert _types(store, EventType.MATCH_COMMITTED)[0].payload["committed_by"] == "human"
+
+
+def test_agent_commit_notification_carries_runner_up_for_close_calls():
+    """점수 근접은 사람에게 넘기지 않는 대신 통보에 2순위 병상과 점수를 붙여 되돌리기 쉽게 한다."""
+    store, gw = make([adm()], policy=FIELD)
+    gw.submit(prop(store=store, scores={"W72-R04-B2": 80.0, "W72-R04-B3": 78.0}, alternatives=["W72-R04-B3"]), at(9))
+    basis = _types(store, EventType.WARD_ASSIGNMENT_NOTIFIED)[0].payload["basis"]
+    assert basis["runner_up"] == {"bed_id": "W72-R04-B3", "score": 78.0} and basis["close_call"] is True

@@ -49,7 +49,7 @@ def test_human_load_counts_agent_commit_as_no_touch():
 
 def test_field_profile_does_not_review_close_scores_but_legacy_does():
     from turnaround.gateway import load_policy
-    assert "close_scores" in load_policy().review_reasons
+    assert "close_scores" not in load_policy().review_reasons  # 2026-11-09 기본값에서도 뺌
     field = load_policy(profile="field_default")
     assert "close_scores" not in field.review_reasons
     assert {"isolation", "single_room_preference", "no_bed", "missing_input"} <= set(field.review_reasons)

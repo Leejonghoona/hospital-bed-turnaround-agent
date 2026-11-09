@@ -119,10 +119,17 @@ def test_single_room_preference_creates_fee_consent_but_isolation_does_not():
     assert ("A1", "fee_consent") in kinds and ("A2", "fee_consent") not in kinds  # LP-22
 
 
-def test_close_scores_route_to_review():
+def test_close_scores_is_not_a_review_reason_by_default_but_can_be_opted_in():
+    """두 후보 모두 안전 기준을 통과했으면 점수 근접은 사람 판단 대상이 아니다 (DECISIONS 2026-11-09, 사용자 의견).
+    병원이 원하면 정책 파일에 넣어 다시 켤 수 있다."""
+    scores = {"W71-R03-B1": 80.0, "W72-R03-B2": 77.0}
     store, gw = make([adm(gender="M")])
-    d = gw.submit(prop(store=store, bed="W71-R03-B1", scores={"W71-R03-B1": 80.0, "W72-R03-B2": 77.0}), at(9))
-    assert "close_scores" in d.reasons
+    d = gw.submit(prop(store=store, bed="W71-R03-B1", scores=scores, alternatives=["W72-R03-B2"]), at(9))
+    assert d.status != "awaiting_review" and "close_scores" not in (d.reasons or [])
+    opt_in = load_policy().model_copy(update={"review_reasons": load_policy().review_reasons + ["close_scores"]})
+    store2, gw2 = make([adm(gender="M")], policy=opt_in)
+    d2 = gw2.submit(prop(store=store2, bed="W71-R03-B1", scores=scores), at(9))
+    assert "close_scores" in d2.reasons
 
 
 def test_same_name_same_ward_routes_review_and_same_room_is_rejected():

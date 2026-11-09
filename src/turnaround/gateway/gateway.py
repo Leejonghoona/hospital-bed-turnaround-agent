@@ -536,6 +536,17 @@ class Gateway:
         """통보형 병동 확인 (DECISIONS 2026-11-09 C): 병동에 묻지 않고 확정 뒤 통보한다."""
         return self.policy.hospital_profile.ward_confirmation.mode == "notify"
 
+    def _runner_up(self, prop: Proposal) -> dict:
+        """2순위 병상과 점수 (점수 근접이면 표시). 통보를 받은 사람이 바로 되돌릴 수 있게."""
+        others = sorted(((s, b) for b, s in prop.scores.items() if b != prop.bed_id), reverse=True)
+        if not others:
+            alt = next((b for b in prop.alternatives if b != prop.bed_id), None)
+            return {"runner_up": {"bed_id": alt, "score": None}, "close_call": False} if alt else {}
+        score, bed = others[0]
+        mine = prop.scores.get(prop.bed_id or "")
+        return {"runner_up": {"bed_id": bed, "score": score},
+                "close_call": mine is not None and mine - score < self.policy.score_gap_min}
+
     def _agent_commits(self) -> bool:
         """공식 확정 자율 단계가 auto이고 통보형이면 검토 사유 없는 사례를 에이전트가 확정한다."""
         return self._notify_mode() and self.policy.autonomy.get("official_commit", "human") != "human"
@@ -669,6 +680,7 @@ class Gateway:
             to = ["ward", "bed_manager"] if by == "agent" else ["ward"]
             basis = {"score": prop.scores.get(prop.bed_id or ""), "rationale": prop.rationale, "review_reasons": [],
                      "waived_reasons": self._waived.get(prop.proposal_id, []),
+                     **self._runner_up(prop),
                      "alternatives": prop.alternatives[:2], "basis_seq": prop.basis_seq}
             self._emit(prop.case, f"gw:{prop.proposal_id}:ward_assignment_notified", EventType.WARD_ASSIGNMENT_NOTIFIED,
                        now, bed_id=prop.bed_id, proposal_id=prop.proposal_id, committed_by=by, notify_to=to,

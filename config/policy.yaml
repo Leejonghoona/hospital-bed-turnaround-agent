@@ -12,10 +12,10 @@ review_reasons:              # 하나라도 해당하면 담당 검토
   - single_room_preference   # 1인실 희망 (차액 동의)
   - same_name_same_ward      # 같은 병동 동명이인 (LP-02)
   - no_bed
-  - close_scores
   - integrated_care_consent_missing
   - missing_input            # 성별·진료과 누락
   - isolation_discharge_bed  # 격리 퇴실 병실에 매칭
+  # close_scores(1·2순위 점수 근접)는 기본에서 뺐다: 두 후보 모두 안전 기준 통과, 통보에 2순위를 붙인다. 병원이 원하면 넣는다 (DECISIONS 2026-11-09)
 auto_actions: [share_waiting_info, recompute_ready_time, cleaning_schedule_update, send_cleaning_request]
 query_fields:                # 역할별로 답할 수 있는 필드
   environment_vendor: [bed_id, eta, cleaning_type]

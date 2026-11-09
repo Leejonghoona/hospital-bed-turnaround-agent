@@ -1,9 +1,9 @@
 id: D05
 category: tier
-title: 1·2순위 점수 차 미달
+title: '1·2순위 점수 차 미달 (2026-11-09 개정, 담당 검토로 넘기지 않음)'
 tags:
 - close_scores
-design_ref: '검토 사유 5항: 1·2순위 점수 차가 정책 파일 기준값 미만'
+design_ref: '검토 사유 5항을 기본에서 뺌 (DECISIONS 2026-11-09 "점수 근접은 사람 판단 대상 아님"). 병원이 원하면 정책에 넣는다'
 situation: 입원 대기 P1(남성, 소화기내과)에게 W71-R03-B1과 W72-R03-B2가 후보다. 고정 데이터로 두 점수와 정책 기준값을 주며, 점수 차가 기준값보다 작다.
 fixture:
   seed: 42
@@ -11,22 +11,22 @@ fixture:
   scores: 고정 주입
 gold:
   tier_by_case:
-    P1: review
+    P1: ward_confirm
   acceptable_beds:
     P1:
     - W71-R03-B1
     - W72-R03-B2
-  must_actions:
+  must_not:
   - type: route_review
     case: P1
-    note: 대안 2개 포함
+    note: 두 후보 모두 안전 기준 통과. 점수 근접만으로 사람 검토에 넘기지 않는다
 metrics:
 - T1
 - H2
 measured_from_stage: 4
 autonomy_stage: 1
-status: approved
+status: draft  # 개정판, 사용자 재승인 필요 (옛 판 승인 2026-11-08)
 provenance:
   author: claude-draft
   rule_source: 검토 사유 5항, 검토 카드. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
-  reviewed_by: 사용자 (2026-11-08)
+  reviewed_by: '옛 판 사용자 승인(2026-11-08), 개정판 미검토'
