@@ -282,7 +282,10 @@ def _part_col(cols: list[str], toks) -> str | None:
     return next((c for c in cols if any(_norm(c) == tok + suf for tok in toks for suf in _PART_SUFFIX)), None)
 
 
-def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft") -> MappingDraft:
+def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "draft",
+                    hints: dict | None = None) -> MappingDraft:
+    """hints: 사람이 앞선 질문에 답한 구조 정보. {"layout": (표 이름, (병동 열, 병실 열, 병상 열))}"""
+    hints = hints or {}
     prof = profile(tables)
     qs: list[Question] = []
     ev: dict = {"profile": prof}
@@ -296,6 +299,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
                             and ci["shape"] == "text")
             case_col = next(c for c in cols if c not in times and c != code_col)
             kinds[t], log_cols[t] = "events", (case_col, code_col, times[0])
+        elif hints.get("layout") and t == hints["layout"][0]:
+            kinds[t] = "layout"
         elif not times and all(_part_col(list(cols), toks) for toks in _PART_TOKS):
             kinds[t] = "layout"  # 시각 열이 없고 병동·병실·병상 열이 있으면 병상 표 (구조로 판정)
         else:
@@ -349,9 +354,16 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
     # 병상 ID 조합: 병상 표에서 병동·병실·병상 열
     bed_parts, style = ("", "", ""), "plain"
     lay = next((t for t, k in kinds.items() if k == "layout"), None)
+    if lay is None:
+        # 병상 표를 못 찾았다: 추측하지 않고 묻는다 (시각 열이 없는 표를 후보로)
+        opts = [t for t, k in kinds.items() if k == "cases"
+                and not any(ci["shape"] == "time" for ci in prof[t]["columns"].values())]
+        qs.append(Question("layout", "병상 표", "병동·병실·병상 열이 있는 표를 찾지 못했다(표와 세 열을 알려 달라)",
+                           opts[0] if opts else None, opts))
     if lay:
         cols = list(prof[lay]["columns"])
-        w, r, b = (_part_col(cols, toks) for toks in _PART_TOKS)
+        w, r, b = hints["layout"][1] if hints.get("layout") and hints["layout"][0] == lay else \
+            (_part_col(cols, toks) for toks in _PART_TOKS)
         bed_parts = (w or "", r or "", b or "")
         sample = str(tables[lay][0].get(w, "")) if w else ""
         style = "digits" if sample.isdigit() else "plain"

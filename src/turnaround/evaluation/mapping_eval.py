@@ -34,6 +34,11 @@ def gold_answers(draft, gold) -> dict:
 
 def score(tables: dict, gold, canonical_events, h) -> dict:
     d = propose_mapping(tables)
+    first = d
+    if any(q.id == "layout" for q in d.questions):  # 사람이 병상 표와 세 열을 알려 주면 다시 만든다
+        lay = next(t for t, tm in gold.tables.items() if tm.kind == "layout")
+        d = propose_mapping(tables, hints={"layout": (lay, gold.bed_parts)})
+        d.questions = [q for q in first.questions if q.id == "layout"] + d.questions
     asked = {q.id for q in d.questions}
     col = {"correct": 0, "wrong": 0, "asked": 0, "missed": 0}
     wrong_cols = []
@@ -81,7 +86,7 @@ def score(tables: dict, gold, canonical_events, h) -> dict:
             got = d.mapping.codes.get(k, {}).get(src, src)
             qid = f"code:{k}:{src}"
             col_asked = any(q.id.startswith("col:") and gold.tables[q.id.split(":", 2)[1]].columns.get(
-                q.id.split(":", 2)[2]) == k for q in d.questions if q.id.split(":", 2)[1] in gold.tables)
+                q.id.split(":", 2)[2]) == k for q in d.questions if q.id.startswith("col:") and q.id.split(":", 2)[1] in gold.tables)
             if col_asked and got != canon:
                 code["asked"] += 1
                 code["asked_with_column"] = code.get("asked_with_column", 0) + 1
@@ -112,7 +117,8 @@ def score(tables: dict, gold, canonical_events, h) -> dict:
             and out.rooms == h.rooms
     except Exception as e:  # noqa: BLE001 - 변환 실패도 결과로 기록
         exact, error = False, f"{type(e).__name__}: {e}"[:200]
-    return {"columns": col, "codes": code, "format": fmt, "questions": len(d.questions), "followup_questions": len(follow), "exact_after_answers": exact, "error": error,
+    return {"structure_questions": sum(1 for q in first.questions if q.id == "layout"),
+            "columns": col, "codes": code, "format": fmt, "questions": len(d.questions), "followup_questions": len(follow), "exact_after_answers": exact, "error": error,
             "wrong_columns": wrong_cols, "wrong_codes": wrong_codes,
             "order_checks": d.evidence.get("order_checks", {})}
 

@@ -82,3 +82,53 @@ def test_first_holdout_format_after_generic_fixes(seed):
     assert r["columns"]["wrong"] == 0 and r["codes"]["wrong"] == 0
     assert "wrong" not in r["format"].values()
     assert r["exact_after_answers"]
+
+
+def test_service_replay_on_mapped_data_equals_canonical():
+    """서로 다른 병원 형식을 매핑해 넣어도 같은 서비스가 같은 배정과 같은 안전 검사를 낸다 (M6-5)."""
+    from datetime import time
+
+    from turnaround.evaluation.mapping_eval import gold_answers
+    from turnaround.agent.mapping_agent import MappingDraft, answer, followup_questions, propose_mapping
+    from turnaround.events import EventType
+    from turnaround.evaluation.safety_exec import executed_safety
+    from turnaround.gateway import load_policy
+    from turnaround.ontology.mapping import Mapped
+    from turnaround.sim.exports import HOLDOUT_FORMATS
+    from turnaround.ui.demo import build_demo
+    seed, cfg, pol = 2, GeneratorConfig.realistic(), load_policy(profile="field_default")
+    h, ev = _canonical(seed)
+
+    def run(mapped):
+        st = build_demo(seed=seed, day=3, until=time(23, 45), via_fhir=False, policy=pol, config=cfg, mapped=mapped)
+        out = st.store.read()
+        commits = sorted((e.case_id, e.payload["bed_id"]) for e in out if e.type is EventType.MATCH_COMMITTED)
+        s = executed_safety(st.gw, out)
+        return commits, (s["S1"]["violations"], s["S2"]["violations"])
+
+    base = run(Mapped(wards=h.wards, rooms=h.rooms, beds=h.beds, events=ev))
+    assert base[0] and base[1] == (0, 0)
+    for fmt in FORMATS + HOLDOUT_FORMATS:
+        tables = export(h, ev, fmt)
+        gold = gold_mapping(fmt)
+        d = propose_mapping(tables)
+        if any(q.id == "layout" for q in d.questions):
+            lay = next(t for t, tm in gold.tables.items() if tm.kind == "layout")
+            d = propose_mapping(tables, hints={"layout": (lay, gold.bed_parts)})
+        m = answer(d, gold_answers(d, gold))
+        f = followup_questions(m, tables)
+        if f:
+            d2 = MappingDraft(mapping=m, questions=f, evidence={}, columns={})
+            m = answer(d2, gold_answers(d2, gold))
+        assert run(apply_mapping(m, tables)) == base, fmt
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_second_holdout_after_structure_question(seed):
+    """emr_e(두 번째 홀드아웃): 첫 실행에서 병상 표를 못 찾고도 묻지 않은 결함을 고쳤다(병상 표 질문). 지금은 회귀용."""
+    from turnaround.evaluation.mapping_eval import score
+    h, ev = _canonical(seed)
+    r = score(export(h, ev, "emr_e"), gold_mapping("emr_e"), ev, h)
+    assert r["structure_questions"] == 1
+    assert r["columns"]["wrong"] == 0 and r["codes"]["wrong"] == 0 and "wrong" not in r["format"].values()
+    assert r["exact_after_answers"]

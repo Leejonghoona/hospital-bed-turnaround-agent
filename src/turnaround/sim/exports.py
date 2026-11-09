@@ -69,6 +69,7 @@ class FormatSpec:
     bed_part_style: str = "plain"  # plain: W71·R03·B1 / digits: 71·03·1
     layout_columns: dict[str, str] = field(default_factory=dict)
     table_names: dict[str, str] = field(default_factory=dict)
+    log_columns: tuple[str, str, str] = ("case_key", "evt_cd", "evt_ts")
 
 
 _GENDER = {"emr_a": {"M": "1", "F": "2"}, "emr_b": {"M": "남", "F": "여"}, "emr_c": {"M": "M", "F": "F"}}
@@ -239,12 +240,56 @@ def _spec_d() -> FormatSpec:
                       table_names={"discharges": "discharges", "admissions": "bookings", "layout": "beds"})
 
 
+# 두 번째 홀드아웃 (2026-11-09, 첫 홀드아웃 보강 커밋 66427ea 뒤에 만들었다. 이 형식을 보고 사전·규칙을 고치지 않고 첫 결과를 기록)
+# 사건 기록 + 한글 사건 코드, 목록 구분자 "/", 유/무, 14자리 시각. 함정: 사건 코드 "퇴원" = 수납 완료, "병실퇴실" = 퇴실
+_E_COLS = {
+    "case": "내원키", "patient.patient_id": "환자ID", "patient.name": "환자성명", "patient.gender": "성별구분",
+    "patient.age": "연령", "patient.department": "진료과목", "patient.precautions": "감염주의",
+    "patient.organism": "원인균", "patient.precaution_status": "주의판정", "patient.isolation_ordered_by": "주의지시자",
+    "patient.immunocompromised": "면역억제", "patient.open_wound": "창상유무", "day": "경과일",
+    "discharge_decided.discharge_type": "퇴원형태", "guardian_eta_set.eta": "보호자예정시각",
+    "guardian_eta_updated.eta": "보호자예정시각변경", "rx_revised.reason": "약변경사유",
+    "cleaning_requested.cleaning_type": "청소등급", "cleaning_requested.aerosol_wait_min": "환기대기시간",
+    "cleaning_requested.sporicidal": "아포제사용", "cleaning_done.cleaning_type": "완료청소등급",
+    "unplanned_transfer_out.destination": "전동부서", "admission_requested.requested_at": "입원예정시각",
+    "admission_requested.preferred_ward_id": "요청병동", "admission_requested.from_icu": "중환자실경유",
+    "admission_requested.wants_single_room": "1인실요청"}
+_E_EVENTS = {
+    "discharge_decided": "퇴원결정", "discharge_registered": "퇴원예고", "guardian_eta_set": "보호자예정입력",
+    "order_confirmed": "퇴원오더", "rx_issued": "퇴원약발행", "rx_revised": "퇴원약변경", "rx_dispensed": "조제완료",
+    "medication_ready": "퇴원약수령", "education_done": "퇴원교육", "billing_done": "퇴원",
+    "guardian_eta_updated": "보호자예정변경", "guardian_arrived": "보호자도착", "patient_departed": "병실퇴실",
+    "cleaning_requested": "청소요청", "cleaning_started": "청소시작", "cleaning_done": "청소종료",
+    "bed_ready": "침상준비완료", "death_confirmed": "사망", "body_transferred": "안치", "eol_transfer": "임종실",
+    "unplanned_transfer_out": "중환자실전동", "admission_requested": "입원예약", "admission_cancelled": "예약취소"}
+_E_LAYOUT = {"ward_id": "병동코드", "room_id": "호실", "bed_id": "침상번호", "room_type": "병실형태",
+             "capacity": "정원", "gender": "남녀구분", "air_changes_per_hour": "시간당환기", "cohort_key": "코호트균",
+             "near_nurse_station": "스테이션인접", "ward_name": "병동이름", "specialty": "병동성격",
+             "departments": "담당진료과"}
+
+
+def _spec_e() -> FormatSpec:
+    prec = {"contact": "접촉", "droplet": "비말", "airborne": "공기"}
+    clean = {"general": "일반", "terminal": "종말"}
+    codes = {"patient.gender": {"M": "남", "F": "여"}, "gender": {"M": "남", "F": "여"},
+             "patient.precautions": prec, "room_type": {"negative_pressure": "음압격리", "single": "1인", "multi": "다인"},
+             "cleaning_requested.cleaning_type": clean, "cleaning_done.cleaning_type": clean,
+             "patient.precaution_status": {"confirmed": "확진", "suspected": "의심", "preemptive": "선제"},
+             "patient.isolation_ordered_by": {"physician": "주치의", "ipc": "감염관리실"},
+             "rx_revised.reason": {"discharge_hold": "퇴원보류", "dose_change": "용량변경", "add_medication": "약추가"},
+             "discharge_decided.discharge_type": {"ama": "자의퇴원"}, "unplanned_transfer_out.destination": {"icu": "중환자실"}}
+    return FormatSpec("emr_e", "log", "%Y%m%d%H%M%S", dict(_E_COLS), codes=codes, event_codes=dict(_E_EVENTS),
+                      list_sep="/", bool_values=("유", "무"), bed_parts=("병동코드", "호실", "침상번호"),
+                      layout_columns=dict(_E_LAYOUT), log_columns=("내원키", "이벤트코드", "발생시각"),
+                      table_names={"cases": "환자마스터", "events": "이벤트이력", "layout": "병상마스터"})
+
+
 FORMATS = ("emr_a", "emr_b", "emr_c")
-HOLDOUT_FORMATS = ("emr_d",)
+HOLDOUT_FORMATS = ("emr_d", "emr_e")
 
 
 def spec(name: str) -> FormatSpec:
-    return _spec_d() if name == "emr_d" else _spec(name)
+    return {"emr_d": _spec_d, "emr_e": _spec_e}.get(name, lambda: _spec(name))()
 
 
 # ---------------- 쓰기 ----------------
@@ -313,9 +358,10 @@ def export(h, events: list[Event], name: str) -> dict[str, list[dict]]:
         for rec in recs.values():
             for k, v in rec.items():
                 if k.startswith("t:"):
-                    log.append({"case_key": rec["case"], "evt_cd": sp.event_codes[k[2:]],
-                                "evt_ts": v.strftime(sp.time_format)})
-        out[sp.table_names["events"]] = sorted(log, key=lambda x: (x["evt_ts"], x["case_key"], x["evt_cd"]))
+                    cc, kc, tc = sp.log_columns
+                    log.append({cc: rec["case"], kc: sp.event_codes[k[2:]], tc: v.strftime(sp.time_format)})
+        cc, kc, tc = sp.log_columns
+        out[sp.table_names["events"]] = sorted(log, key=lambda x: (x[tc], x[cc], x[kc]))
     return out
 
 
@@ -334,7 +380,7 @@ def gold_mapping(name: str):
                 col: key for key, col in sp.columns.items() if key.startswith("t:")}})
     else:
         tables[sp.table_names["cases"]] = TableMap(kind="cases", columns=case_cols)
-        tables[sp.table_names["events"]] = TableMap(kind="events", event_columns=("case_key", "evt_cd", "evt_ts"),
+        tables[sp.table_names["events"]] = TableMap(kind="events", event_columns=sp.log_columns,
                                                     event_codes={c: k for k, c in sp.event_codes.items()})
     return Mapping(hospital=name, time_format=sp.time_format, list_sep=sp.list_sep, bool_values=sp.bool_values,
                    bed_parts=sp.bed_parts, bed_part_style=sp.bed_part_style, codes=inv, tables=tables)

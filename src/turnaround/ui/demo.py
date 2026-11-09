@@ -38,12 +38,14 @@ class DemoState:
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
                policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None,
-               reviewer=None, past_admissions: bool = True) -> DemoState:
+               reviewer=None, past_admissions: bool = True, mapped=None) -> DemoState:
     """reactive(ReactiveEffects)를 주면 에이전트 행동이 그 뒤 퇴원 시각을 바꾸는 반응형 재생 (로드맵 07 M2)."""
     h = generate(seed=seed, config=config)
+    if mapped is not None:  # 병원 내보내기를 매핑한 결과(병상 구조·사건)로 재생 (로드맵 07 M6)
+        h = h.model_copy(update={"wards": mapped.wards, "rooms": mapped.rooms, "beds": mapped.beds})
     if not past_admissions:  # 지난 날의 입원은 이미 입실했다고 본다 (그날과 그 뒤 입원만 재생)
         h = h.model_copy(update={"admissions": tuple(a for a in h.admissions if a.day >= day)})
-    events = hospital_to_events(h, seed=seed)
+    events = hospital_to_events(h, seed=seed) if mapped is None else list(mapped.events)
     entries = 0
     if via_fhir:
         bundle = events_to_bundle(events)
