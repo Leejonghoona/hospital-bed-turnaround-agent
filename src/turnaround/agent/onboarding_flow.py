@@ -566,8 +566,11 @@ def detect_drift(pkg: OnboardingPackage, tables: dict[str, list[dict]]) -> list[
 def apply_package(pkg: OnboardingPackage, tables: dict[str, list[dict]]):
     """승인되고 지문이 맞는 판만 운영 데이터 변환에 쓴다. 내보내기가 승인 때와 달라졌으면 변환하지 않고 재질문으로 보낸다."""
     from turnaround.ontology.mapping import apply_mapping
-    if pkg.status != "approved" or not pkg.verify():
-        raise OnboardingError("승인되지 않았거나 지문이 맞지 않는 판은 운영에 쓰지 않는다")
+    if pkg.status != "approved" or not pkg.verify() or not pkg.approval_complete:
+        # 사람 ID 있는 승인으로 운영 조건(격리·성별 매핑이면 감염관리 책임자 포함)을 채운 판만 쓴다 (3회차 검토)
+        raise OnboardingError("승인되지 않았거나 지문이 맞지 않거나, 사람 ID 있는 승인이 다 갖춰지지 않은 판은 운영에 쓰지 않는다")
+    if os.environ.get("TURNAROUND_MODE") == "production" and not os.environ.get("TURNAROUND_APPROVAL_KEY"):
+        raise OnboardingError("운영 모드에서는 개발용 서명 키로 승인한 판을 쓰지 않는다 (TURNAROUND_APPROVAL_KEY 필요)")
     drift = detect_drift(pkg, tables)
     if drift:
         raise OnboardingError(f"내보내기가 승인 때와 다르다({len(drift)}건): 재질문(OnboardingSession.revise)이 필요하다")

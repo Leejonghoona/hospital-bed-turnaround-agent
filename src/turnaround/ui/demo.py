@@ -201,7 +201,7 @@ def _humans(st: DemoState, now: datetime) -> None:
                     if d.status == "applied":
                         overridden.add(prop.case)
                         continue
-            st.gw.manager_approve(pid, now)
+            st.gw.manager_approve(pid, now, actor=st.gw.review_decider(pid, now))  # 격리 검토는 감염관리 담당이 승인
     ev = st.store.read()
     if rv is not None:  # 에이전트 확정 뒤 병동 이의 (통보형)
         objected = by(EventType.WARD_OBJECTION_RAISED)

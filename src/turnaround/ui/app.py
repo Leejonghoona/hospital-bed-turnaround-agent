@@ -77,7 +77,8 @@ def reason_dialog(sv, kind: str, target: str, label: str, actor: str = "bed_mana
     text = r + (f" · {memo}" if memo else "")
     if st.button("확인", type="primary", use_container_width=True):
         if kind == "decline":
-            sv.gw.decline_action(target, actor, text, sv.now)
+            sv.gw.decline_action(target, actor, text, sv.now,
+                                 approver_id=next((u for u, r in sv.gw.staff.items() if r == actor), None))
         else:
             sv.gw.ward_objection(target, ("원무 되돌림: " if kind == "undo" else "병동 이의: ") + text, sv.now)
         st.rerun()
@@ -281,7 +282,9 @@ def show_ipc(d: dict, sv=None) -> None:
             role = d.get("holder_role") or "ipc"
             if c2.button("다시 찾기" if none else "승인", key=f"ipc-ap-{a['exception_id']}", type=_btn_type(), use_container_width=True,
                          help=f"{a['who']} 병상 결정 승인"):
-                dec = sv.gw.approve_action(a["exception_id"], role, sv.now)
+                # 데모: 그 시각 담당 역할의 등록된 사람(합성 ID)으로 승인. 실제 병원은 로그인한 사람 (설계 가정)
+                who_id = next((u for u, r in sv.gw.staff.items() if r == role), None)
+                dec = sv.gw.approve_action(a["exception_id"], role, sv.now, approver_id=who_id)
                 st.toast("다시 확인한 뒤 " + ("실행했습니다" if dec.status == "executed" else "거부했습니다"))
                 st.rerun()
             if c2.button("지금 병상 유지" if none else "거절", key=f"ipc-dc-{a['exception_id']}", use_container_width=True,

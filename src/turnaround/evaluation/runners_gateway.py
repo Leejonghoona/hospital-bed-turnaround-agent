@@ -93,7 +93,7 @@ class _GwRun:
                     - done(EventType.MANAGER_APPROVED) - rejected
                 for pid in sorted(waiting & agent_pids):
                     if self.gw._proposal(pid, ev).bed_id is not None:
-                        self.gw.manager_approve(pid, now + timedelta(minutes=5))
+                        self.gw.manager_approve(pid, now + timedelta(minutes=5), actor=self.gw.review_decider(pid, now + timedelta(minutes=5)))
             ev = self.store.read()
             asked = done(EventType.WARD_ACCEPTANCE_ASKED)
             replied = {e.payload.get("proposal_id") for e in ev if e.type in (EventType.WARD_ACCEPTED,
@@ -127,7 +127,7 @@ class _GwRun:
     def to_ward_acceptance(self, pid, case, bed, now, **kw):
         d = self.propose(pid, case, bed, now, **kw)
         if d.status in ("awaiting_manager", "awaiting_review"):
-            self.gw.manager_approve(pid, now + timedelta(minutes=10))
+            self.gw.manager_approve(pid, now + timedelta(minutes=10), actor=self.gw.review_decider(pid, now + timedelta(minutes=10)))
         self.gw.ward_reply(pid, True, now + timedelta(minutes=20))
         return d
 

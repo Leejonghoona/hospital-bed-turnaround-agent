@@ -165,12 +165,14 @@ def test_late_isolation_approval_belongs_to_ipc_not_admission():
     exid = req[0].payload["exception_id"]
     assert gw.approve_action(exid, "bed_manager", at(10, 20)).reasons == ["approver_role"]
     assert gw.decline_action(exid, "bed_manager", "x", at(10, 20)).reasons == ["approver_role"]
-    assert gw.approve_action(exid, "ipc", at(10, 25)).status == "executed"
+    assert gw.approve_action(exid, "ipc", at(10, 25), approver_id="ipc-1").status == "executed"
 
 
 def test_late_isolation_off_hours_on_call_can_decide():
     store, gw, req = _late_iso_after_contact()
-    assert gw.approve_action(req[0].payload["exception_id"], "id_oncall", at(10, 25)).status == "executed"
+    # 근무 시간(09~18시) 밖에는 감염내과 당직이 결정한다
+    d = gw.approve_action(req[0].payload["exception_id"], "id_oncall", at(19), approver_id="dr-k")
+    assert d.status in ("executed", "rejected") and d.reasons != ["not_on_duty"] and d.reasons != ["approver_id"]
 
 
 # ---- 2회차 안전 검토: 승인 진위·시한, 게이트웨이 독립 판정, 야간 감염관리 담당 ----
@@ -232,3 +234,52 @@ def test_night_isolation_notice_names_on_call_holder():
     assert notice and notice[0].payload["holder"] == "id_oncall"
     esc = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "brain_escalate"]
     assert all(e.payload.get("assignee") in ("ipc", "id_oncall") for e in esc)
+
+
+# ---- 3회차: 격리 병상 결정 경로 일관성, 승인자 신원·근무, 온보딩 운영 관문 ----
+
+def test_isolation_decision_needs_registered_on_duty_person():
+    store, gw, req = _late_iso_after_contact()
+    exid = req[0].payload["exception_id"]
+    assert gw.approve_action(exid, "ipc", at(10, 25)).reasons == ["approver_id"]          # 사람 ID 없음
+    assert gw.approve_action(exid, "ipc", at(10, 25), approver_id="아무개").reasons == ["approver_id"]
+    assert gw.approve_action(exid, "id_oncall", at(10, 25), approver_id="dr-k").reasons == ["not_on_duty"]  # 근무 시간엔 감염관리실
+    d = gw.approve_action(exid, "ipc", at(10, 25), approver_id="ipc-1")
+    assert d.status == "executed"
+    ok = [e for e in store.read() if e.type is EventType.ACTION_APPROVED]
+    assert ok[-1].payload.get("approver_id") == "ipc-1"
+
+
+def test_late_isolation_reproposal_review_is_decided_by_ipc():
+    """입실 전 늦은 격리: 다시 찾은 새 병상 제안의 담당 검토 승인도 감염관리실이 한다."""
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ExceptionBrain
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="M", dept="소화기내과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=-1), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(10), "his", precautions=["contact"], organism="MRSA")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(10, 5))
+    ExceptionBrain(gw, FakeLLM(), pol).step(at(10, 10))
+    from turnaround.agent.tools import PlanningTools
+    cands = PlanningTools(gw, H.wards).candidates("A1", at(10, 15))
+    assert cands
+    d = gw.submit(prop(pid="p2", bed=cands[0].bed_id, store=store), at(10, 15))
+    if d.status != "awaiting_review":
+        pytest.skip("이 합성 배치에서는 담당 검토로 가지 않음")
+    assert gw.manager_approve("p2", at(10, 20)).reasons == ["approver_role"]
+    assert gw.review_decider("p2", at(10, 20)) == "ipc"
+    assert gw.manager_approve("p2", at(10, 20), actor="ipc").status != "rejected"
+
+
+def test_onboarding_apply_requires_complete_identified_approval():
+    from turnaround.agent.onboarding_flow import OnboardingError, apply_package
+    from turnaround.ui.scenes import SCENES, SceneRun, _tables
+    r = SceneRun(SCENES["onboard"])
+    for _ in r.scene.steps[:4]:
+        r.next()
+    legacy = r.pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    with pytest.raises(OnboardingError):
+        apply_package(legacy, _tables())

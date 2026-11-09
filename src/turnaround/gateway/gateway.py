@@ -392,7 +392,8 @@ class Gateway:
     def approver_roles(self, exception_id: str) -> set[str]:
         return self._approver_roles(exception_id, self._events())
 
-    def decline_action(self, exception_id: str, actor: str, reason: str, now: datetime) -> Decision:
+    def decline_action(self, exception_id: str, actor: str, reason: str, now: datetime,
+                       approver_id: str | None = None) -> Decision:
         """사람이 승인 요청을 거절한다 (4단계 UX 검수: 승인만 있고 거절이 없었다). 예외는 사람이 맡은 것으로 닫는다."""
         events = self._events()
         req = next((e for e in events if e.type is EventType.ACTION_APPROVAL_REQUESTED
@@ -401,6 +402,11 @@ class Gateway:
             return Decision("unknown", "action")
         if actor not in self._approver_roles(exception_id, events):
             return Decision("rejected", "action", None, ["approver_role"])
+        raised_d = next((e for e in events if e.type is EventType.EXCEPTION_RAISED
+                         and e.payload.get("exception_id") == exception_id), None)
+        if raised_d is not None and raised_d.payload.get("trigger") in self.ISOLATION_TRIGGERS and \
+                (why := self._identity_check(actor, approver_id, now)) is not None:
+            return Decision("rejected", "action", None, [why])
         if any(e.type is EventType.EXCEPTION_RESOLVED and e.payload.get("exception_id") == exception_id for e in events):
             return Decision("superseded", "action")
         self._emit(req.case_id, f"{exception_id}:declined:{req.payload['action']}", EventType.ACTION_REJECTED, now, "human",
@@ -454,7 +460,29 @@ class Gateway:
             return "max_attempts"  # 같은 알림을 되풀이하지 않는다(정답 세트 XD-042·045·200·203)
         return None
 
-    def approve_action(self, exception_id: str, actor: str, now: datetime) -> Decision:
+    def _identity_check(self, actor: str, approver_id: str | None, now: datetime) -> str | None:
+        """격리 병상 결정은 등록된 사람이, 그 시각 담당 역할로 해야 한다(근무 중 감염관리실, 근무 외 감염내과 당직).
+        사람 신원 인증 자체는 데모 범위 밖이고 명단은 운영 설정이다(설계 가정, 3회차 안전 검토)."""
+        if not approver_id or self.staff.get(approver_id) != actor:
+            return "approver_id"
+        on_duty = "ipc" if self.calendar.in_office(now) else "id_oncall"
+        return None if actor == on_duty else "not_on_duty"
+
+    def _isolation_case(self, case: str, events: list[Event]) -> bool:
+        return any(e.type is EventType.EXCEPTION_RAISED and e.payload.get("trigger") in self.ISOLATION_TRIGGERS
+                   and (e.case_id == case or e.payload.get("admission_id") == case) for e in events)
+
+    def review_decider(self, pid: str, now: datetime) -> str:
+        """이 제안의 검토 승인을 누가 하는가. 늦은 격리가 있었던 사례의 격리 검토는 그 시각 감염관리 담당."""
+        events = self._events()
+        prop = self._proposal(pid, events)
+        reasons = {r for e in events if e.type is EventType.CASE_ROUTED_REVIEW and e.payload.get("proposal_id") == pid
+                   for r in (e.payload.get("reasons") or [])}
+        if prop is not None and "isolation" in reasons and self._isolation_case(prop.case, events):
+            return "ipc" if self.calendar.in_office(now) else "id_oncall"
+        return "bed_manager"
+
+    def approve_action(self, exception_id: str, actor: str, now: datetime, approver_id: str | None = None) -> Decision:
         """사람 승인이 필요한 행동(propose_rematch 등)을 승인하고 실행한다."""
         events = self._events()
         req = next((e for e in events if e.type is EventType.ACTION_APPROVAL_REQUESTED
@@ -468,6 +496,9 @@ class Gateway:
         action = req.payload["action"]
         if actor not in self._approver_roles(exception_id, events):
             return Decision("rejected", "action", None, ["approver_role"])
+        if raised.payload.get("trigger") in self.ISOLATION_TRIGGERS and \
+                (why := self._identity_check(actor, approver_id, now)) is not None:
+            return Decision("rejected", "action", None, [why])
         prop = next((e for e in events if e.type is EventType.ACTION_PROPOSED
                      and e.payload.get("exception_id") == exception_id and e.payload.get("action") == action), None)
         from turnaround.agent.brain import ActionChoice
@@ -488,7 +519,7 @@ class Gateway:
                        exception_id=exception_id, how="approval_rejected")
             return Decision("rejected", "action", None, [why])
         self._emit(raised.case_id, f"{exception_id}:approved:{action}", EventType.ACTION_APPROVED, now, "human",
-                   **base, actor=actor)
+                   **base, actor=actor, approver_id=approver_id)
         self._execute_action(choice, raised, now)
         self._emit(raised.case_id, f"{exception_id}:executed:approved", EventType.ACTION_EXECUTED, now, **base,
                    autonomy="human")
@@ -821,6 +852,8 @@ class Gateway:
         prop = self._proposal(pid, events)
         if prop is None:
             return Decision("unknown", "approve")
+        if self.review_decider(pid, now) != "bed_manager" and actor not in self.policy.manual_override.safety_exception_roles:
+            return Decision("rejected", "approve", None, ["approver_role"])  # 늦은 격리 사례의 격리 검토는 감염관리 (3회차)
         reviewed = any(e.type is EventType.CASE_ROUTED_REVIEW and e.payload.get("proposal_id") == pid for e in events)
         wc = self.policy.hospital_profile.ward_confirmation
         if self._notify_mode() and wc.merge_manager_confirm_into_commit and not reviewed:

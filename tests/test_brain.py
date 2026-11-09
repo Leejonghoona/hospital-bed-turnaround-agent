@@ -61,7 +61,7 @@ def test_after_contact_brain_proposes_rematch_for_human_approval():
     assert not _types(store, EventType.REMATCH_REQUESTED)
     # 늦은 격리의 병상 결정은 감염관리실이 승인한다 (DECISIONS 최고점 루프 2회차)
     assert gw.approve_action(req[0].payload["exception_id"], "bed_manager", at(10, 20)).reasons == ["approver_role"]
-    d = gw.approve_action(req[0].payload["exception_id"], "ipc", at(10, 20))
+    d = gw.approve_action(req[0].payload["exception_id"], "ipc", at(10, 20), approver_id="ipc-1")
     assert d.status == "executed"
     assert _types(store, EventType.ACTION_APPROVED) and _types(store, EventType.REMATCH_REQUESTED)
     assert _types(store, EventType.EXCEPTION_RESOLVED)

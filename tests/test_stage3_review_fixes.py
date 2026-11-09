@@ -99,7 +99,7 @@ def test_fingerprint_covers_proof_and_approval_record_is_signed():
         pkg.approve(by="")
     with pytest.raises(OnboardingError):
         pkg.approve(by="아무개")  # 승인 역할이 아니다
-    ok = pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    ok = pkg.approve(by_role="medical_informatics", user_id="mi-1", acknowledge_profile_questions=True).approve(by_role="ipc_lead", user_id="ipc-lead-1", acknowledge_profile_questions=True)
     assert ok.verify() and ok.audit and ok.audit[-1]["event"] == "approved"
     forged_ok = ok.__class__(**{**ok.__dict__, "approved_by": "medical_informatics2"})
     assert not forged_ok.verify()
@@ -122,7 +122,7 @@ def _approved(fmt="emr_a", seed=2):
     tables = export(h, ev, fmt)
     s = OnboardingSession(tables, hospital="H")
     _run(s, gold_mapping(fmt))
-    return tables, s.finalize(day=3).approve(by="medical_informatics", acknowledge_profile_questions=True)
+    return tables, s.finalize(day=3).approve(by_role="medical_informatics", user_id="mi-1", acknowledge_profile_questions=True).approve(by_role="ipc_lead", user_id="ipc-lead-1", acknowledge_profile_questions=True)
 
 
 def test_drift_detects_bool_representation_change():
@@ -238,7 +238,7 @@ def test_new_format_hospital_onboards_to_operation_in_one_go():
     assert pkg.proof["passed"], pkg.proof
     with pytest.raises(OnboardingError):
         apply_package(pkg, tables)  # 승인 전
-    ok = pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    ok = pkg.approve(by_role="medical_informatics", user_id="mi-1", acknowledge_profile_questions=True).approve(by_role="ipc_lead", user_id="ipc-lead-1", acknowledge_profile_questions=True)
     mapped = apply_package(ok, tables)
     assert sorted(map(_key, mapped.events)) == sorted(map(_key, ev)) and mapped.beds == h.beds
     st = build_demo(seed=4, day=3, until=time(23, 45), via_fhir=False, policy=load_policy(profile="field_default"),
