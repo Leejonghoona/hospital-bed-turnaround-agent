@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import Callable
 
-SEED_DAY, SEED_NEW = 0, 4
+SEED_DAY, SEED_EXC, SEED_NEW = 2, 0, 4  # 장면 1은 측정 조건(지난 날 입원은 입실한 것으로 봄)과 같다
 
 
 @dataclass
@@ -49,9 +49,9 @@ class SceneRun:
     def next(self) -> dict:
         if self.done:
             return self.view()
+        step = self.scene.steps[self.index + 1]
+        caption = step.run(self)  # 단계가 끝까지 성공했을 때만 넘어간다(중간에 끊기면 같은 단계를 다시 한다)
         self.index += 1
-        step = self.scene.steps[self.index]
-        caption = step.run(self)
         self.log.append(f"{self.index + 1}. {step.title}: {caption}")
         return self.view()
 
@@ -64,9 +64,15 @@ class SceneRun:
         if step.role == "onboarding":
             data = views.onboarding_view(self.session) if self.session is not None else {}
             if self.pkg is not None:
-                data["package"] = {"version": self.pkg.version, "status": self.pkg.status,
-                                   "proof": {k: self.pkg.proof.get(k) for k in ("passed", "order_violations",
-                                                                                "safety_violations", "commits", "plausibility")}}
+                p = self.pkg.proof
+                data["package"] = {"status": {"proposed": "승인 대기", "approved": "승인됨"}.get(self.pkg.status),
+                                   "version": self.pkg.version,
+                                   "proof": [{"검사": "재생 증명", "결과": "통과" if p.get("passed") else "실패"},
+                                             {"검사": "사건 순서 위반", "결과": p.get("order_violations")},
+                                             {"검사": "하루 재생 안전 위반", "결과": p.get("safety_violations")},
+                                             {"검사": "하루 재생 배정", "결과": p.get("commits")},
+                                             {"검사": "개연성 문제(코드 뒤바뀜 의심)",
+                                              "결과": len(p.get("plausibility") or [])}]}
         elif self.st is not None:
             data = {"admission": views.admission_view, "ward": views.ward_view, "ipc": views.ipc_view,
                     "manager": views.manager_view}[step.role](self.st)
@@ -80,12 +86,12 @@ def _policy():
     return load_policy(profile="field_default")
 
 
-def _day(run: SceneRun, seed: int, until: time, mapped=None) -> None:
+def _day(run: SceneRun, seed: int, until: time, mapped=None, past: bool = True) -> None:
     from turnaround.sim import GeneratorConfig
     from turnaround.ui.demo import build_demo
     run.st = build_demo(seed=seed, day=3, until=until, via_fhir=False, policy=_policy(),
                         config=GeneratorConfig.realistic(), occupancy="sparse" if mapped is not None else "full",
-                        mapped=mapped)
+                        mapped=mapped, past_admissions=past)
 
 
 def _to(run: SceneRun, hh: int, mm: int = 0) -> None:
@@ -95,18 +101,18 @@ def _to(run: SceneRun, hh: int, mm: int = 0) -> None:
 # ---------------- 1. 평범한 하루 ----------------
 
 def _a1(run):
-    _day(run, SEED_DAY, time(9, 30))
+    _day(run, SEED_DAY, time(10, 30), past=False)
     v = __import__("turnaround.ui.views", fromlist=["admission_view"]).admission_view(run.st)
-    return f"09:30 원무 화면. 에이전트가 확정하고 통보한 배정 {len(v['notices'])}건(근거·되돌리기 가능), 환자 연락 할 일 {len(v['contacts'])}건"
+    return f"10:30 원무 화면. 에이전트가 확정하고 통보한 배정 {len(v['notices'])}건(근거·되돌리기 가능), 환자 연락 할 일 {len(v['contacts'])}건"
 
 
 def _a2(run):
-    _to(run, 13)
+    _to(run, 14)
     v = __import__("turnaround.ui.views", fromlist=["ward_view"]).ward_view(run.st)
     steps = {}
     for r in v["flow"]:
         steps[r["step"]] = steps.get(r["step"], 0) + 1
-    return "13:00 병동 화면. 통보 → 병동 준비 → 올려주세요 → 입실: " + ", ".join(f"{k} {n}" for k, n in steps.items())
+    return "14:00 병동 화면. 통보 → 병동 준비 → 올려주세요 → 입실: " + ", ".join(f"{k} {n}" for k, n in steps.items())
 
 
 def _a3(run):
@@ -124,11 +130,11 @@ SCENE_DAY = Scene("day", "1. 평범한 하루", "에이전트가 확정하고 �
 # ---------------- 2. 예외와 승인 ----------------
 
 def _b1(run):
-    _day(run, SEED_DAY, time(13, 30))
+    _day(run, SEED_EXC, time(13, 30))
     from turnaround.ui.views import pending_approvals
     ap = pending_approvals(run.st)
     run.memo["approval"] = ap[0]["exception_id"] if ap else None
-    return (f"13:30 원무 화면. 약속 위험: 머리가 '{ap[0]['action_ko']}'을 제안했고 사람 승인을 기다린다"
+    return (f"13:30 원무 화면. 약속 위험: 에이전트가 '{ap[0]['action_ko']}'을 제안했고 사람 승인을 기다린다"
             if ap else "13:30 원무 화면. 승인 대기 카드 없음")
 
 
@@ -162,9 +168,22 @@ def _b3(run):
 
 
 def _b4(run):
-    from turnaround.ui.views import blocked_decisions
-    b = blocked_decisions(run.st)
-    return f"원무 화면의 '막힌 판단' {len(b)}건: 게이트웨이가 금지 행동을 막고 사람에게 올린 기록"
+    """연락·확정 뒤 자동 재매칭을 에이전트가 골랐다고 해 보고, 게이트웨이가 막는 것을 보여 준다(시험 입력)."""
+    from turnaround.agent.brain import ActionChoice
+    from turnaround.events import EventType
+    case = run.memo.get("iso_case")
+    ev = run.st.store.read()
+    ex = next((e for e in reversed(ev) if e.type is EventType.EXCEPTION_RAISED and e.case_id == case
+               and e.payload.get("trigger") == "late_isolation"), None)
+    if ex is None:
+        return "막을 판단을 보여 줄 늦은 격리 예외가 없다"
+    choice = ActionChoice(exception_id=ex.payload["exception_id"], trigger="late_isolation", case=case,
+                          action="rematch_now", params={}, rationale="시연: 확정 뒤 자동 재매칭을 시도",
+                          basis_seq=max((e.seq or 0) for e in ev), mode="llm")
+    d = run.st.gw.submit_action(choice, run.st.now)
+    why = {"stage_locked": "연락·확정 뒤 자동 변경 금지"}.get((d.reasons or [""])[0], ",".join(d.reasons or []))
+    return (f"시연 입력: 에이전트가 {case}를 스스로 다른 병상으로 옮기려 하면 → 게이트웨이가 "
+            f"{'거부' if d.status == 'rejected' else d.status}({why}). 원무 화면 '막힌 판단'에 남는다")
 
 
 SCENE_EXCEPTION = Scene("exception", "2. 예외와 승인",
@@ -191,7 +210,8 @@ def _c1(run):
     from turnaround.agent.onboarding_flow import OnboardingSession
     run.session = OnboardingSession(_tables(), hospital="새 병원(emr_f)")
     g = run.session.current()
-    return f"내보내기 3개 표를 올렸다. 첫 묶음 '{g.stage}' 질문 {len(g.questions)}개(병상 표를 못 찾아 구조부터 묻는다)"
+    from turnaround.ui.views import STAGE_KO
+    return f"내보내기 3개 표를 올렸다. 첫 묶음 '{STAGE_KO[g.stage]}' 질문 {len(g.questions)}개(병상 표를 못 찾아 구조부터 묻는다)"
 
 
 def _answer_until(run, stop_stage: str | None):
@@ -227,7 +247,7 @@ def _c5(run):
     run.pkg = run.pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
     mapped = apply_package(run.pkg, _tables())
     _day(run, SEED_NEW, time(18), mapped=mapped)
-    return f"의료정보팀 승인(판 {run.pkg.version}) → 운영 적용 → 그 병원 하루 재생. 관리자 화면의 자율권 카드"
+    return "의료정보팀 승인(판 지문으로 고정) → 운영 적용 → 그 병원 하루 재생. 관리자 화면의 자율권 카드"
 
 
 SCENE_ONBOARD = Scene("onboard", "3. 새 병원 온보딩과 자율권",

@@ -490,6 +490,15 @@ def decide_call_up(s: SagaState, out, p, now: datetime) -> None:
                     kind="call_up_held", assignee="bed_manager", bed_id=m.bed_id, reason="isolation_after_commit")
             continue
         d = current_discharge(s, m)
+        other = [x for x in s.discharges.values() if x.bed_id == m.bed_id and (d is None or x.id != d.id)
+                 and EventType.DISCHARGE_CANCELLED not in x.facts and EventType.PATIENT_DEPARTED not in x.facts
+                 and x.facts and min(x.facts.values()) <= now]
+        if other:
+            # 이 병상에 퇴실 전인 다른 환자가 기록돼 있다(점유 기록 충돌): 확인 전에는 부르지 않는다 (5단계 50시드 S4)
+            out.cmd(m.admission_id, f"call_up_held:occupied:{other[0].id}", EventType.HUMAN_TASK_CREATED,
+                    max(min(other[0].facts.values()), m.facts[EventType.MATCH_COMMITTED]), kind="call_up_held",
+                    assignee="bed_manager", bed_id=m.bed_id, reason="bed_occupancy_conflict", other_case=other[0].id)
+            continue
         if d is not None and d.isolation:
             bed_ok = d.seen(EventType.BED_MARKED_VACANT)  # 격리 퇴실은 종말소독 뒤 빈 병상 전환만
         else:

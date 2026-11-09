@@ -374,3 +374,18 @@ def test_no_call_up_after_late_isolation_until_bed_is_rechecked():
     s.step(at(13, 5))
     assert not types(store, T.PATIENT_CALL_UP)
     assert any(e.payload.get("kind") == "call_up_held" for e in types(store, T.HUMAN_TASK_CREATED))
+
+
+def test_no_call_up_when_another_patient_is_recorded_on_the_bed():
+    """5단계 50시드에서 발견(S4): 앞 환자 퇴실 뒤 같은 병상에 다른 환자의 퇴원 결정이 들어왔는데 '올려주세요'가 나갔다."""
+    evs = dc(False, [adm_at(at(13)), ev("D1", "dep", T.PATIENT_DEPARTED, at(10), bed_id=BED),
+                     ev("D1", "ready", T.BED_READY, at(11), "human", bed_id=BED)])
+    store, gw = make(evs, policy=FIELD)
+    gw.submit(prop(store=store, discharge_id="D1"), at(9))
+    store.append(contacted(at(9, 30), promised=at(13)))
+    store.append(ev("A1", "ward_prep", T.WARD_PREP_DONE, at(10), "human", bed_id=BED))
+    for e in dc(False, case="D2"):
+        store.append(e.model_copy(update={"occurred_at": at(12), "observed_at": at(12)}))
+    saga(store).step(at(13, 5))
+    assert not types(store, T.PATIENT_CALL_UP)
+    assert any(e.payload.get("reason") == "bed_occupancy_conflict" for e in types(store, T.HUMAN_TASK_CREATED))

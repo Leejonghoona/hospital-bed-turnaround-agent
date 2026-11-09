@@ -22,6 +22,7 @@ async function idle(page) {
     await idle(page);
     for (let i = 1; i <= n; i++) {
       await page.getByRole('button', { name: '다음 ▶' }).click();
+      await page.getByText(`${i}/${n} 단계`).waitFor({ timeout: 180000 });  // 그 단계가 끝나 진행 표시가 바뀔 때까지
       await idle(page);
       const f = `${out}/scene_${sid}_${i}.png`;
       await page.screenshot({ path: f, fullPage: true });

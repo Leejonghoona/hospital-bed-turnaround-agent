@@ -20,7 +20,7 @@ ROLE_KO = {"admission": "원무(병상 배정)", "ward": "병동(책임간호사
            "onboarding": "온보딩(의료정보팀)", "vendor": "청소 협력업체"}
 
 
-COL_KO = {"case": "사례", "bed": "병상", "kind": "종류", "due": "마감", "time": "시각", "action": "행동", "reason": "이유",
+COL_KO = {"case": "사례", "bed": "병상", "kind": "종류", "due": "마감", "time": "시각", "action": "행동", "reason": "이유", "why": "사유",
           "committed": "확정 시각", "precautions": "격리 주의", "organism": "균", "departed": "퇴실", "status": "상태",
           "bed_id": "병상", "eta": "시작 가능", "cleaning_type": "청소 유형"}
 
@@ -32,72 +32,116 @@ def ko(rows: list[dict]) -> list[dict]:
 
 # ---------------- 역할별 그리기 ----------------
 
+def _now_event(store, case, key, etype, now, **payload):
+    from turnaround.events import Event
+    store.append(Event(event_id=f"{case}:ui:{key}", case_id=case, type=etype, occurred_at=now, observed_at=now,
+                       source="human", payload=payload))
+
+
 def show_admission(d: dict, gw=None, now=None, key: str = "") -> None:
+    st.markdown("### 지금 할 일")
     c = st.columns(4)
-    c[0].metric("에이전트 확정 통보", len(d["notices"]))
-    c[1].metric("승인 대기", len(d["approvals"]))
-    c[2].metric("환자 연락 할 일", len(d["contacts"]))
-    c[3].metric("막힌 판단", len(d["blocked"]))
-    st.subheader("승인 대기 (사람 승인이 필요한 행동)")
-    if not d["approvals"]:
-        st.caption("없음")
+    c[0].metric("승인 대기", len(d["approvals"]), help="에이전트가 제안했고 사람 승인이 필요한 행동")
+    c[1].metric("환자 연락", len(d["contacts"]), help="에이전트가 확정했고 원무가 환자에게 알릴 입원")
+    c[2].metric("작업", len(d["tasks"]))
+    c[3].metric("오늘 막힌 판단", len(d["blocked"]), help="게이트웨이가 금지 행동을 막고 사람에게 올린 수")
     for a in d["approvals"]:
         with st.container(border=True):
-            late = " · :red[마감 지남]" if a["overdue"] else ""
+            late = " · :red[마감 지남, 지금 처리]" if a["overdue"] else ""
             st.markdown(f"**{a['trigger_ko']} · {a['case']}** → {a['action_ko']}  (요청 {a['since']}, 마감 {a['deadline']}){late}")
-            st.write("근거: " + (a["rationale"] or "-"))
+            st.write("에이전트 근거: " + (a["rationale"] or "-"))
             if a["facts"]:
                 st.caption(" · ".join(a["facts"]))
             if gw is not None and st.button("승인", key=f"ap-{key}-{a['exception_id']}"):
                 dec = gw.approve_action(a["exception_id"], "bed_manager", now)
-                st.toast(f"게이트웨이 재확인 뒤: {dec.status} {dec.reasons or ''}")
+                st.toast("게이트웨이가 다시 확인한 뒤 " + ("실행했습니다" if dec.status == "executed" else f"거부했습니다 {dec.reasons}"))
                 st.rerun()
-    st.subheader("에이전트 확정 통보 (근거와 함께, 시한 안에 되돌릴 수 있음)")
-    st.dataframe([{"사례": n["case"], "병상": n["bed"], "시각": n["time"], "점수(상대)": n["score"],
-                   "차순위": n["runner_up"], "생략한 검토 사유": ", ".join(n["waived"]), "되돌리기 시한": n["undo_until"],
-                   "유효": "예" if n["active"] else "아니오"} for n in d["notices"]], hide_index=True,
-                 width="stretch")
-    st.subheader("환자 연락 할 일")
-    st.dataframe(ko(d["contacts"]), hide_index=True, width="stretch")
-    st.subheader("작업")
-    st.dataframe(ko(d["tasks"]), hide_index=True, width="stretch")
+    if d["contacts"]:
+        st.markdown("**환자 연락할 입원**")
+        st.dataframe(ko(d["contacts"]), hide_index=True, width="stretch")
+    if d["tasks"]:
+        st.markdown("**작업**")
+        st.dataframe(ko(d["tasks"]), hide_index=True, width="stretch")
+    st.markdown("### 에이전트가 확정하고 알린 배정 (시한 안에 되돌릴 수 있음)")
+    for n in d["notices"]:
+        cols = st.columns([4, 1])
+        waived = f" · 생략한 검토: {', '.join(n['waived'])}" if n["waived"] else ""
+        cols[0].write(f"{n['time']} **{n['case']} → {n['bed']}** · 차순위 {n['runner_up'] or '없음'}{waived} · "
+                      f"되돌리기 시한 {n['undo_until'] or '-'}" + ("" if n["active"] else " · (이미 바뀜)"))
+        if gw is not None and n["active"] and n["proposal_id"] and cols[1].button("되돌리기", key=f"undo-{key}-{n['case']}"):
+            dec = gw.ward_objection(n["proposal_id"], "원무 되돌림", now)
+            st.toast("되돌렸습니다: 연락 전이면 다시 찾고, 연락 뒤면 담당 검토로 갑니다" if dec.status else "")
+            st.rerun()
     with st.expander(f"담당 검토 {len(d['reviews'])}건"):
         st.dataframe([{"사례": r["case"], "병상": r["bed"] or "병상 없음", "사유": ", ".join(r["reasons"]), "마감": r["due"]}
                       for r in d["reviews"]], hide_index=True, width="stretch")
-    st.subheader("막힌 판단 (게이트웨이가 막고 사람에게 올림)")
-    st.dataframe(ko(d["blocked"]), hide_index=True, width="stretch")
+    with st.expander(f"오늘 막힌 판단 {len(d['blocked'])}건 (안전장치 기록)"):
+        st.dataframe(ko(d["blocked"]), hide_index=True, width="stretch")
 
 
-def show_ward(d: dict) -> None:
-    st.subheader("배정 통보 → 병동 준비 → 올려주세요 → 입실")
-    st.dataframe([{"사례": f["case"], "병상": f["bed"], "통보": f["notified"], "단계": f["step"], "확정": f["by"]}
-                  for f in d["flow"]], hide_index=True, width="stretch")
-    st.subheader("알림·작업")
-    st.dataframe(ko(d["notes"]), hide_index=True, width="stretch")
+def show_ward(d: dict, st_=None) -> None:
+    st.markdown("### 지금 할 일")
+    if not d["todo"]:
+        st.success("준비할 입원이 없습니다")
+    for f in d["todo"]:
+        cols = st.columns([4, 1, 1])
+        hold = f" · :red[올려주세요 보류: {f['hold']}]" if f["hold"] else ""
+        cols[0].write(f"**{f['case']} → {f['bed']}** ({f['by']}, 통보 {f['notified']}) · {f['step']}{hold}")
+        if st_ is not None and f["step"] == "준비 필요":
+            from turnaround.events import EventType
+            if cols[1].button("준비 완료", key=f"prep-{f['case']}"):
+                _now_event(st_.store, f["case"], "ward_prep_done", EventType.WARD_PREP_DONE, st_.now, bed_id=f["bed"])
+                st.rerun()
+            if f["proposal_id"] and cols[2].button("이의", key=f"obj-{f['case']}"):
+                st_.gw.ward_objection(f["proposal_id"], "병동 이의", st_.now)
+                st.rerun()
+    st.markdown("### 입실 흐름 (통보 → 준비 → 올려주세요 → 입실)")
+    st.dataframe([{"사례": f["case"], "병상": f["bed"], "통보": f["notified"], "단계": f["step"], "보류": f["hold"],
+                   "확정": f["by"]} for f in d["flow"]], hide_index=True, width="stretch")
+    if d["notes"]:
+        st.markdown("**알림**")
+        st.dataframe(ko(d["notes"]), hide_index=True, width="stretch")
 
 
-def show_ipc(d: dict) -> None:
-    st.subheader("격리 오더")
+def show_ipc(d: dict, st_=None) -> None:
+    st.markdown("### 지금 할 일 (감염관리실이 받은 통지)")
+    todo = [a for a in d["alerts"] if not a["checked"]]
+    if not todo:
+        st.success("확인할 통지가 없습니다")
+    for a in todo:
+        cols = st.columns([5, 1])
+        cols[0].write(f"{a['time']} **{a['case']}** · {a['kind']} · {a['card']}")
+        if st_ is not None and cols[1].button("확인", key=f"ipc-{a['task_id']}"):
+            from turnaround.events import EventType
+            _now_event(st_.store, a["case"], f"ipc_ack:{a['task_id']}", EventType.HUMAN_TASK_DONE, st_.now,
+                       task_id=a["task_id"], by="ipc")
+            st.rerun()
+    st.markdown("### 격리 오더")
     st.dataframe(ko(d["isolation_orders"]), hide_index=True, width="stretch")
-    st.subheader("감염관리실이 받은 올림")
-    st.dataframe([{"사례": a["case"], "종류": a["kind"], "시각": a["time"], "근거": a["card"]}
-                  for a in d["alerts"]], hide_index=True, width="stretch")
-    st.subheader("격리 퇴실 병상 종말소독")
-    st.dataframe(ko(d["terminal"]), hide_index=True, width="stretch")
+    st.markdown("### 격리 퇴실 병상 종말소독")
+    if d["terminal"]:
+        st.dataframe(ko(d["terminal"]), hide_index=True, width="stretch")
+    else:
+        st.caption("오늘 격리 퇴실 병상 없음")
 
 
 def show_manager(d: dict) -> None:
     hl = d["human_load"]
+    st.markdown("### 오늘 한눈에")
     c = st.columns(4)
-    c[0].metric("입원 사례", hl["admission_cases"])
+    c[0].metric("오늘 입원", hl["admission_cases"])
     c[1].metric("확정", hl["committed"])
-    c[2].metric("사람 손 없이 확정", hl["no_touch_committed"])
-    c[3].metric("사례당 책임 개입", hl["accountable_per_case"])
-    st.subheader("자율권 카드 (근거로 승격·강등 제안, 승인은 사람)")
-    st.dataframe([{"단위": c["unit"], "지금": c["mode"], "근거": c["evidence"], "제안": c["recommendation"],
+    c[2].metric("사람 손 없이 확정", hl["no_touch_committed"], help="에이전트가 확정하고 사람은 통보만 받은 배정")
+    c[3].metric("입원당 사람 판단 횟수", hl["accountable_per_case"], help="환자 연락처럼 사람이 책임지는 동작 수 / 입원 수")
+    st.dataframe([{"구간 지표": k, "값": v} for k, v in d["flow"].items()], hide_index=True)
+    if d["unassigned"]:
+        st.caption("아직 확정 안 된 입원: " + ", ".join(f"{k} {v}건" for k, v in d["unassigned"].items()))
+    st.markdown("### 안전 (실행된 기록으로 검사, 위반 0이어야 함)")
+    st.dataframe(d["safety"], hide_index=True, width="stretch")
+    st.markdown("### 자율권 카드 (근거로 승격·강등 제안, 적용은 사람이 승인)")
+    st.dataframe([{"판단 단위": c["unit"], "지금 누가": c["mode"], "근거": c["evidence"], "제안": c["recommendation"],
                    "잠금": "승격 금지" if c["locked"] else ""} for c in d["cards"]], hide_index=True, width="stretch")
-    st.subheader("실행 상태 안전 (위반/검사 수)")
-    st.dataframe([{"지표": k, "위반/검사": v} for k, v in d["safety"].items()], hide_index=True)
+    st.caption("근거의 '하한'은 사람 결정과 에이전트 판단이 일치한 비율의 95% 신뢰 하한입니다. 합성 데이터 기준 추정.")
 
 
 def show_onboarding(d: dict) -> None:
@@ -106,14 +150,15 @@ def show_onboarding(d: dict) -> None:
     if d.get("stage") == "done":
         st.success(f"질문 끝. 답 {d['answered']}개")
     else:
-        st.markdown(f"**지금 묶음: {d['stage_ko']}** (질문 {len(d['questions'])}개, 그중 제안 없는 질문 {d['open']}개, "
-                    f"남은 질문 {d['remaining']}개, 답 {d['answered']}개)")
-        st.dataframe([{"질문": q["item"], "이유": q["why"], "제안": q["proposal"], "보기": ", ".join(map(str, q["options"]))}
-                      for q in d["questions"]], hide_index=True, width="stretch")
+        st.markdown(f"### 지금 묶음: {d['stage_ko']}")
+        st.caption(f"질문 {len(d['questions'])}개(제안 없는 질문 {d['open']}개) · 남은 질문 {d['remaining']}개 · 답 {d['answered']}개")
+        st.dataframe([{"질문": q["item"], "이유": q["why"], "제안": q["proposal"] if q["proposal"] is not None else "-",
+                       "보기": ", ".join(map(str, q["options"]))} for q in d["questions"]], hide_index=True, width="stretch")
     if d.get("package"):
         p = d["package"]
-        st.subheader(f"판 {p['version']} · {p['status']}")
-        st.json(p["proof"])
+        st.markdown(f"### 매핑 판 · {p['status']}")
+        st.dataframe(p["proof"], hide_index=True)
+        st.caption(f"판 지문 {p['version']} (승인 뒤 내용이 바뀌면 지문 검사가 실패해 운영에 쓰지 않습니다)")
 
 
 SHOW = {"admission": show_admission, "ward": show_ward, "ipc": show_ipc, "manager": show_manager,
@@ -169,8 +214,12 @@ else:
     st.header(f"{ROLE_KO[role]} 화면 · {s.now:%m-%d %H:%M}")
     if role == "admission":
         show_admission(views.admission_view(s), gw=s.gw, now=s.now, key="free")
+    elif role == "ward":
+        show_ward(views.ward_view(s), s)
+    elif role == "ipc":
+        show_ipc(views.ipc_view(s), s)
     elif role == "vendor":
         st.caption("보이는 정보: 병상 번호, 시작 가능 시각, 청소 유형 (환자 정보 없음)")
         st.dataframe(ko(vendor_view(s)), hide_index=True, width="stretch")
     else:
-        SHOW[role]({"ward": views.ward_view, "ipc": views.ipc_view, "manager": views.manager_view}[role](s))
+        show_manager(views.manager_view(s))
