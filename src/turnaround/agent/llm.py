@@ -278,12 +278,12 @@ def get_llm(env: dict | None = None) -> LLM:
     kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
     if kind == "fake" or not model:
         return FakeLLM()
-    if kind == "claudesub":
-        return ClaudeSubLLM(model=model)  # 노트북의 Claude Code 구독 로그인. 합성 데이터만 보낸다
     if kind == "local":
         return LocalLLM(model_path=model)  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
     if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":
         raise LLMError("외부 LLM은 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 쓴다")
+    if kind == "claudesub":  # 구독 경유도 데이터가 국외 서버로 간다: 합성 데이터 확인 필요
+        return ClaudeSubLLM(model=model)
     if kind == "openai" and env.get("OPENAI_API_KEY"):
         return OpenAILLM(model=model, name=f"openai:{model}")
     if kind == "xai":  # OpenAI 호환 API. 키는 환경 프록시가 넣는다
