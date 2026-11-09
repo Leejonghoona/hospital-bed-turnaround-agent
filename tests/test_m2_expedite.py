@@ -77,6 +77,7 @@ def _dc_events(order_at=None, guardian_eta=None, ready=False):
                    eta=(guardian_eta or at(10)).isoformat()))
     if order_at:
         base.append(ev("D1", "order_confirmed", EventType.ORDER_CONFIRMED, order_at))
+        base.append(ev("D1", "billing_review_done", EventType.BILLING_REVIEW_DONE, order_at + timedelta(minutes=30)))
     if ready:
         base += [ev("D1", "rx_issued", EventType.DISCHARGE_RX_ISSUED, at(8, 5)),
                  ev("D1", "medication_ready", EventType.MEDICATION_READY, at(9, 40)),

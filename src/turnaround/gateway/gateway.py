@@ -372,6 +372,12 @@ class Gateway:
         if choice.action == "request_bed_prep_first" and self._isolation_discharge_pending(raised.payload.get("bed_id"),
                                                                                               events):
             return "terminal_cleaning_pending"  # 격리 퇴실 병실은 종말소독 완료 전 침상 정리 금지 (H34)
+        if choice.action == "replan_now" and ctx.get("correction_direction") == "loosen" \
+                and not ctx.get("correction_confirmed"):
+            return "loosen_unconfirmed"  # 안전을 푸는 정정은 사람이 확인하기 전에 다시 계획하지 않는다
+        if choice.action == "request_bed_prep_first" and raised.payload.get("trigger") == "promise_at_risk" \
+                and ctx.get("isolation_discharge"):
+            return "terminal_cleaning_pending"
         if choice.action == "rematch_now" and raised.payload.get("trigger") == "cleaning_overdue":
             contacted = {e.case_id for e in events if e.type is EventType.PATIENT_CONTACTED}
             if set(ctx.get("waiting_admissions") or []) & contacted:
@@ -404,14 +410,30 @@ class Gateway:
                        card=raised.payload.get("context"))  # 근거 카드 (예: 오늘 퇴원 예정 병상과 단계)
         elif choice.action in ("rematch_now", "propose_rematch") and choice.trigger == "cleaning_overdue":
             self._release_waiting(exid, raised, now, "cleaning_overdue")
+        elif choice.action in ("rematch_now", "propose_rematch") and choice.trigger in ("ward_objection",
+                                                                                       "info_changed_pending"):
+            self._release_waiting(exid, raised, now, choice.trigger)
+        elif choice.action == "replan_now":
+            self._release_waiting(exid, raised, now, "info_changed")
+            if not (raised.payload.get("context") or {}).get("waiting_admissions"):
+                self._emit(case, f"{exid}:replan", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
+        elif choice.action == "request_recontact":
+            self._emit(case, f"{exid}:task:recontact", EventType.HUMAN_TASK_CREATED, now, kind="recontact",
+                       assignee="bed_manager", reason=choice.trigger, bed_id=raised.payload.get("bed_id"))
+        elif choice.action == "remind_ward":
+            self._emit(case, f"{exid}:task:call_up", EventType.HUMAN_TASK_CREATED, now, kind="call_up_reminder",
+                       assignee="ward", reason=choice.trigger, bed_id=raised.payload.get("bed_id"))
         elif choice.action in ("rematch_now", "propose_rematch"):
             # 병상은 규칙 모드가 고른다(U8). 여기서는 다시 찾기만 요청한다
             self._emit(case, f"{exid}:rematch", EventType.REMATCH_REQUESTED, now, target="admission", admission_id=case)
         elif choice.action == "remind_owner":
-            # 오더는 주치의가 낸다. 시스템은 근거(이 병상을 기다리는 입원)를 붙여 병동에 알린다 (사유·근거 통지 원칙)
+            # 그 단계 담당에게 근거(이 병상을 기다리는 입원)를 붙여 알린다. 처방은 주치의라 병동을 거친다 (사유·근거 통지)
             ctx = raised.payload.get("context") or {}
-            self._emit(case, f"{exid}:task:order_nudge", EventType.HUMAN_TASK_CREATED, now, reason="sequence_stalled",
-                       kind="order_nudge", assignee="ward", bed_id=raised.payload.get("bed_id"),
+            step = ctx.get("step", "discharge_order")
+            owner = {"physician": "ward"}.get(ctx.get("step_owner", "physician"), ctx.get("step_owner", "ward"))
+            kind = "order_nudge" if step == "discharge_order" else f"step_nudge:{step}"
+            self._emit(case, f"{exid}:task:{kind}", EventType.HUMAN_TASK_CREATED, now, reason="sequence_stalled",
+                       kind=kind, assignee=owner, bed_id=raised.payload.get("bed_id"), step=step,
                        next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
         elif choice.action == "offer_lounge":
             ctx = raised.payload.get("context") or {}
@@ -419,7 +441,13 @@ class Gateway:
                        to="ward", guardian_wait_min=ctx.get("guardian_wait_min"),
                        next_admission_waiting=bool(ctx.get("next_admission_waiting")), rationale=choice.rationale)
         elif choice.action == "re_request_cleaning":
-            last = [e for e in self._events() if e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == case]
+            target = raised.payload.get("discharge_id") or case  # 약속 위험(E9)은 입원 사례에서 오른다
+            evs = self._events()
+            if any(e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == target and e.payload.get("reminder")
+                   and e.observed_at > now - timedelta(minutes=30) for e in evs):
+                return  # 30분 안에 같은 청소를 이미 재요청했다 (설계 가정, 다른 예외와 겹침 방지)
+            case = target
+            last = [e for e in evs if e.type is EventType.CLEANING_REQUEST_ISSUED and e.case_id == case]
             keep = {k: v for k, v in (last[-1].payload if last else {}).items()
                     if k in ("bed_id", "cleaning_type", "aerosol_wait_min", "sporicidal")}
             keep.setdefault("bed_id", raised.payload.get("bed_id"))

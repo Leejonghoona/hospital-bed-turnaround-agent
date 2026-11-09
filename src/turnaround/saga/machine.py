@@ -45,6 +45,7 @@ class SagaPolicy(BaseModel):
     exception_deadline: timedelta = timedelta(minutes=120)
     # 퇴원 병목 (로드맵 07 M2): 환자 준비가 끝났는데 보호자 도착 예정이 이만큼 넘게 남으면 라운지 판단을 올린다
     lounge_enabled: bool = False
+    field_sequence: bool = False  # 현장형 퇴원 순서(심사·조제 병행 → 수납 안내 → 수납 …)를 따르는 병원
     cleaning_split: bool = False  # 청소 두 갈래: 병원 직원 침상 정리 요청을 함께 낸다 (현장 프로필)
     call_up_enabled: bool = False  # 입실 구간: 병상·병동 준비와 수속이 갖춰지면 "올려주세요" (현장 프로필)
     guardian_lounge_margin: timedelta = timedelta(minutes=30)  # 설계 가정
@@ -64,7 +65,7 @@ class SagaPolicy(BaseModel):
                     isolation_alert_to=tuple(hp.isolation.alert_to),
                     isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min),
                     exceptions_enabled=policy.brain.enabled, lounge_enabled=hp.guardian.lounge_enabled,
-                    cleaning_split=hp.cleaning.split, call_up_enabled=hp.ward_confirmation.mode == "notify",
+                    cleaning_split=hp.cleaning.split, field_sequence=hp.discharge_sequence.preset == "field", call_up_enabled=hp.ward_confirmation.mode == "notify",
                     exception_deadline=timedelta(minutes=policy.brain.max_wait_min))
         vals.update(kw)
         return cls.for_layout(rooms, beds, **vals) if rooms is not None else cls(**vals)
@@ -180,6 +181,11 @@ class SagaState:
     isolation_ordered: dict[str, datetime] = field(default_factory=dict)
     isolation_order_payload: dict[str, dict] = field(default_factory=dict)
     no_bed_reports: list[Event] = field(default_factory=list)  # 병상 없음 보고 (E5)
+    objections: list[Event] = field(default_factory=list)  # 병동 이의 (E8)
+    admission_cmds: dict[str, set[str]] = field(default_factory=dict)  # 입원 사례에 낸 사가 명령 키
+
+    def admission_commands(self, case: str) -> set[str]:
+        return self.admission_cmds.get(case, set())
 
 
 _MATCH_TYPES = {EventType.PREMATCH_CREATED, EventType.PATIENT_CONTACTED, EventType.MATCH_COMMITTED,
@@ -200,6 +206,10 @@ def _bed_discharge(s: SagaState, bed: str | None) -> str | None:
 def fold(events: Iterable[Event]) -> SagaState:
     s = SagaState()
     for ev in sorted(events, key=lambda x: (x.seq or 0, x.observed_at)):
+        if ev.source == "saga":
+            s.admission_cmds.setdefault(ev.case_id, set()).add(ev.event_id)
+        if ev.type is EventType.WARD_OBJECTION_RAISED:
+            s.objections.append(ev)
         if ev.type is EventType.MANUAL_OVERRIDE_APPLIED:
             s.pins[ev.case_id] = ev.payload.get("actor", "")
             continue
@@ -337,6 +347,8 @@ def decide(s: SagaState, now: datetime, known: set[str], policy: SagaPolicy = Sa
     decide_contact_trace(s, out, policy)
     decide_no_bed(s, out, policy)
     decide_call_up(s, out, policy, now)
+    from .exceptions_more import decide_more  # 순환 import 피함
+    decide_more(s, now, out, policy)
     for c in s.corrections:  # 제약을 푸는 정정은 사람 확인 작업
         current = s.admission_payload.get(c.case_id) or {}
         if c.event_id not in s.confirmed_corrections and \

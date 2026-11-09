@@ -164,6 +164,11 @@ ta:act_request_bed_prep_first a ta:ActionType ; ta:autonomyKey "request_bed_prep
 ta:act_wait a ta:ActionType ; ta:autonomyKey "wait" ; ta:gatewayMethod "submit_action" .
 ta:act_share_eta a ta:ActionType ; ta:autonomyKey "share_eta" ; ta:gatewayMethod "submit_action" .
 ta:act_wait_for_next_ready a ta:ActionType ; ta:autonomyKey "wait_for_next_ready" ; ta:gatewayMethod "submit_action" .
+ta:act_wait_for_bed a ta:ActionType ; ta:autonomyKey "wait_for_bed" ; ta:gatewayMethod "submit_action" .
+ta:act_replan_now a ta:ActionType ; ta:autonomyKey "replan_now" ; ta:gatewayMethod "submit_action" ;
+    rdfs:comment "정정된 값으로 다시 찾기. 안전을 푸는 정정은 확인 전 거부" .
+ta:act_request_recontact a ta:ActionType ; ta:autonomyKey "request_recontact" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
+ta:act_remind_ward a ta:ActionType ; ta:autonomyKey "remind_ward" ; ta:gatewayMethod "submit_action" ; ta:notifies ta:ward .
 ta:act_request_postpone_contact a ta:ActionType ; ta:autonomyKey "request_postpone_contact" ; ta:gatewayMethod "submit_action" ; ta:by ta:bed_manager .
 
 # ---------------- 사건 순서 (같은 사례 안에서 앞 사건은 뒤 사건보다 늦지 않다) ----------------

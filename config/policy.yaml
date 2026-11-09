@@ -79,6 +79,28 @@ exception_actions:           # 예외(사가 감지) → 머리가 고를 수 �
     companions:
       re_request_cleaning: [[cleaning_rerequest_notice, ward]]
       wait: [[cleaning_eta_share, bed_manager]]
+  discharge_date_changed:    # E6 퇴원 취소·연기 (연락 전 매칭 해제는 사가가 이미 함)
+    allowed: [rematch_now, propose_rematch, wait_for_bed, escalate]
+    fallback: escalate
+    companions:
+      wait_for_bed: [[next_ready_share, bed_manager]]
+  info_changed_pending:      # E7 확정 전 정보 정정. 안전을 푸는 정정은 확인 전 다시 계획 금지(게이트웨이)
+    allowed: [replan_now, propose_rematch, escalate]
+    fallback: escalate
+  ward_objection:            # E8 연락 뒤 병동 이의 (연락 전은 게이트웨이가 결정적으로 해제·재매칭)
+    allowed: [rematch_now, propose_rematch, escalate]
+    fallback: escalate
+    companions:
+      propose_rematch: [[recontact_prepare, bed_manager]]
+  promise_at_risk:           # E9 연락한 입실 시각 위험
+    allowed: [re_request_cleaning, request_bed_prep_first, request_recontact, wait]
+    fallback: escalate
+    companions:
+      re_request_cleaning: [[promise_watch, bed_manager]]
+      wait: [[promise_watch, bed_manager]]
+  call_up_stalled:           # E10 병상 준비·수속 뒤 병동 호출 없음
+    allowed: [remind_ward, share_eta, escalate]
+    fallback: escalate
   no_bed:                    # E5 병상 없음 (XD-032). 중환자실 하향은 원무에 근거 카드와 함께, 늦은 퇴원 병동 재촉을 함께
     allowed: [escalate, propose_rematch, share_eta, wait_for_next_ready, request_postpone_contact]
     fallback: escalate
@@ -103,6 +125,10 @@ autonomy:                    # 행동별 자율 단계 auto | post_report | huma
   share_eta: auto
   wait_for_next_ready: post_report
   request_postpone_contact: human
+  wait_for_bed: post_report
+  replan_now: auto           # 정정된 값으로 규칙이 다시 찾는다(새 제안은 기존 검사를 다시 거침)
+  request_recontact: human   # 환자 재연락은 원무 사람의 일
+  remind_ward: auto
 brain:
   enabled: false             # 예외 판단 머리. false면 지금 동작(사람에게 올림)
 provenance:                  # POL-1 규칙 값마다 출처 등급과 근거. law > guideline > hospital_rule > field_practice > design_assumption

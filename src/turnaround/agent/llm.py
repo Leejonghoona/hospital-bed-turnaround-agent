@@ -120,6 +120,30 @@ def _fake_exception_action(ctx: dict) -> dict:
         if (st.get("next_admission_waiting") or st.get("waiting_matches")) and "propose_rematch" in allowed:
             return {"action": "propose_rematch", "params": {}, "rationale": "재요청 뒤에도 지연: 다른 병상 추천안을 사람 승인"}
         return {"action": "escalate", "params": {"role": "ward"}, "rationale": "재요청 뒤에도 지연: 병동에 올림"}
+    if trig == "sequence_stalled":
+        if ex.get("attempts", 0) == 0 and "remind_owner" in allowed:
+            return {"action": "remind_owner", "params": {}, "rationale": "단계 지연: 담당에게 알림 1회"}
+        return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "알림 뒤에도 지연: 올림"}
+    if trig == "discharge_date_changed":
+        if (ctx.get("tool_outputs") or {}).get("rematch_candidates") and "rematch_now" in allowed:
+            return {"action": "rematch_now", "params": {}, "rationale": "연락 전 퇴원 연기: 규칙으로 다시 찾음"}
+        return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "후보 없음: 원무에"}
+    if trig == "info_changed_pending":
+        if st.get("correction_direction") == "loosen" and not st.get("correction_confirmed"):
+            return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "안전을 푸는 정정: 확인 먼저"}
+        if "replan_now" in allowed:
+            return {"action": "replan_now", "params": {}, "rationale": "정정된 값으로 다시 찾음"}
+    if trig == "promise_at_risk":
+        if not st.get("cleaning_started") and "re_request_cleaning" in allowed:
+            return {"action": "re_request_cleaning", "params": {}, "rationale": "약속 위험: 청소 재요청"}
+        if not st.get("isolation_discharge") and "request_bed_prep_first" in allowed:
+            return {"action": "request_bed_prep_first", "params": {}, "rationale": "청소 중: 침상 정리 먼저"}
+        if "request_recontact" in allowed:
+            return {"action": "request_recontact", "params": {}, "rationale": "약속을 지키기 어려움: 원무 재연락"}
+    if trig == "call_up_stalled":
+        if ex.get("attempts", 0) == 0 and "remind_ward" in allowed:
+            return {"action": "remind_ward", "params": {}, "rationale": "호출 정체: 병동에 알림 1회"}
+        return {"action": "escalate", "params": {"role": "ward"}, "rationale": "알림 뒤에도 정체: 병동 책임자에게"}
     if trig == "no_bed":
         if st.get("from_icu"):
             return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "중환자실 하향: 원무에 근거 카드와 함께"}
