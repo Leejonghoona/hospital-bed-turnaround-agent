@@ -122,6 +122,13 @@ def test_fake_table_never_rematches_after_contact_commit_or_arrival_for_any_trig
             assert out["action"] == "escalate", (trig, stage)
 
 
-def test_escalation_roles_include_operational_owners():
-    from turnaround.gateway.gateway import Gateway
-    assert {"environment_lead", "billing", "pharmacy", "admission_office"} <= Gateway._ESCALATE_ROLES
+def test_escalation_roles_exclude_outsourced_housekeeping_by_default():
+    """외주 미화와 그 책임자에게 직접 올리지 않는다. 청소 지연은 책임간호사·원무에게 (DECISIONS 2026-11-09)."""
+    roles = load_policy().hospital_profile.escalation_roles
+    assert {"ward", "bed_manager", "billing", "pharmacy", "admission_office"} <= set(roles)
+    assert "environment_lead" not in roles and "environment_vendor" not in roles
+    store, gw = _setup()
+    choice = ExceptionBrain(gw, FakeLLM(), FIELD).fallback(dict(exception_id=f"E1:A1:W72-R04-B1", trigger="late_isolation",
+                                                                case="A1", basis_seq=10**6))
+    d = gw.submit_action(choice.model_copy(update={"params": {"role": "environment_lead"}}), at(10, 10))
+    assert d.status == "rejected" and d.reasons == ["bad_params"]

@@ -66,6 +66,11 @@ class RoomChange(_Frozen):
 
 class HospitalProfile(_Frozen):
     id: str = "legacy"
+    # 예외 판단 머리가 사람에게 올릴 수 있는 역할. 외주 미화·그 책임자는 기본에서 뺀다(DECISIONS 2026-11-09):
+    # 청소 지연은 책임간호사·원무에게 올리고 그들이 지금처럼 미화에 연락한다. 직영 환경관리 담당은 병원 설정으로 추가
+    escalation_roles: list[str] = Field(default_factory=lambda: [
+        "bed_manager", "ipc", "ward", "admission_office", "billing", "pharmacy", "admission_lead",
+        "nursing_supervisor"])
     assignment: Assignment = Field(default_factory=Assignment)
     ward_confirmation: WardConfirmation = Field(default_factory=WardConfirmation)
     discharge_sequence: DischargeSequence = Field(default_factory=DischargeSequence)
