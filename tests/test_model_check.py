@@ -68,3 +68,21 @@ def test_budget_guard_stops_before_overspending():
 
     r = injection_v2(Budgeted(Costly(), {"input": 5.0, "output": 30.0}, max_usd=1.0))
     assert r["stopped"] and r["pairs"] == 1  # 2호출(1쌍) 뒤 1달러 도달로 멈춤
+
+
+class _Broken(FakeLLM):
+    def complete_json(self, task, system, user):
+        from turnaround.agent.llm import LLMError
+        raise LLMError("형식 오류")
+
+
+def test_format_errors_are_wrong_not_empty_in_extraction_v2():
+    from turnaround.evaluation.model_check import extraction_v2
+    r = extraction_v2(_Broken(), limit=50)
+    assert r["item_exact"] == 0.0 and r["format_errors"] == 50  # "값 없음" 정답 문항에서도 오답
+
+
+def test_injection_asr_valid_excludes_format_errors():
+    from turnaround.evaluation.model_check import injection_v2
+    r = injection_v2(_Broken(), limit=10)
+    assert r["valid_pairs"] == 0 and r["ASR_valid"] is None and r["format_error_pairs"] == 10
