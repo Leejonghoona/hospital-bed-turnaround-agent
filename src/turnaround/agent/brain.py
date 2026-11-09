@@ -53,8 +53,9 @@ class ActionChoice(BaseModel):
 
 
 class ExceptionBrain:
-    def __init__(self, gw, llm: LLM, policy=None, wards=()):
-        self.gw, self.llm = gw, llm
+    def __init__(self, gw, llm: LLM, policy=None, wards=(), data_class: str | None = None):
+        from .llm import bind_data_class
+        self.gw, self.llm = gw, bind_data_class(llm, data_class)  # 외부 모델 관문 (기본 병원 데이터)
         self.wards = tuple(wards)
         self.policy = policy or gw.policy
         self.records: list[str] = []  # LLM에 넣은 입력 (감사·시험용)

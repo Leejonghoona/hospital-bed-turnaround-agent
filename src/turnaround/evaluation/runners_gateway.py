@@ -75,7 +75,7 @@ class _GwRun:
         llm = AGENT_CONFIG["llm_factory"]()
         self.llm = llm
         self.agent = PlanningAgent(self.gw, _LAYOUT.wards, llm=llm, mode=AGENT_CONFIG["mode"],
-                                   score_overrides=score_overrides)
+                                   score_overrides=score_overrides, data_class="synthetic")  # 회귀 시나리오는 합성
         self.extractor = Extractor(self.store, llm, data_class="synthetic")  # 회귀 시나리오는 합성 데이터
 
     def agent_cycle(self, now: datetime, approve=True, ward=True, commit=True, rounds: int = 3):
@@ -404,7 +404,7 @@ def run_f04(s):
             _ev("FX-D2", "discharge_decided", EventType.DISCHARGE_DECIDED, at(16), bed_id="W71-R03-B2",
                 patient_id="SYN-FX-D2", attending="dr-a", discharge_date=tomorrow)])
     recs = Records([Appointment("appt-1", "dr-a", at(8, day=1), "surgery")])
-    qa = QueryAgent(r.store, r.llm, recs)
+    qa = QueryAgent(r.store, r.llm, recs, data_class="synthetic")
     qa.ask("Q1", "bed_manager", "내일 퇴원 예정 중 담당 교수가 오전 수술인 건?", at(17))
     qa.ask("Q2", "bed_manager", "어제 퇴원한 D1의 재입원 예정이 있나?", at(17))
     return r.score(s)

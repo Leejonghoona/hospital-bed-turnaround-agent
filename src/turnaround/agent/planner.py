@@ -15,7 +15,7 @@ from turnaround.events.models import EventType
 from turnaround.gateway import Decision, Gateway, Proposal
 from turnaround.saga import fold
 
-from .llm import LLM, LLMError
+from .llm import LLM, LLMError, bind_data_class
 from .tools import Candidate, PlanningTools
 
 SYSTEM = (
@@ -44,10 +44,12 @@ class PlanRecord:
 
 class PlanningAgent:
     def __init__(self, gateway: Gateway, wards, llm: LLM | None = None, mode: str = "explain",
-                 score_overrides: dict[str, float] | None = None, top_k: int = 5):
+                 score_overrides: dict[str, float] | None = None, top_k: int = 5, data_class: str | None = None):
         self.gw = gateway
         self.tools = PlanningTools(gateway, wards, score_overrides)
-        self.llm, self.mode, self.top_k = llm, ("select" if mode == "agent" else mode), top_k
+        # 외부 모델은 데이터 분류 관문으로 감싼다(기본 병원 데이터, 2026-11-09 개인정보·IT 2회차)
+        self.llm = bind_data_class(llm, data_class)
+        self.mode, self.top_k = ("select" if mode == "agent" else mode), top_k
         self.records: list[PlanRecord] = []
 
     # ---------- 선택 ----------

@@ -30,7 +30,7 @@ def _llm(spec: str):
            "TURNAROUND_EXTERNAL_LLM_ACK": "synthetic-only"}
     env.setdefault("OPENAI_API_KEY", "proxy-injected")  # 키는 환경 프록시가 넣는다(값을 코드에 두지 않음)
     os.environ.setdefault("OPENAI_API_KEY", "proxy-injected")
-    llm = get_llm(env)
+    llm = get_llm(env, data_class="synthetic")  # 합성 내보내기만 쓴다
     llm.timeout_s = 240
     if getattr(llm, "model", "").startswith("gpt-5"):
         llm.reasoning_effort = "low"  # 상류 시간 제한 안에 끝나게 (기록에 남김)

@@ -76,6 +76,68 @@ def redact_for_external(text: str) -> str:
     return _HONORIFIC_NAME.sub(lambda m: m.group(1) if m.group(1) in _ROLE_WORDS else "○" * len(m.group(1)), text)
 
 
+def _redact_obj(obj):
+    """JSON 값 중 문자열만 가린다. 키·숫자·참거짓은 그대로 둔다(형식이 깨지지 않게)."""
+    if isinstance(obj, str):
+        return redact_for_external(obj)
+    if isinstance(obj, list):
+        return [_redact_obj(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _redact_obj(v) for k, v in obj.items()}
+    return obj
+
+
+class GuardedLLM:
+    """외부 모델을 감싸는 관문 (2026-11-09 개인정보·IT 2회차). 모든 호출의 첫 줄에서 정책을 검사하고 가린다.
+    data_class 기본은 병원 데이터(fail-closed). 평가·측정 경로는 합성(synthetic)을 명시한다."""
+
+    external = True
+
+    def __init__(self, inner, data_class: str = "hospital", policy=None):
+        if isinstance(inner, GuardedLLM):
+            inner = inner.inner
+        self.inner, self.data_class, self.policy = inner, data_class, policy
+
+    @property
+    def name(self) -> str:
+        return self.inner.name
+
+    @property
+    def usage(self):
+        return self.inner.usage
+
+    def __getattr__(self, item):  # model, api_equiv_usd 같은 속성은 안쪽 모델 것
+        if item == "inner":
+            raise AttributeError(item)
+        return getattr(self.inner, item)
+
+    def __setattr__(self, key, value):  # timeout_s, reasoning_effort 같은 설정도 안쪽 모델에 건다
+        if key in ("inner", "data_class", "policy"):
+            object.__setattr__(self, key, value)
+        else:
+            setattr(self.inner, key, value)
+
+    def complete_json(self, task: str, system: str, user: str) -> dict:
+        guard_external(self, self.data_class, self.policy)
+        try:
+            user = json.dumps(_redact_obj(json.loads(user)), ensure_ascii=False)
+        except (json.JSONDecodeError, TypeError):
+            user = redact_for_external(user)
+        return self.inner.complete_json(task, system, user)
+
+
+def bind_data_class(llm, data_class: str | None = None, policy=None):
+    """모델을 데이터 분류에 묶는다. 외부가 아닌 모델은 그대로. data_class가 없으면 이미 감싼 모델은 그대로 두고,
+    감싸지 않은 외부 모델은 병원 데이터로 감싼다(fail-closed)."""
+    if llm is None or not getattr(llm, "external", False):
+        return llm
+    if isinstance(llm, GuardedLLM):
+        if data_class is None or (data_class == llm.data_class and policy is None):
+            return llm
+        return GuardedLLM(llm.inner, data_class, policy if policy is not None else llm.policy)
+    return GuardedLLM(llm, data_class or "hospital", policy)
+
+
 # ---------- 결정적 가짜 LLM ----------
 
 _TIME = re.compile(r"(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?")
@@ -387,9 +449,15 @@ class ClaudeSubLLM:
         return _first_json(res.result or "")
 
 
-def get_llm(env: dict | None = None) -> LLM:
-    """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM."""
+def get_llm(env: dict | None = None, data_class: str = "hospital", policy=None) -> LLM:
+    """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM.
+    외부 모델은 `GuardedLLM`으로 감싸 돌려준다(data_class 기본 병원 데이터, fail-closed)."""
     env = os.environ if env is None else env
+    llm = _make_llm(env)
+    return GuardedLLM(llm, data_class, policy) if getattr(llm, "external", False) else llm
+
+
+def _make_llm(env) -> LLM:
     kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
     if kind == "fake" or not model:
         return FakeLLM()

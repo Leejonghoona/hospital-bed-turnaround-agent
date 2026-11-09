@@ -54,8 +54,10 @@ class Answer:
 
 
 class QueryAgent:
-    def __init__(self, store: EventStore, llm: LLM, records: Records | None = None):
-        self.store, self.llm, self.records = store, llm, records or Records()
+    def __init__(self, store: EventStore, llm: LLM, records: Records | None = None, data_class: str | None = None):
+        from .llm import bind_data_class
+        # 외부 모델 관문 (기본 병원 데이터, 2026-11-09 개인정보·IT 2회차)
+        self.store, self.llm, self.records = store, bind_data_class(llm, data_class), records or Records()
 
     # ---------- 조회 도구 ----------
 

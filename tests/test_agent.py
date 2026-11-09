@@ -311,8 +311,8 @@ def test_claudesub_adapter_is_selected_and_refuses_api_key_billing(monkeypatch):
     with pytest.raises(LLMError, match="합성"):
         get_llm({"TURNAROUND_LLM": "claudesub", "TURNAROUND_LLM_MODEL": "claude-haiku-5-5"})
     llm = get_llm({"TURNAROUND_LLM": "claudesub", "TURNAROUND_LLM_MODEL": "claude-haiku-5-5",
-                   "TURNAROUND_EXTERNAL_LLM_ACK": "synthetic-only"})
-    assert isinstance(llm, ClaudeSubLLM) and llm.name == "claudesub:claude-haiku-5-5"
+                   "TURNAROUND_EXTERNAL_LLM_ACK": "synthetic-only"}, data_class="synthetic")
+    assert isinstance(llm.inner, ClaudeSubLLM) and llm.name == "claudesub:claude-haiku-5-5"  # 외부 관문으로 감쌈
     monkeypatch.setenv("ANTHROPIC_API_KEY", "x")  # 키가 잡혀 있으면 API 과금이라 막는다
     with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
         llm.complete_json("extract", "s", "{}")

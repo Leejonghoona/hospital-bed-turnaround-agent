@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
 
-from .llm import LLM, LLMError, guard_external, redact_for_external
+from .llm import LLM, LLMError, bind_data_class, guard_external
 
 DELAY_CODES = ("guardian", "billing", "medication", "transport")
 ALLOWED_FIELDS = {"guardian_eta": "HH:MM", "delay_reason": "|".join(DELAY_CODES), "mobility_aid": "bool",
@@ -107,17 +107,16 @@ def sanitize(raw: dict) -> dict:
 
 class Extractor:
     def __init__(self, store: EventStore, llm: LLM, schema=None, data_class: str = "hospital", policy=None):
-        self.store, self.llm = store, llm
+        # 외부 모델은 이 경로의 데이터 분류로 다시 묶는다(가리기는 GuardedLLM이 한다). 이중으로 막히지 않는다
+        self.store, self.llm = store, bind_data_class(llm, data_class, policy)
         self.schema = schema  # 주면 v3(설정 기반) 스키마, 없으면 v2
         self.data_class, self.policy = data_class, policy  # 외부 모델 전송 관문 (llm.guard_external)
 
     def _text(self, note: Event) -> str:
-        """외부 모델이면 관문(정책·데이터 분류)을 먼저 지나고, 이름·전화번호를 가린 메모만 보낸다."""
-        text = note.payload.get("text", "")
+        """외부 모델이면 관문(정책·데이터 분류)을 먼저 지난다. 이름·전화번호 가리기는 GuardedLLM이 보내기 직전에 한다."""
         if getattr(self.llm, "external", False):
             guard_external(self.llm, self.data_class, self.policy)
-            text = redact_for_external(text)
-        return text
+        return note.payload.get("text", "")
 
     def extract(self, note: Event) -> dict:
         text = self._text(note)

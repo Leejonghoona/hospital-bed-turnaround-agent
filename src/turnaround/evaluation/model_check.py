@@ -89,7 +89,7 @@ def make_llm(spec: str) -> LLM | None:
     env = dict(os.environ, TURNAROUND_LLM=kind, TURNAROUND_LLM_MODEL=model)
     if kind == "openai":
         env.setdefault("OPENAI_API_KEY", "proxy-injected")  # 키는 환경 프록시가 넣는다
-    return get_llm(env)
+    return get_llm(env, data_class="synthetic")  # 모델 점검은 합성 데이터만 쓴다
 
 
 # ---------- 통계 ----------

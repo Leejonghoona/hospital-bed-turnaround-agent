@@ -491,6 +491,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
     "time_format": ..., "list_sep": ..., "bool_values": ...}. lexicon: 회귀 관문을 통과한 공용 학습 사전(agent.lexicon)."""
     hints = dict(hints or {})
     check_external(llm, data_class, policy)
+    from .llm import bind_data_class
+    llm = bind_data_class(llm, data_class, policy)  # 이 경로의 데이터 분류로 다시 묶는다(이중 차단 없음)
     valid = allowed_values(code_master)  # 병원 코드표가 있으면 그 진료과 목록
     prof = profile(tables)
     if lexicon is not None and not hints.get("layout"):
