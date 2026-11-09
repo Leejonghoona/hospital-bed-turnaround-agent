@@ -80,6 +80,8 @@ class HospitalProfile(_Frozen):
     isolation: Isolation = Field(default_factory=Isolation)
     room_change: RoomChange = Field(default_factory=RoomChange)
     admission_window: tuple[str, str] = ("10:00", "15:00")
+    # 진료과 → 병동 (온보딩이 과거 배정 기록에서 찾음, 로드맵 07 M4). 비어 있으면 병동 정의의 진료과를 쓴다
+    ward_departments: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class ExceptionRule(_Frozen):

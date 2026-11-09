@@ -118,7 +118,8 @@ def load_policy(path: Path = DEFAULT_POLICY, profile: str | None = None) -> Poli
     """정책 파일을 읽는다. profile을 주면 config/profiles/<profile>.yaml을 덮어쓴다."""
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if profile is not None:
-        over = PROFILES_DIR / f"{profile}.yaml"
+        # 이름이면 config/profiles/<이름>.yaml, 경로면 그 파일 (온보딩이 만든 초안 등, 로드맵 07 M4)
+        over = Path(profile) if str(profile).endswith((".yaml", ".yml")) else PROFILES_DIR / f"{profile}.yaml"
         if not over.exists():
             raise FileNotFoundError(f"병원 프로필 없음: {over}")
         raw = deep_merge(raw, yaml.safe_load(over.read_text(encoding="utf-8")) or {})
