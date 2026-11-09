@@ -17,7 +17,7 @@ from turnaround.events.models import Event, EventType
 JUDGEMENT = {EventType.MANAGER_APPROVED: "approve", EventType.MANUAL_OVERRIDE_APPLIED: "manual_override",
              EventType.HUMAN_TASK_DONE: "task_done", EventType.CORRECTION_CONFIRMED: "confirm_correction"}
 ACCOUNTABLE = {EventType.WARD_ACCEPTED: "ward_reply", EventType.WARD_REJECTED: "ward_reply",
-               EventType.PATIENT_CONTACTED: "contact"}
+               EventType.PATIENT_CONTACTED: "contact", EventType.WARD_OBJECTION_RAISED: "ward_objection"}
 
 
 def human_load(events: list[Event], rubber_stamp_s: float = 30.0) -> dict:

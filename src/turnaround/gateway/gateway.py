@@ -480,7 +480,13 @@ class Gateway:
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id)
         return Decision("awaiting_manager", "proposal", "ward_confirm", [])
 
+    def _notify_mode(self) -> bool:
+        """통보형 병동 확인 (DECISIONS 2026-11-09 C): 병동에 묻지 않고 확정 뒤 통보한다."""
+        return self.policy.hospital_profile.ward_confirmation.mode == "notify"
+
     def _ask_ward(self, prop: Proposal, now: datetime) -> None:
+        if self._notify_mode():
+            return
         self._emit(prop.case, f"gw:{prop.proposal_id}:ask_ward", EventType.WARD_ACCEPTANCE_ASKED, now,
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id)
 
@@ -491,10 +497,36 @@ class Gateway:
         prop = self._proposal(pid, events)
         if prop is None:
             return Decision("unknown", "approve")
+        reviewed = any(e.type is EventType.CASE_ROUTED_REVIEW and e.payload.get("proposal_id") == pid for e in events)
+        wc = self.policy.hospital_profile.ward_confirmation
+        if self._notify_mode() and wc.merge_manager_confirm_into_commit and not reviewed:
+            # 인터뷰 Q1: 통보형에서는 원무 배정 담당의 한 동작이 확정이다 (판단 개입이 아니라 책임 개입 하나)
+            return self.commit(pid, self.location_version(prop.bed_id), now, actor=actor)
         self._emit(prop.case, f"gw:{pid}:manager_approved", EventType.MANAGER_APPROVED, now, "human",
                    proposal_id=pid, bed_id=prop.bed_id, actor=actor)
+        if self._notify_mode():
+            return self.commit(pid, self.location_version(prop.bed_id), now, actor=actor)  # 검토 승인 뒤 확정
         self._ask_ward(prop, now)
         return Decision("awaiting_ward", "approve")
+
+    def ward_objection(self, pid: str, reason: str, now: datetime) -> Decision:
+        """통보형에서 병동의 이의 제기. 연락 전이면 자동 해제·재매칭, 연락 뒤면 담당 검토·재연락 (보상 원칙)."""
+        events = self._events()
+        prop = self._proposal(pid, events)
+        if prop is None:
+            return Decision("unknown", "objection")
+        self._emit(prop.case, f"gw:{pid}:ward_objection", EventType.WARD_OBJECTION_RAISED, now, "human",
+                   proposal_id=pid, bed_id=prop.bed_id, reason=reason)
+        contacted = any(e.type is EventType.PATIENT_CONTACTED and e.case_id == prop.case for e in events)
+        if contacted:
+            self._route_review(prop, ["ward_objection"], now, ":objection")
+            self._task(prop.case, pid, "recontact", now, prop.bed_id)
+            return Decision("awaiting_review", "objection", "review", ["ward_objection"])
+        self._emit(prop.case, f"gw:{pid}:objection_release", EventType.PREMATCH_RELEASED, now, bed_id=prop.bed_id,
+                   proposal_id=pid, reason="ward_objection")
+        self._emit(prop.case, f"gw:{pid}:objection_rematch", EventType.REMATCH_REQUESTED, now, target="admission",
+                   admission_id=prop.case)
+        return Decision("released", "objection")
 
     def ward_reply(self, pid: str, accepted: bool, now: datetime, reason: str | None = None) -> Decision:
         events = self._events()
@@ -551,7 +583,7 @@ class Gateway:
             self._route_review(prop, ["no_bed"], now, ":bed_taken")
             self._notify_if_accepted(prop, events, now, "bed_taken")
             return d
-        if not self._ward_accepted(prop.proposal_id, events):
+        if not self._notify_mode() and not self._ward_accepted(prop.proposal_id, events):
             return self._reject_commit(prop, ["ward_acceptance_missing"], now, tag)
         if blocked := self._on_hold(prop.bed_id, events):
             d = self._reject_commit(prop, [blocked], now, tag)
@@ -574,6 +606,11 @@ class Gateway:
         self._emit(prop.case, f"gw:{prop.proposal_id}:committed", EventType.MATCH_COMMITTED, now,
                    bed_id=prop.bed_id, proposal_id=prop.proposal_id, version=version,
                    discharge_id=prop.discharge_id)
+        if self._notify_mode():
+            wc = self.policy.hospital_profile.ward_confirmation
+            self._emit(prop.case, f"gw:{prop.proposal_id}:ward_assignment_notified", EventType.WARD_ASSIGNMENT_NOTIFIED,
+                       now, bed_id=prop.bed_id, proposal_id=prop.proposal_id,
+                       objection_until=(now + timedelta(minutes=wc.objection_window_min)).isoformat())
         # 재매칭으로 다른 병상을 확정했으면 이전 사전 매칭을 푼다
         for m in fold(events).matches.values():
             if m.admission_id == prop.case and m.active and m.bed_id != prop.bed_id:
