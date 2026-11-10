@@ -115,17 +115,16 @@ function Onboarding({ d, onChange, toast }: { d: AiOps; onChange: (d: AiOps) => 
   const done = ob.approvals.filter(a => a.done).length
   return (
     <section className="card onboard">
-      <div className="card-h"><h3>데이터 연동</h3></div>
+      <div className="card-h"><h3>데이터 연동</h3>{!ob.approvals[0]?.done && <button className="btn sm p" style={{ marginLeft: 'auto' }} disabled={!ob.proof.passed} onClick={approve}>의료정보팀으로 승인</button>}</div>
       <p className="note">병원 EMR이 내보내는 표의 열과 코드를 WardFlow의 공통 개념 체계(온톨로지)에 연결합니다. 한 번 연결하면 이후 입원과 퇴원 기록은 연동으로 들어옵니다.</p>
-      <table><colgroup><col /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} /><col style={{ width: 90 }} /><col style={{ width: 130 }} /><col style={{ width: 160 }} /></colgroup>
-        <thead><tr><th>연동 대상</th><th>개념 연결</th><th>확인 질문</th><th>시험 운영</th><th>승인</th><th>상태</th><th></th></tr></thead>
+      <table><colgroup><col /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} /><col style={{ width: 90 }} /><col style={{ width: 130 }} /></colgroup>
+        <thead><tr><th>연동 대상</th><th>개념 연결</th><th>확인 질문</th><th>시험 운영</th><th>승인</th><th>상태</th></tr></thead>
         <tbody><tr>
           <td><b>{ob.hospital}</b><div className="sub">설정판 {ob.version}</div></td>
           <td>{ob.mapped}개</td><td>{ob.asked}개</td>
           <td><span className={'tag ' + (ob.proof.passed ? 't-green' : 't-red')}>{ob.proof.passed ? '통과' : '실패'}</span></td>
           <td>{done} / {ob.approvals.length}</td>
           <td><span className={'tag ' + (ob.status.startsWith('승인됨') ? 't-green' : 't-amber')}>{ob.status}</span></td>
-          <td className="acts">{!ob.approvals[0]?.done && <button className="btn sm p" disabled={!ob.proof.passed} onClick={approve}>의료정보팀으로 승인</button>}</td>
         </tr></tbody></table>
       <div className="grid4">
         <div><span>1. 개념 연결</span><b>{ob.mapped}개</b><em>표 {ob.tables}개의 열, 사건, 코드를 공통 개념에 연결</em></div>

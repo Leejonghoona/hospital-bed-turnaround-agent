@@ -60,10 +60,10 @@ export function WardHome({ user, onLogout, onSwitch }: { user: User; onLogout: (
             <section className="card">
               <h3>퇴원 진행 <span className="cnt">{dis.length}</span></h3>
               {dis.length === 0 ? <p className="note">오늘 퇴원이 없습니다</p> : (
-                <table><thead><tr><th>병상</th><th>환자</th><th>단계</th><th></th></tr></thead>
+                <table><colgroup><col style={{ width: 72 }} /><col /><col style={{ width: 86 }} /><col style={{ width: 118 }} /></colgroup><thead><tr><th>병상</th><th>환자</th><th>단계</th><th>청소</th></tr></thead>
                   <tbody>{dis.map(d => (
                     <tr key={d.case} className={d.departed ? 'quiet' : ''}><td className="mono">{d.bed}</td><td><b>{d.patient}</b> <span className="sub">{d.age}세 {d.sex}</span></td>
-                      <td>{d.step}{d.departed && ` ${d.departed}`}</td><td>{d.clean_req && <span className="tag t-blue clean-req" title="퇴실을 감지해 시스템이 청소를 요청했습니다">청소 요청 {d.clean_req}</span>}{d.flags.map(f => <span key={f} className="badge">{f}</span>)}</td></tr>))}</tbody></table>)}
+                      <td>{d.step}{d.departed && ` ${d.departed}`}</td><td className="badges">{d.clean_req && <span className="tag t-blue clean-req" title="퇴실을 감지해 시스템이 청소를 요청했습니다">청소 요청 {d.clean_req}</span>}{d.flags.map(f => <span key={f} className="badge">{f}</span>)}</td></tr>))}</tbody></table>)}
             </section>
           </div>
         </div>
