@@ -1,2 +1,7 @@
 [local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 1/300 XV3-001 ok propose_surveillance_hold 16.932s
 [local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 2/300 XV3-002 ok propose_rematch 12.446s
+[local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 3/300 XV3-003 ok propose_surveillance_hold 17.903s
+[local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 4/300 XV3-004 ok propose_rematch 14.442s
+[local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 5/300 XV3-005 ok propose_surveillance_hold 13.332s
+[local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 6/300 XV3-006 ok propose_surveillance_hold 14.362s
+[local:models/qwen2.5-3b-instruct-q4_k_m.gguf] 7/300 XV3-007 ok propose_rematch 19.708s
