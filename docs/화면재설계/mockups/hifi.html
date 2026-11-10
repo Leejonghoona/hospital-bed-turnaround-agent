@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>시안: 첫 화면·원무 작업 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --line:#E6E8EC; --line2:#EEF0F3;
+  --ink:#141820; --sub:#4B5563; --mute:#6B7280;
+  --brand:#1D5BD6; --brand-50:#EEF4FF;
+  --red:#C62828; --red-50:#FDECEC; --amber:#9A5B00; --amber-50:#FFF4E0;
+  --green:#0E7A4F; --green-50:#E8F6EF; --violet:#5B32D6; --violet-50:#F1ECFF; --teal:#0F6E78; --teal-50:#E6F4F5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,-apple-system,sans-serif;background:#DDE1E7;color:var(--ink);padding:28px;word-break:keep-all;-webkit-font-smoothing:antialiased}
+.frame{width:1366px;height:768px;margin:0 auto 36px;background:var(--bg);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(20,24,32,.18);position:relative}
+.cap{width:1366px;margin:0 auto 10px;font:700 15px Pretendard;color:#3a4250}
+
+/* 첫 화면 */
+.hero{height:100%;display:grid;grid-template-columns:1fr 1fr;background:linear-gradient(180deg,#FFFFFF 0%,#F5F7FA 100%)}
+.hero .l{padding:72px 64px 48px 80px;display:flex;flex-direction:column}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px}
+.logo i{width:30px;height:30px;border-radius:9px;background:var(--brand);display:grid;place-items:center;color:#fff;font-style:normal;font-size:15px}
+.h1{font-size:40px;font-weight:800;letter-spacing:-1.2px;line-height:1.25;margin-top:56px}
+.h1 em{font-style:normal;color:var(--brand)}
+.lead{font-size:16px;color:var(--sub);line-height:1.7;margin-top:18px;max-width:470px}
+.syn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;margin-top:22px;width:max-content}
+.syn b{width:6px;height:6px;border-radius:50%;background:var(--amber);display:inline-block}
+.foot{margin-top:auto;font-size:12.5px;color:var(--mute)}
+.hero .r{padding:72px 80px 48px 24px;display:flex;flex-direction:column;gap:18px;justify-content:center}
+.choice{background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px 28px;display:grid;grid-template-columns:1fr auto;gap:8px 20px;align-items:center;box-shadow:0 1px 2px rgba(20,24,32,.04)}
+.choice.main{border-color:#C9D8F6;box-shadow:0 8px 24px rgba(29,91,214,.10)}
+.choice .k{font-size:12px;font-weight:700;color:var(--brand);grid-column:1}
+.choice .t{font-size:21px;font-weight:800;letter-spacing:-.4px}
+.choice .d{font-size:14px;color:var(--sub);line-height:1.6;grid-column:1}
+.choice .go{grid-column:2;grid-row:1/4;display:flex;flex-direction:column;gap:8px}
+.b{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border-radius:10px;font-size:14px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--ink);white-space:nowrap}
+.b.p{background:var(--brand);border-color:var(--brand);color:#fff}
+.b.s{height:30px;padding:0 11px;font-size:12.5px;border-radius:8px}
+.steps{display:flex;gap:6px;margin-top:4px;grid-column:1}
+.steps span{font-size:12px;color:var(--sub);background:var(--bg);border-radius:6px;padding:3px 8px}
+
+/* 운영 화면 */
+.mode{height:32px;background:#1F2937;color:#E5E7EB;display:flex;align-items:center;padding:0 18px;font-size:12.5px;gap:14px}
+.mode .pill{background:#374151;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700}
+.mode .r{margin-left:auto;display:flex;gap:14px;align-items:center;color:#D1D5DB}
+.app{display:grid;grid-template-columns:200px 1fr;height:calc(100% - 32px)}
+.nav{background:#fff;border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.nav .logo{font-size:15px;padding:4px 8px 16px}
+.nav .logo i{width:26px;height:26px;font-size:13px;border-radius:8px}
+.nav a{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:8px;font-size:14px;color:var(--sub);text-decoration:none}
+.nav a.on{background:var(--brand-50);color:var(--brand);font-weight:700}
+.nav a em{font-style:normal;font-size:12px;font-weight:700;background:var(--red-50);color:var(--red);border-radius:999px;padding:1px 7px}
+.nav .me{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 0;font-size:12.5px;color:var(--sub);line-height:1.6}
+.nav .me b{color:var(--ink);font-size:13.5px}
+.main{display:grid;grid-template-rows:auto auto 1fr;min-width:0}
+.head{display:flex;align-items:flex-end;padding:18px 22px 12px;gap:16px}
+.head h2{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.head .sub{font-size:13px;color:var(--mute);margin-left:4px}
+.head .tools{margin-left:auto;display:flex;gap:8px;align-items:center}
+.search{width:220px;height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;display:flex;align-items:center;padding:0 10px;font-size:13px;color:var(--mute)}
+.sel{height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;display:flex;align-items:center;padding:0 10px;font-size:13px;color:var(--sub);gap:6px}
+.filters{display:flex;gap:6px;padding:0 22px 12px}
+.f{height:30px;border-radius:8px;padding:0 11px;font-size:13px;display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);color:var(--sub)}
+.f.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.f b{font-weight:700}
+.f .n{font-size:12px;font-weight:700;border-radius:999px;padding:0 6px;background:var(--bg);color:var(--sub)}
+.f.on .n{background:#374151;color:#fff}
+.f.red .n{background:var(--red-50);color:var(--red)}
+.split{display:grid;grid-template-columns:1fr 370px;gap:14px;padding:0 22px 18px;min-height:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:12px;font-weight:600;color:var(--mute);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line2);white-space:nowrap;vertical-align:middle}
+tr.pick td{background:#F3F7FF}
+tr.pick td:first-child{box-shadow:inset 3px 0 0 var(--brand)}
+.due{font-variant-numeric:tabular-nums;font-weight:600}
+.due.late{color:var(--red)}
+.pt b{font-weight:700}.pt span{color:var(--mute);font-size:12px;margin-left:4px}
+.bed{font-variant-numeric:tabular-nums;color:var(--sub)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px}
+.chip i{width:6px;height:6px;border-radius:50%;display:inline-block}
+.c-red{background:var(--red-50);color:var(--red)}.c-red i{background:var(--red)}
+.c-amber{background:var(--amber-50);color:var(--amber)}.c-amber i{background:#D97706}
+.c-blue{background:var(--brand-50);color:var(--brand)}.c-blue i{background:var(--brand)}
+.c-violet{background:var(--violet-50);color:var(--violet)}.c-violet i{background:var(--violet)}
+.c-green{background:var(--green-50);color:var(--green)}.c-green i{background:var(--green)}
+.c-gray{background:#F1F3F5;color:var(--sub)}.c-gray i{background:#9CA3AF}
+.c-teal{background:var(--teal-50);color:var(--teal)}.c-teal i{background:var(--teal)}
+.why{color:var(--sub);font-size:12.5px;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.kbd{font-size:11.5px;color:var(--mute);padding:9px 12px}
+.kbd kbd{font-family:inherit;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#fff;font-size:11px}
+.panel{padding:18px;display:flex;flex-direction:column;gap:14px;font-size:13.5px}
+.panel .ph{display:flex;justify-content:space-between;align-items:flex-start}
+.panel .nm{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.panel .meta{font-size:12.5px;color:var(--mute);margin-top:3px}
+.blk{border:1px solid var(--line);border-radius:10px;padding:12px 14px;line-height:1.6}
+.blk .lab{font-size:12px;font-weight:700;color:var(--mute);margin-bottom:4px}
+.opts{display:grid;gap:6px}
+.opt{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13.5px}
+.opt.on{border-color:var(--brand);background:var(--brand-50)}
+.opt .r{width:14px;height:14px;border-radius:50%;border:1.5px solid #9CA3AF}
+.opt.on .r{border:4px solid var(--brand)}
+.tl{font-size:12.5px;color:var(--sub);line-height:1.9}
+.tl b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600;margin-right:6px}
+.actions{display:flex;gap:8px;margin-top:auto}
+</style></head><body>
+
+<div class="cap">시안 ① 첫 화면</div>
+<div class="frame"><div class="hero">
+  <div class="l">
+    <div class="logo"><i>병</i>병실관리AI</div>
+    <div class="h1">퇴원부터 다음 입실까지,<br><em>사람은 책임질 순간에만.</em></div>
+    <div class="lead">평범한 병상 배정과 확인은 에이전트가 하고, 환자 연락·격리 결정처럼 사람이 책임질 일만 담당자에게 올립니다. 모든 실행은 안전 규칙을 통과해야 합니다.</div>
+    <div class="syn"><b></b>합성(가상) 병원 데이터 · 실제 환자 아님</div>
+    <div class="foot">개인 포트폴리오 데모 · 실제 인증과 병원 시스템 연동은 범위 밖입니다 · GitHub · 설계 문서</div>
+  </div>
+  <div class="r">
+    <div class="choice main">
+      <div class="k">처음이시면</div>
+      <div class="t">시연 화면</div>
+      <div class="d">대표 사례 3개를 따라가며 에이전트가 무엇을 판단하고 무엇을 막는지 봅니다. 약 3분.</div>
+      <div class="steps"><span>① 평범한 배정</span><span>② 안내 시각 지연</span><span>③ 늦은 격리 차단</span></div>
+      <div class="go"><span class="b p">시연 시작</span></div>
+    </div>
+    <div class="choice">
+      <div class="k">직접 써 보기</div>
+      <div class="t">운영 화면</div>
+      <div class="d">원무·병동·감염관리실·관리자 계정으로 하루 업무를 직접 처리합니다.</div>
+      <div class="go"><span class="b">로그인</span><span class="b s" style="color:var(--brand);border-color:#C9D8F6">데모 계정으로 시작</span></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="cap">시안 ② 원무 작업 화면</div>
+<div class="frame">
+  <div class="mode"><span class="pill">운영 화면</span><span>합성 병원 · 11월 5일 (수) 08:15</span><span class="r"><span>15분 미사용 시 잠금</span><span>합성 데이터 · 실제 환자 아님</span></span></div>
+  <div class="app">
+    <div class="nav">
+      <div class="logo"><i>병</i>병실관리AI</div>
+      <a class="on">오늘 할 일 <em>3</em></a>
+      <a>입원 대기</a>
+      <a>병상 현황</a>
+      <a>배정 기록</a>
+      <a>사례 경과</a>
+      <div class="me"><b>김○○</b> · 원무 입원파트<br>낮 근무 07:00–15:00<br><span style="color:var(--brand);font-weight:700">사용자 전환</span> · 로그아웃</div>
+    </div>
+    <div class="main">
+      <div class="head"><h2>오늘 할 일</h2><span class="sub">14건 · 마감 순</span>
+        <div class="tools"><div class="search">환자 이름·등록번호·병상</div><div class="sel">병동 전체 ▾</div></div></div>
+      <div class="filters">
+        <span class="f on">전체 <span class="n">14</span></span>
+        <span class="f red">마감 지남 <span class="n">3</span></span>
+        <span class="f">승인 요청 <span class="n">2</span></span>
+        <span class="f">환자 연락 <span class="n">4</span></span>
+        <span class="f">감염관리 결정 대기 <span class="n">1</span></span>
+        <span class="f">이전 근무에서 <span class="n">5</span></span>
+      </div>
+      <div class="split">
+        <div class="card" style="display:flex;flex-direction:column">
+          <table>
+            <tr><th>마감</th><th>할 일</th><th>환자</th><th>병상</th><th>근거</th><th>상태</th></tr>
+            <tr><td class="due late">어제 20:00</td><td><span class="chip c-blue"><i></i>승인</span> 재연락</td><td class="pt"><b>임○윤</b><span>74 남 · P0032</span></td><td class="bed">71-03-3</td><td class="why">안내 19:00 · 앞 환자 퇴실 전</td><td><span class="chip c-gray">이전 근무</span></td></tr>
+            <tr class="pick"><td class="due late">10:15</td><td><span class="chip c-red"><i></i>확인 필요</span> 병상 없음</td><td class="pt"><b>임○솔</b><span>76 남 · P0018</span></td><td class="bed">—</td><td class="why">조건 맞는 병상 없음</td><td><span class="chip c-amber">책임자에 올라감</span></td></tr>
+            <tr><td class="due late">10:15</td><td><span class="chip c-red"><i></i>확인 필요</span> 1인실 희망</td><td class="pt"><b>조○윤</b><span>40 여 · P0007</span></td><td class="bed">—</td><td class="why">1인실 없음 · 차액 동의 필요</td><td><span class="chip c-amber">책임자에 올라감</span></td></tr>
+            <tr><td class="due">09:00</td><td><span class="chip c-teal"><i></i>연락</span> 입원 안내</td><td class="pt"><b>윤○봄</b><span>32 여 · P0051</span></td><td class="bed">72-04-1</td><td class="why">추천 안내 14:00</td><td><span class="chip c-gray">대기</span></td></tr>
+            <tr><td class="due">09:00</td><td><span class="chip c-teal"><i></i>연락</span> 입원 안내</td><td class="pt"><b>김○결</b><span>82 남 · P0032</span></td><td class="bed">71-03-4</td><td class="why">추천 안내 13:30</td><td><span class="chip c-gray">대기</span></td></tr>
+            <tr><td class="due">10:00</td><td><span class="chip c-violet"><i></i>감염관리</span> 병상 결정</td><td class="pt"><b>임○도</b><span>75 여 · P0043</span></td><td class="bed">71-04-4</td><td class="why">늦은 격리 · 공기주의</td><td><span class="chip c-gray">결정 대기</span></td></tr>
+            <tr><td class="due">08:30</td><td><span class="chip c-green"><i></i>확정</span> 에이전트 배정</td><td class="pt"><b>장○나</b><span>66 남 · P0011</span></td><td class="bed">72-03-3</td><td class="why">차순위 72-03-1 · 되돌리기 08:30까지</td><td><span class="chip c-green">확정</span></td></tr>
+            <tr><td class="due">11:00</td><td><span class="chip c-teal"><i></i>연락</span> 입원 안내</td><td class="pt"><b>박○현</b><span>58 여 · P0024</span></td><td class="bed">72-01-2</td><td class="why">추천 안내 15:00</td><td><span class="chip c-gray">대기</span></td></tr>
+            <tr><td class="due">12:00</td><td><span class="chip c-blue"><i></i>승인</span> 연락 보류</td><td class="pt"><b>최○민</b><span>69 남 · P0039</span></td><td class="bed">71-02-1</td><td class="why">퇴원 연기 가능성</td><td><span class="chip c-gray">대기</span></td></tr>
+          </table>
+          <div class="kbd" style="margin-top:auto"><kbd>↑</kbd> <kbd>↓</kbd> 이동 · <kbd>Enter</kbd> 상세 · <kbd>/</kbd> 검색</div>
+        </div>
+        <div class="card panel">
+          <div class="ph"><div><div class="nm">임○솔 · 76 남</div><div class="meta">P0018 · 일반외과 · 오늘 입원 예정 · 격리 없음</div></div><span class="chip c-red"><i></i>마감 지남</span></div>
+          <div class="blk"><div class="lab">상황</div>조건에 맞는 빈 병상이 없어 에이전트가 담당자에게 넘겼습니다. 10:15 마감이 지나 원무 책임자에게도 올라갔습니다.</div>
+          <div><div class="lab" style="font-size:12px;font-weight:700;color:var(--mute);margin-bottom:6px">처리</div>
+            <div class="opts">
+              <div class="opt on"><span class="r"></span>오늘 퇴원으로 빌 병상 기다리기 · 13:40 준비 예상</div>
+              <div class="opt"><span class="r"></span>다른 병동 검토 요청</div>
+              <div class="opt"><span class="r"></span>입원 일정 조정(진료과와 협의)</div>
+            </div></div>
+          <div class="tl"><b>10:15</b>책임자에 올라감 · 시스템<br><b>09:40</b>병상 없음 감지 · 에이전트<br><b>08:00</b>입원 예약 접수 · 병원 전산</div>
+          <div class="actions"><span class="b p" style="flex:1">처리 기록</span><span class="b">경과 전체</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body></html>
