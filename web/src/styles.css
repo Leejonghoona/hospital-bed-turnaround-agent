@@ -266,3 +266,7 @@ tr.row.pick td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
 .wtabs button em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 12px; font-weight: 700; color: var(--mute); white-space: nowrap; }
 .wtabs button em.has { color: var(--green); }
 .wtabs button.on { border-color: var(--brand); background: var(--brand-50); } .wtabs button.on b { color: var(--brand); }
+.scrim.lock { background: rgba(17,24,39,.35); z-index: 50; }
+.lockbox { background: #fff; border-radius: 16px; width: 400px; padding: 28px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(17,24,39,.3); }
+.lockbox h2 { font-size: 20px; font-weight: 800; margin-top: 6px; }
+.acts { display: flex; gap: 6px; justify-content: flex-end; }

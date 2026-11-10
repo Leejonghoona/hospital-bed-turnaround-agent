@@ -9,8 +9,14 @@ from fastapi.testclient import TestClient
 from turnaround.api.app import create_app
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _data_dir(tmp_path_factory):
+    import os
+    os.environ["WARDFLOW_DATA_DIR"] = str(tmp_path_factory.mktemp("wardflow"))  # 접속기록 파일은 시험용 임시 폴더에
+
+
 @pytest.fixture(scope="module")
-def client():
+def client(_data_dir):
     return TestClient(create_app())
 
 
@@ -225,3 +231,76 @@ def test_role_scoping_for_worklist_and_patient_detail(client):
     assert client.get(f"/api/patients/{mine['case']}", headers=ward).status_code == 200  # 자기 병동으로 오는 환자
     assert client.get(f"/api/patients/{other['case']}", headers=ward).status_code == 403  # 다른 병동 환자
     assert client.get("/api/me", headers=ward).json()["screen"] == "ward"
+
+
+def test_undo_agent_assignment_within_window():
+    c = TestClient(create_app())
+    h = _login(c)
+    row = next(r for r in c.get("/api/assignments", headers=h).json()["rows"] if r["undo_open"])
+    assert c.post(f"/api/assignments/{row['case']}/undo", json={"reason": ""}, headers=h).status_code == 422
+    assert c.post(f"/api/assignments/{row['case']}/undo", json={"reason": "기타", "memo": ""}, headers=h).status_code == 422
+    r = c.post(f"/api/assignments/{row['case']}/undo", json={"reason": "환자 요청"}, headers=h)
+    assert r.status_code == 200, r.text
+    after = next(x for x in c.get("/api/assignments", headers=h).json()["rows"] if x["case"] == row["case"] and x["at"] == row["at"])
+    assert after["state"] == "되돌림" and not after["undo_open"]
+    log = c.get("/api/access-log", headers=_login(c, "admin-jung")).json()["rows"]
+    assert any(x["action"] == "배정 되돌림" and x["user_id"] == "adm-kim" and "환자 요청" in x["detail"] for x in log)
+    # 시한이 지났거나 이미 되돌린 배정은 되돌릴 수 없다
+    assert c.post(f"/api/assignments/{row['case']}/undo", json={"reason": "환자 요청"}, headers=h).status_code == 409
+
+
+def test_unlock_requires_own_password(client):
+    h = _login(client)
+    assert client.post("/api/unlock", json={"password": "틀림"}, headers=h).status_code == 401
+    assert client.post("/api/unlock", json={"password": "demo1234"}, headers=h).status_code == 200
+
+
+
+# ---- 보안 검수 반영 (docs/검토/현실괴리/05_관리자_보안.md) ----
+
+def test_locked_account_stays_locked_even_with_right_password(client):
+    for _ in range(5):
+        client.post("/api/login", json={"user_id": "dr-kang", "password": "x"})
+    assert client.post("/api/login", json={"user_id": "dr-kang", "password": "demo1234"}).status_code == 423
+    assert client.post("/api/demo-login", json={"user_id": "dr-kang"}).status_code == 423  # 데모 로그인도 막힌다
+    log = client.get("/api/access-log", headers=_login(client, "admin-jung")).json()["rows"]
+    assert any(x["user_id"] == "dr-kang" and x["action"] == "로그인 실패" for x in log)
+    assert any(x["user_id"] == "dr-kang" and x["action"] == "계정 잠김" for x in log)
+    # 관리자가 확인한 뒤 잠금을 푼다 (EMR 인증 F003 권고)
+    a = _login(client, "admin-jung")
+    assert client.post("/api/accounts/dr-kang/unlock", headers=_login(client, "adm-kim")).status_code == 403
+    assert client.post("/api/accounts/dr-kang/unlock", headers=a).status_code == 200
+    assert client.post("/api/login", json={"user_id": "dr-kang", "password": "demo1234"}).status_code == 200
+
+
+def test_idle_session_is_cut_on_server_and_reopened_with_password(client):
+    h = _login(client)
+    tok = h["Authorization"].split()[1]
+    client.app.state.store.sessions[tok].last_seen -= 16 * 60  # 16분 동안 아무것도 안 함
+    r = client.get("/api/worklist", headers=h)
+    assert r.status_code == 401 and "잠" in r.json()["detail"]
+    assert client.post("/api/unlock", json={"password": "demo1234"}, headers=h).status_code == 200
+    assert client.get("/api/worklist", headers=h).status_code == 200
+
+
+def test_access_log_is_persistent_append_only_with_real_time_and_ip(client):
+    import os
+    import sqlite3
+    h = _login(client)
+    rows = client.get("/api/access-log", headers=_login(client, "admin-jung")).json()["rows"]
+    x = rows[0]
+    assert {"real_at", "sim_at", "ip", "user_id", "action", "case", "hash"} <= set(x)
+    assert x["real_at"][:4] >= "2026" and x["ip"]
+    path = os.path.join(os.environ["WARDFLOW_DATA_DIR"], "access_log.sqlite")
+    with sqlite3.connect(path) as db:  # 파일로 남는다 (재시작해도 보존)
+        assert db.execute("select count(*) from access_log").fetchone()[0] >= len(rows)
+    assert client.get("/api/access-log/verify", headers=_login(client, "admin-jung")).json()["ok"] is True  # 연결 해시로 위변조 확인
+
+
+def test_ward_nurse_cannot_switch_to_other_ward_and_admin_cannot_act_as_admission(client):
+    w = _login(client, "ward71-park")
+    assert client.post("/api/shift", json={"ward": "W72", "shift": "day"}, headers=w).status_code == 403
+    a = _login(client, "admin-jung")
+    assert client.get("/api/worklist", headers=a).status_code == 403
+    rows = _rows(client, _login(client))
+    assert client.get(f"/api/patients/{rows[0]['case']}", headers=a).status_code == 403  # 의료정보팀은 환자 정보가 아니라 접속기록을 본다

@@ -44,6 +44,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!r.ok) {
     let msg = r.statusText
     try { msg = (await r.json()).detail ?? msg } catch { /* 본문 없음 */ }
+    if (r.status === 401 && msg.includes('잠겼')) window.dispatchEvent(new Event('wardflow:lock'))  // 서버가 미사용으로 잠근 세션
     throw new ApiError(r.status, msg)
   }
   return r.json() as Promise<T>
@@ -55,6 +56,9 @@ export const api = {
   demoLogin: (user_id: string) => call<{ token: string; user: User; screen: string }>('/api/demo-login', { method: 'POST', body: JSON.stringify({ user_id }) }),
   me: () => call<{ user: User; ward: string | null; shift: string | null; now: string; screen: string }>('/api/me'),
   shift: (ward: string | null, shift: string) => call('/api/shift', { method: 'POST', body: JSON.stringify({ ward, shift }) }),
+  logout: () => call('/api/logout', { method: 'POST' }),
+  unlock: (password: string) => call('/api/unlock', { method: 'POST', body: JSON.stringify({ password }) }),
+  undo: (c: string, reason: string, memo: string) => call<{ status: string }>(`/api/assignments/${encodeURIComponent(c)}/undo`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
   worklist: () => call<Worklist>('/api/worklist'),
   beds: (c: string) => call<Board>(`/api/beds?case=${encodeURIComponent(c)}`),
   assign: (c: string, bed: string, reason: string, memo: string) => call('/api/assign', { method: 'POST', body: JSON.stringify({ case: c, bed, reason, memo }) }),

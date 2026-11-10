@@ -3,7 +3,6 @@ import { api, ApiError, token, type User } from '../api'
 import { Icon, Logo } from '../icons'
 import { shiftsFor } from '../shifts'
 
-const WARDS = [{ id: 'W71', label: '71병동' }, { id: 'W72', label: '72병동' }]
 
 // 로그인(개인 계정) → 오늘 근무(병동·근무조). 공용 계정은 없다. 실제 인증 수단은 범위 밖.
 export function Login({ demoFirst, onDone, onBack }: { demoFirst: boolean; onDone: (u: User) => void; onBack: () => void }) {
@@ -12,7 +11,7 @@ export function Login({ demoFirst, onDone, onBack }: { demoFirst: boolean; onDon
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
   const [user, setUser] = useState<User | null>(null)
-  const [ward, setWard] = useState<string | null>(null)
+  const [ward, setWard] = useState<string | null>(null)  // 병동 계정은 소속 병동으로 고정 (다른 병동 열람 방지)
   const [shift, setShift] = useState<string | null>(null)
 
   useEffect(() => { api.demoAccounts().then(setAccounts).catch(() => setAccounts([])) }, [])
@@ -37,7 +36,7 @@ export function Login({ demoFirst, onDone, onBack }: { demoFirst: boolean; onDon
             <span><div className="n">{user.name}</div><div className="r">{user.role_label}</div></span></div>
           {clinical && (<>
             <div className="lab">근무 병동</div>
-            <div className="seg">{WARDS.map(w => <button key={w.id} className={ward === w.id ? 'on' : ''} onClick={() => setWard(w.id)}>{w.label}</button>)}</div>
+            <div className="seg"><button className="on" disabled>{(ward ?? '').replace('W', '')}병동 (소속)</button></div>
           </>)}
           <div className="lab">근무조</div>
           <div className="seg">{shiftsFor(user.role).map(s => <button key={s.id} className={shift === s.id ? 'on' : ''} onClick={() => setShift(s.id)}>{s.label}</button>)}</div>

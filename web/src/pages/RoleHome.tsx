@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { User } from '../api'
 import { Icon, Logo } from '../icons'
+import { lockNow } from '../parts/AutoLock'
 
 // 원무가 아닌 역할의 첫 화면. 역할마다 화면과 권한이 다르다(최소 권한). 병동·감염관리실·관리자 화면은 로드맵 P3·P4에서 만든다.
 const NEXT: Record<string, string> = {
@@ -24,6 +25,7 @@ export function RoleHome({ user, onLogout, onSwitch }: { user: User; onLogout: (
               <div className="menu" role="menu">
                 <div className="who"><b>{user.name}</b><br />{user.role_label}</div>
                 <button role="menuitem" onClick={onSwitch}><Icon name="swap" small />다른 계정으로 로그인</button>
+                <button role="menuitem" onClick={() => { setMenu(false); lockNow() }}><Icon name="lock" small />화면 잠금</button>
                 <button role="menuitem" onClick={onLogout}><Icon name="logout" small />로그아웃</button>
               </div>
             )}

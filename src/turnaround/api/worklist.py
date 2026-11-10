@@ -172,7 +172,7 @@ def admission_rows(st) -> dict:
         add(x["case"], "confirmed", "자동 확정", "배정 확인", None, False, None,
             f"차순위 {x['runner_up']}" if x.get("runner_up") else "차순위 없음", "되돌리기 가능", ref="notice:" + x["case"],
             situation=f"에이전트가 {x['bed_ko']}로 확정했습니다. {x['undo_until']}까지 되돌릴 수 있습니다.")
-        rows[-1]["bed"] = x["bed_ko"]
+        rows[-1]["bed"] = _bed(x["bed"])
         rows[-1]["due"], rows[-1]["due_note"] = x.get("undo_until") or "", "되돌리기 시한"
 
     def key(r):

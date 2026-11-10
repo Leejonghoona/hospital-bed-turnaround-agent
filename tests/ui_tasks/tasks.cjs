@@ -87,6 +87,42 @@ const TASKS = {
     c.push({ name: '승인 뒤 다시 확인한 결과가 보인다', ok: /다시 확인/.test(msg || ''), detail: msg })
     return c
   },
+  async W3(page) {
+    await enterOps(page)
+    await page.locator('tr.row').first().waitFor()
+    await page.getByRole('button', { name: '배정 기록' }).click()
+    const row = page.locator('tr.row', { has: page.getByRole('button', { name: '되돌리기' }) }).first()
+    await row.waitFor()
+    const name = await row.locator('.pt b').textContent()
+    const c = []
+    c.push({ name: '되돌릴 수 있는 시한이 보인다', ok: /까지 가능/.test(await row.textContent() || '') })
+    await row.getByRole('button', { name: '되돌리기' }).click()
+    const dlg = page.getByRole('dialog', { name: '배정 되돌리기' })
+    await dlg.getByRole('button', { name: '환자 요청' }).click()
+    await dlg.getByRole('button', { name: '되돌리기' }).click()
+    await page.getByRole('status').waitFor(); await page.waitForTimeout(400)
+    const after = page.locator('tr.row', { hasText: name })
+    c.push({ name: '사유를 고르고 확인하면 되돌려진다', ok: /되돌림/.test(await after.first().textContent() || ''), detail: name })
+    return c
+  },
+  async A3(page) {
+    await enterOps(page)
+    await page.locator('tr.row').first().waitFor()
+    const c = []
+    await page.getByRole('button', { name: /김하늘/ }).click()
+    await page.getByRole('menuitem', { name: '화면 잠금' }).click()
+    const lock = page.getByRole('dialog', { name: '화면 잠금' })
+    c.push({ name: '잠그면 화면이 가려진다', ok: await lock.isVisible() })
+    await lock.getByLabel('비밀번호').fill('demo1234'); await lock.getByRole('button', { name: '잠금 해제' }).click()
+    await lock.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
+    c.push({ name: '본인 비밀번호로 다시 연다', ok: !(await lock.isVisible()) })
+    await page.getByRole('button', { name: /김하늘/ }).click()
+    await page.getByRole('menuitem', { name: '다른 계정으로 로그인' }).click()
+    await page.getByRole('button', { name: /서민준/ }).first().click(); await page.getByRole('button', { name: '근무 시작' }).click()
+    await page.locator('tr.row').first().waitFor()
+    c.push({ name: '다음 근무자 계정으로 넘어간다', ok: await page.getByRole('button', { name: /서민준/ }).isVisible() })
+    return c
+  },
 }
 
 ;(async () => {

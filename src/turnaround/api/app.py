@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import secrets
+import time as _time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from pathlib import Path
 
 import yaml
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -26,12 +29,18 @@ MAX_FAIL = 5  # 로그인 실패 허용 횟수 (설계 가정, 개인정보 안�
 ROLE_SCREEN = {"bed_manager": "admission", "ward": "ward", "ipc": "ipc", "id_oncall": "ipc", "admin": "manager"}
 
 
+IDLE_SEC = 15 * 60  # 일정 시간 미사용 시 자동 차단 (고시 제6조④, EMR 인증 F004 "10분~60분 이내"). 15분은 설계 가정
+_CLIENT_IP: ContextVar[str] = ContextVar("client_ip", default="")
+
+
 @dataclass
 class Session:
     token: str
     user: dict
     ward: str | None = None
     shift: str | None = None
+    last_seen: float = field(default_factory=_time.monotonic)
+    locked: bool = False
 
 
 @dataclass
@@ -39,7 +48,7 @@ class Store:
     accounts: dict[str, dict]
     sessions: dict[str, Session] = field(default_factory=dict)
     fails: dict[str, int] = field(default_factory=dict)
-    access_log: list[dict] = field(default_factory=list)
+    access_log: object = None  # AccessLog (파일, 추가만)
     state: object = None  # 합성 병원 하루 재생 (요청이 처음 올 때 만든다)
 
     def demo(self):
@@ -47,17 +56,19 @@ class Store:
             from turnaround.gateway import load_policy
             from turnaround.sim import GeneratorConfig
             from turnaround.ui.demo import build_demo
-            self.state = build_demo(seed=2, day=3, until=time(13, 0), via_fhir=False, policy=load_policy(),
+            self.state = build_demo(seed=2, day=3, until=time(11, 45), via_fhir=False, policy=load_policy(),
                                     config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1,
                                     live_from=time(7, 0))
             from turnaround.api.shift_model import apply_night_shift
             apply_night_shift(self.state)  # 이전 근무가 처리한 일 (데모 화면용 사람 응답 모형)
         return self.state
 
-    def log(self, s: Session, action: str, case: str | None = None, detail: str = "") -> None:
-        st = self.demo()
-        self.access_log.append({"at": st.now.isoformat(timespec="minutes"), "user_id": s.user["user_id"],
-                                "name": s.user["name"], "case": case, "action": action, "detail": detail})
+    def log(self, s, action: str, case: str | None = None, detail: str = "") -> None:
+        """s: Session 또는 사용자 정보 dict(로그인 실패처럼 세션이 없을 때)."""
+        u = s.user if isinstance(s, Session) else s
+        sim = self.state.now.isoformat(timespec="minutes") if self.state is not None else ""
+        self.access_log.append(sim_at=sim, user_id=u["user_id"], name=u.get("name", ""), ip=_CLIENT_IP.get(),
+                               case=case, action=action, detail=detail)
 
 
 def _load_accounts() -> dict[str, dict]:
@@ -95,6 +106,13 @@ class ReasonIn(BaseModel):
     memo: str = ""
 
 
+class UnlockIn(BaseModel):
+    password: str = ""
+
+
+UNDO_REASONS = ("다른 병상이 더 적합", "환자 요청", "병동 사정", "기타")
+
+
 class AssignIn(BaseModel):
     case: str
     bed: str
@@ -109,21 +127,40 @@ class ShiftIn(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="WardFlow API")
-    store = Store(_load_accounts())
+    from turnaround.api.access_log import AccessLog
+    data_dir = Path(os.environ.get("WARDFLOW_DATA_DIR") or (ROOT / "var"))
+    store = Store(_load_accounts(), access_log=AccessLog(data_dir / "access_log.sqlite"))
     app.state.store = store
 
-    def session(authorization: str | None = Header(default=None)) -> Session:
+    @app.middleware("http")
+    async def remember_ip(request: Request, call_next):
+        fwd = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        _CLIENT_IP.set(fwd or (request.client.host if request.client else ""))
+        return await call_next(request)
+
+    def any_session(authorization: str | None = Header(default=None)) -> Session:
         tok = (authorization or "").removeprefix("Bearer ").strip()
         s = store.sessions.get(tok)
         if s is None:
             raise HTTPException(401, "로그인이 필요합니다")
         return s
 
-    def start(a: dict) -> dict:
+    def session(s: Session = Depends(any_session)) -> Session:
+        """일정 시간 쓰지 않은 세션은 서버에서 잠근다. 잠금은 본인 비밀번호로만 푼다(/api/unlock)."""
+        now = _time.monotonic()
+        if s.locked or now - s.last_seen > IDLE_SEC:
+            if not s.locked:
+                s.locked = True
+                store.log(s, "자동 잠금")
+            raise HTTPException(401, "오래 쓰지 않아 화면이 잠겼습니다")
+        s.last_seen = now
+        return s
+
+    def start(a: dict, how: str = "로그인") -> dict:
         tok = secrets.token_urlsafe(24)
         s = Session(tok, _public(a), ward=a.get("ward"))
         store.sessions[tok] = s
-        store.log(s, "로그인")
+        store.log(s, how)
         return {"token": tok, "user": s.user, "screen": ROLE_SCREEN.get(a["role"], "admission")}
 
     @app.get("/api/health")
@@ -134,24 +171,53 @@ def create_app() -> FastAPI:
     def demo_accounts():
         return [_public(a) for a in store.accounts.values()]
 
+    LOCKED_MSG = "로그인 실패가 반복되어 계정이 잠겼습니다. 관리자에게 잠금 해제를 요청하세요"
+
     @app.post("/api/login")
     def login(body: LoginIn):
+        """5회 실패하면 계정을 잠그고, 잠긴 계정은 맞는 비밀번호로도 열리지 않는다. 관리자가 확인한 뒤 푼다 (고시 제5조⑥, EMR F003)."""
         a = store.accounts.get(body.user_id)
-        if store.fails.get(body.user_id, 0) >= MAX_FAIL - 1 and (a is None or not _check(a, body.password)):
-            store.fails[body.user_id] = store.fails.get(body.user_id, 0) + 1
-            raise HTTPException(423, "로그인 실패가 반복되어 계정이 잠겼습니다")
+        who = {"user_id": body.user_id, "name": (a or {}).get("name", "")}
+        if store.fails.get(body.user_id, 0) >= MAX_FAIL:
+            store.log(who, "로그인 거부(잠긴 계정)")
+            raise HTTPException(423, LOCKED_MSG)
         if a is None or not _check(a, body.password):
-            store.fails[body.user_id] = store.fails.get(body.user_id, 0) + 1
+            n = store.fails[body.user_id] = store.fails.get(body.user_id, 0) + 1
+            store.log(who, "로그인 실패", detail=f"{n}회")
+            if n >= MAX_FAIL:
+                store.log(who, "계정 잠김")
+                raise HTTPException(423, LOCKED_MSG)
             raise HTTPException(401, "사번 또는 비밀번호가 맞지 않습니다")
         store.fails.pop(body.user_id, None)
         return start(a)
 
     @app.post("/api/demo-login")
     def demo_login(body: LoginIn):
+        if os.environ.get("TURNAROUND_MODE") == "production":
+            raise HTTPException(404, "운영 모드에서는 데모 로그인이 없습니다")
         a = store.accounts.get(body.user_id)
         if a is None:
             raise HTTPException(404, "없는 데모 계정입니다")
-        return start(a)
+        if store.fails.get(body.user_id, 0) >= MAX_FAIL:
+            store.log({"user_id": body.user_id, "name": a["name"]}, "로그인 거부(잠긴 계정)")
+            raise HTTPException(423, LOCKED_MSG)
+        return start(a, how="데모 로그인")
+
+    @app.post("/api/accounts/{uid}/unlock")
+    def unlock_account(uid: str, s: Session = Depends(session)):
+        if s.user["role"] != "admin":
+            raise HTTPException(403, "계정 잠금은 관리자만 풀 수 있습니다")
+        if uid not in store.accounts:
+            raise HTTPException(404, "없는 계정입니다")
+        store.fails.pop(uid, None)
+        store.log(s, "계정 잠금 해제", detail=uid)
+        return {"ok": True}
+
+    @app.post("/api/logout")
+    def logout(s: Session = Depends(any_session)):
+        store.sessions.pop(s.token, None)
+        store.log(s, "로그아웃")
+        return {"ok": True}
 
     @app.get("/api/me")
     def me(s: Session = Depends(session)):
@@ -161,7 +227,11 @@ def create_app() -> FastAPI:
 
     @app.post("/api/shift")
     def shift(body: ShiftIn, s: Session = Depends(session)):
-        s.ward, s.shift = body.ward or s.ward, body.shift
+        acct_ward = store.accounts[s.user["user_id"]].get("ward")
+        if s.user["role"] == "ward" and body.ward and body.ward != acct_ward:
+            store.log(s, "근무 병동 변경 거부", detail=body.ward)
+            raise HTTPException(403, "소속 병동이 아닌 곳으로 바꿀 수 없습니다")
+        s.ward, s.shift = (acct_ward if s.user["role"] == "ward" else body.ward or s.ward), body.shift
         store.log(s, "근무 시작", detail=f"{s.ward or ''} {s.shift or ''}".strip())
         return {"ward": s.ward, "shift": s.shift}
 
@@ -190,8 +260,8 @@ def create_app() -> FastAPI:
     def may_view(st, s: Session, case: str) -> bool:
         """최소 권한: 원무는 입원 대기 환자 전체, 병동은 자기 병동에 있거나 올 환자, 감염관리실은 격리 환자만."""
         role = s.user["role"]
-        if role in ("bed_manager", "admin"):
-            return True
+        if role == "bed_manager":
+            return True  # 의료정보팀(admin)은 환자 정보가 아니라 접속기록과 계정을 본다
         ev = st.store.read()
         if role == "ward":
             bed = st.gw._assignments(ev).get(case)
@@ -208,7 +278,7 @@ def create_app() -> FastAPI:
 
     # ---- 원무 처리 (P2). 기록은 사건 저장소에 사람 사건으로 남고, 접속기록에도 남는다 ----
     def admission_only(s: Session) -> None:
-        if s.user["role"] not in ("bed_manager", "admin"):
+        if s.user["role"] != "bed_manager":
             raise HTTPException(403, "원무 담당만 처리할 수 있습니다")
 
     def row_of(st, rid: str) -> dict:
@@ -251,7 +321,7 @@ def create_app() -> FastAPI:
         memo = memo_of(body.memo, False)
         if body.outcome == "no_answer":
             note(st, s, case, memo, tag="contact_no_answer")
-            store.log(s, "입원 안내 연락 안 됨", case=case, detail=memo)
+            store.log(s, "입원 안내 연락 안 됨", case=case)
             return {"ok": True}
         try:
             hh, mm = map(int, body.promised_at.split(":"))
@@ -337,6 +407,37 @@ def create_app() -> FastAPI:
         store.log(s, "병상 직접 배정", case=body.case, detail=f"{body.bed} {REASON_CODES[body.reason]}")
         return {"ok": True, "tier": d.tier}
 
+    @app.post("/api/unlock")
+    def unlock(body: UnlockIn, s: Session = Depends(any_session)):
+        """자동 잠금 해제: 같은 사람이 비밀번호를 다시 입력한다 (EMR 인증 해설서: 일정 시간 미사용 시 잠금, 화면보호기는 인정 안 됨)."""
+        a = store.accounts.get(s.user["user_id"])
+        if a is None or not _check(a, body.password):
+            store.log(s, "잠금 해제 실패")
+            raise HTTPException(401, "비밀번호가 맞지 않습니다")
+        s.locked, s.last_seen = False, _time.monotonic()
+        store.log(s, "잠금 해제")
+        return {"ok": True}
+
+    @app.post("/api/assignments/{case}/undo")
+    def undo(case: str, body: ReasonIn, s: Session = Depends(session)):
+        """에이전트 확정 배정을 시한 안에 되돌린다(W3). 연락 전이면 병상을 풀고 다시 찾고, 연락 뒤면 담당 검토와 재연락."""
+        from turnaround.api.worklist import assignments
+        admission_only(s)
+        st = store.demo()
+        if body.reason not in UNDO_REASONS:
+            raise HTTPException(422, "되돌리는 사유를 골라 주세요")
+        memo = memo_of(body.memo, body.reason == "기타")
+        row = next((r for r in assignments(st, store.accounts)["rows"] if r["case"] == case and r["undo_open"]), None)
+        if row is None:
+            raise HTTPException(409, "되돌리기 시한이 지났거나 되돌릴 배정이 없습니다")
+        from turnaround.events import EventType
+        pid = next(e.payload.get("proposal_id") for e in reversed(st.store.read())
+                   if e.type is EventType.WARD_ASSIGNMENT_NOTIFIED and e.case_id == case)
+        d = st.gw.ward_objection(pid, f"원무 되돌림: {body.reason}", st.now)
+        note(st, s, case, memo)
+        store.log(s, "배정 되돌림", case=case, detail=f"{row['bed']} {body.reason}")
+        return {"status": d.status}
+
     @app.get("/api/assignments")
     def assignment_log(day: str | None = None, s: Session = Depends(session)):
         from datetime import date as _date
@@ -355,7 +456,14 @@ def create_app() -> FastAPI:
     def access_log(s: Session = Depends(session)):
         if s.user["role"] != "admin":
             raise HTTPException(403, "접속기록은 관리자만 볼 수 있습니다")
-        return {"rows": list(reversed(store.access_log))}
+        store.log(s, "접속기록 조회")
+        return {"rows": store.access_log.rows()}
+
+    @app.get("/api/access-log/verify")
+    def access_log_verify(s: Session = Depends(session)):
+        if s.user["role"] != "admin":
+            raise HTTPException(403, "접속기록은 관리자만 볼 수 있습니다")
+        return {"ok": store.access_log.verify()}
 
     # 빌드된 화면(web/dist)이 있으면 같은 주소에서 내준다(한 컨테이너 배포). API 경로 뒤에 둔다.
     dist = ROOT / "web" / "dist"

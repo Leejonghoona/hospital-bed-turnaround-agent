@@ -1,9 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, type Patient, type Row, type User, type Worklist as WL } from '../api'
 import { Icon, Logo } from '../icons'
+import { lockNow } from '../parts/AutoLock'
 import { shiftShort } from '../shifts'
 import { AssignmentLog } from './AssignmentLog'
 import { BedPicker } from './BedPicker'
+import { UndoForm } from '../parts/Undo'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 수속 안내 시각 선택지: 15분 단위 (브라우저 언어와 상관없이 24시간제로 보이게 select로 둔다)
@@ -114,6 +116,8 @@ function Action({ r, onDone }: { r: Row; onDone: (msg: string) => void }) {
     </div>
   </>)
 
+  if (r.kind === 'confirmed') return <UndoForm caseId={r.case} until={r.due} onDone={onDone} />
+
   return null
 }
 
@@ -196,6 +200,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
               <div className="menu" role="menu">
                 <div className="who"><b>{user.name}</b><br />{user.role_label}{sh && <><br />{sh}</>}</div>
                 <button role="menuitem" onClick={onSwitch}><Icon name="swap" small />다른 계정으로 로그인</button>
+                <button role="menuitem" onClick={() => { setMenu(false); lockNow() }}><Icon name="lock" small />화면 잠금</button>
                 <button role="menuitem" onClick={onLogout}><Icon name="logout" small />로그아웃</button>
               </div>
             )}

@@ -16,3 +16,4 @@ models/
 *.gguf
 *.egg-info/
 evals/results/tmp/
+var/
