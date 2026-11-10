@@ -57,6 +57,7 @@ export type AiOps = {
   measured: { no_touch: { ratio: number; committed: number; no_touch: number; seed_min: number; seeds: string }
     entry_wait: { seeds: number; off_min: number; on_min: number; change: number }
     entry_breakdown: { seeds: string; n: number; off_min: number; on_min: number; change: number; ready_off: number; ready_on: number }
+    entry_breakdown_realistic?: { off_min: number; on_min: number; change: number; ready_off: number; ready_on: number }
     safety: { seeds: string; violations: number; checks: number; holdout_seeds: string; holdout: { violations: number; checks: number } }
     autonomy: { days: number; curves: { seed: number; periods: { days: string; ratio: number }[]; promoted_day: Record<string, number>; safety_violations: number }[] } }
   note: string

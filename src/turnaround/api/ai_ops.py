@@ -143,7 +143,7 @@ def differentiators(ob: dict) -> dict:
     """시연 끝의 차별점 표. 짧고 쉬운 문장으로(2026-11-10 사용자 지적: 읽고 싶지 않다)."""
     r = results()
     sf = r["safety"]
-    eb = r.get("entry_breakdown")
+    eb = r.get("entry_breakdown_realistic") or r.get("entry_breakdown")
     curves = r["autonomy"]["curves"]
     last = sum(c["periods"][-1]["ratio"] for c in curves) / len(curves)
     if eb:
@@ -155,7 +155,7 @@ def differentiators(ob: dict) -> dict:
     rows = [
         {"key": "G2", "title": "늦게 온 격리 정보 반영", "what": "병상 확정 뒤 격리 오더가 나면, 입실을 멈추고 감염관리실에 넘깁니다.",
          "value": "자동 보류", "value_sub": "입실 호출 전에 막음", "where": "감염관리실"},
-        {"key": "A", "title": "병상 먼저 만들기", "what": "퇴실하는 순간 청소를 요청하고, 퇴원 준비를 재촉합니다.",
+        {"key": "A", "title": "병상 먼저 만들기", "what": "퇴실하는 순간 청소와 침상 정리를 요청하고, 퇴원 준비를 재촉합니다.",
          "value": a_val, "value_sub": a_sub, "where": "병동"},
         {"key": "G1", "title": "실행 직전 재검사", "what": "AI 판단도 사람 승인도, 실행 바로 전에 안전 조건을 다시 확인합니다.",
          "value": f"{sf['violations'] + sf['holdout']['violations']}건", "value_sub": f"안전 위반, 검사 {sf['checks'] + sf['holdout']['checks']}회", "where": "AI 운영 개요"},

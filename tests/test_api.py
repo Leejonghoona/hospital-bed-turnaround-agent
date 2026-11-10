@@ -498,7 +498,7 @@ def test_differentiators_numbers_from_summary(client):
     assert d["note"] == "합성 데이터 기준 추정"
     v = {r["key"]: r["value"] for r in d["rows"]}
     assert list(v) == ["G2", "A", "G1", "C", "B", "LLM"]  # 평범한 입원(바닥)은 차별점이 아니다
-    assert v["A"] == "−32%" and v["G1"] == "0건"
+    assert v["A"] == "−66%" and v["G1"] == "0건"
 
 
 def test_tour_can_switch_team_screen_only_in_tour(client):

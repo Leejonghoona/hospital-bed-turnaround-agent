@@ -716,7 +716,7 @@ def create_app() -> FastAPI:
             "today": {"committed": f["load"]["확정"], "no_touch": f["load"]["사람 손을 안 거친 확정"],
                       "admissions": f["load"]["입원 사례"],
                       "safety": sum(int(x["위반"] or 0) for x in f["safety"]), "safety_rows": f["safety"]},
-            "measured": {k: r[k] for k in ("no_touch", "entry_wait", "entry_breakdown", "safety", "autonomy")}, "note": r["note"],
+            "measured": {k: r[k] for k in ("no_touch", "entry_wait", "entry_breakdown", "entry_breakdown_realistic", "safety", "autonomy")}, "note": r["note"],
             "blocked": blocked[::-1], "blocked_reasons": sorted(reasons.items(), key=lambda x: -x[1]),
             "autonomy": ai_ops.autonomy(st), "autonomy_rule": ai_ops.rule_text(st),
             "model": ai_ops.model_info(), "onboarding": ai_ops.onboarding_out(_onboarding(s)),
