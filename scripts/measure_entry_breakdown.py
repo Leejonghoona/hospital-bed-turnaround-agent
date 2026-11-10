@@ -1,6 +1,9 @@
 """입실 대기 쪼개 보기 (2026-11-10 사용자 질문 "수속부터 입실까지 왜 이렇게 안 줄어드나"). 결과는 합성 데이터 기준 추정.
 
 python scripts/measure_entry_breakdown.py --seeds 0 50 --day 3 > evals/results/final/entry_breakdown.json
+python scripts/measure_entry_breakdown.py --ops --seeds 0 50 --day 3 > evals/results/final/entry_breakdown_realistic.json
+
+--ops: 운영 현실 옵션(침상 정리 일괄 회차, 청소 인력 시간대, 에이전트 수단 두 가지)을 켠 병원 (DECISIONS 2026-11-10).
 
 같은 병원을 에이전트 없이(기준선)와 있게(반응형 효과) 돌려, 입원마다 다음을 잰다.
 - 예정 수속부터 입실: 기존 지표(입원 예정 시각부터). 원무가 병상 사정으로 늦게 오라고 안내한 시간(집에서 기다린 시간)까지 들어간다.
@@ -13,8 +16,10 @@ from __future__ import annotations
 import argparse
 import json
 import statistics as S
+from collections import Counter
 from datetime import datetime, time
 
+from turnaround.evaluation.safety_exec import executed_safety
 from turnaround.events import EventType as E
 from turnaround.gateway import load_policy
 from turnaround.saga import fold
@@ -23,11 +28,18 @@ from turnaround.sim.reactive import ReactiveEffects
 from turnaround.ui.demo import build_demo
 
 
-def rows_for(seed: int, day: int, reactive: bool) -> list[dict]:
+def rows_for(seed: int, day: int, reactive: bool, ops: bool = False, safety: Counter | None = None,
+             fx: ReactiveEffects | None = None) -> list[dict]:
+    cfg = GeneratorConfig.realistic(ops_realism=True) if ops else GeneratorConfig.realistic()
     st = build_demo(seed=seed, day=day, until=time(23, 45), via_fhir=False, policy=load_policy(),
-                    config=GeneratorConfig.realistic(), reactive=ReactiveEffects() if reactive else None,
+                    config=cfg, reactive=(fx or ReactiveEffects()) if reactive else None,
                     past_admissions=False, occupancy="full")
     ev = st.store.read()
+    if safety is not None:  # 실행 상태 안전 S1~S4 (measure_cycle.py와 같은 계산)
+        sx = executed_safety(st.gw, ev)
+        for k in ("S1", "S2", "S3", "S4"):
+            safety[k] += sx[k]["violations"]
+            safety[k + "_n"] += sx[k]["denominator"]
     s = fold(ev)
     first: dict = {}
     for e in ev:
@@ -73,12 +85,33 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--seeds", nargs=2, type=int, default=[0, 50])
     p.add_argument("--day", type=int, default=3)
+    p.add_argument("--ops", action="store_true", help="운영 현실 옵션을 켠 병원")
     a = p.parse_args()
     from turnaround.evaluation.provenance import stamp
     res = {"provenance": stamp(load_policy()), "seeds": a.seeds, "day": a.day, "note": "합성 데이터 기준 추정"}
+    if a.ops:
+        res["ops_realism"] = True
     for name, reactive in (("off", False), ("on", True)):
-        rows = [r for seed in range(*a.seeds) for r in rows_for(seed, a.day, reactive)]
+        safety: Counter = Counter()
+        rows = [r for seed in range(*a.seeds) for r in rows_for(seed, a.day, reactive, a.ops, safety)]
         res[name] = summary(rows)
+        if a.ops:  # 기존 결과 파일 형식은 그대로 둔다
+            res[name]["safety"] = dict(safety)
+            # 안내 시각보다 먼저 불려 와서 음수가 된 건을 0으로 본 평균(병원에 와서 기다린 시간은 음수가 될 수 없다)
+            res[name]["from_promised_clip0_mean"] = round(S.mean(max(0.0, r["from_promised"]) for r in rows), 1)
+            res[name]["from_promised_p90"] = round(S.quantiles([r["from_promised"] for r in rows], n=10)[-1], 1)
+    if a.ops:  # 수단별 쪼개 보기와 미리 알린 이득 없는 민감도 (에이전트 켬만)
+        old = frozenset({"order_nudge", "lounge", "cleaning_request"})
+        variants = {"old_levers_only": ReactiveEffects(enabled=old),
+                    "plus_bed_prep_request": ReactiveEffects(enabled=old | {"bed_prep_request"}),
+                    "plus_schedule_share": ReactiveEffects(enabled=old | {"schedule_share"}),
+                    "all_no_advance_notice": ReactiveEffects(bed_prep_min_response_min=None)}
+        res["variants"] = {}
+        for name, fx in variants.items():
+            rows = [r for seed in range(*a.seeds) for r in rows_for(seed, a.day, True, True, fx=fx)]
+            sm = summary(rows)
+            res["variants"][name] = {k: sm[k] for k in ("n", "from_promised_mean", "from_promised_median",
+                                                        "ready_at_checkin", "request_to_start", "done_to_ready")}
     print(json.dumps(res, ensure_ascii=False, indent=1))
 
 

@@ -7,6 +7,8 @@ from datetime import datetime, time, timedelta
 
 from turnaround.rules import aerosol_wait_min
 
+from . import ops
+
 from .distributions import DEFAULT_STAGE_DISTRIBUTIONS, REALISTIC_STAGE_OVERRIDES, SPLIT_CLEANING
 from .models import (
     RX_REVISION_REASONS,
@@ -288,6 +290,8 @@ class _Gen:
                 prep_done = prep_start + m(mm("bed_prep"))
                 ready = max(clean_done, prep_done)
                 seq.update(bed_prep_started_at=prep_start, bed_prep_done_at=prep_done)
+                if cfg.ops_realism:  # 이미 뽑은 정리 응답 시간을 "회차 없이 바로 올 때"의 값으로 남긴다 (새 난수 없음)
+                    d["bed_prep_direct_response"] = round((prep_start - clean_done).total_seconds() / 60)
 
             result.append(Discharge(
                 id=f"SYN-D{i + 1:03d}", day=day, bed_id=bed.id, patient=patient,
@@ -305,7 +309,7 @@ class _Gen:
                     rx_issued_at=rx_issued, rx_revised_at=rx_revised_at, rx_dispensed_at=rx_dispensed, **seq,
                 ),
             ))
-        return tuple(result)
+        return _apply_ops(result, self.beds) if cfg.ops_realism else tuple(result)
 
     # ---------- 입원 대기 ----------
 
@@ -373,6 +377,35 @@ class _Gen:
                 cancelled_at=cancelled_at,
             ))
         return tuple(result)
+
+
+def ops_cleaning_arrival(d: Discharge, requested: datetime, departed: datetime) -> datetime:
+    """운영 현실 옵션: 청소 인력이 올 수 있는 가장 이른 시각(인력 시간대 반영, 환기 대기 뒤). sim/ops.py"""
+    arrive = ops.cleaning_arrival(requested, d.durations_min["cleaning_response"], d.cleaning_extra_delay_min)
+    return max(arrive, departed + timedelta(minutes=d.aerosol_wait_min))
+
+
+def ops_bed_side(d: Discharge, clean_start: datetime, prep_request_at: datetime | None = None,
+                 min_response_min: int | None = 10) -> dict:
+    """운영 현실 옵션: 청소 시작부터 입실 가능까지의 시각. 청소·정리 길이는 생성기가 뽑은 값 그대로."""
+    t = d.actual
+    clean_len = round((t.cleaning_done_at - t.cleaning_started_at).total_seconds() / 60)
+    prep_len = round((t.bed_prep_done_at - t.bed_prep_started_at).total_seconds() / 60)
+    cs, cd, ps, pd, rd = ops.bed_timeline(clean_start, clean_len, prep_len, d.durations_min["bed_prep_direct_response"],
+                                          prep_request_at, min_response_min)
+    return dict(cleaning_started_at=cs, cleaning_done_at=cd, bed_prep_started_at=ps, bed_prep_done_at=pd, bed_ready_at=rd)
+
+
+def _apply_ops(result: list[Discharge], beds) -> tuple[Discharge, ...]:
+    """운영 현실 옵션 (DECISIONS 2026-11-10): 병동별 청소 대기열(들어온 순서)과 침상 정리 회차로 병상 쪽 시각을 다시 잡는다."""
+    ward = {b.id: b.ward_id for b in beds}
+    jobs = []
+    for x in result:
+        t = x.actual
+        jobs.append(ops.CleanJob(x.id, ward[x.bed_id], ops_cleaning_arrival(x, t.baseline_cleaning_requested_at, t.departed_at),
+                                 round((t.cleaning_done_at - t.cleaning_started_at).total_seconds() / 60)))
+    starts = ops.schedule_cleaning(jobs)
+    return tuple(x.model_copy(update={"actual": x.actual.model_copy(update=ops_bed_side(x, starts[x.id]))}) for x in result)
 
 
 def generate(seed: int = 42, config: GeneratorConfig | None = None,

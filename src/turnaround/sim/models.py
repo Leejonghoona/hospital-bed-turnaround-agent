@@ -251,6 +251,9 @@ class GeneratorConfig(_Frozen):
     regular_discharge_rate: float = Field(default=0.65, ge=0, le=1)  # 등급 B: 인천성모 65%, 양산부산대 62.7%
     # 병원 구조. base: 측정·회귀용 병동 2개 24병상(CLAUDE.md). demo: 화면 시연 전용 병동 4개 176병상 (DECISIONS 2026-11-10)
     hospital: Literal["base", "demo"] = "base"
+    # 운영 현실 옵션 (DECISIONS 2026-11-10): 침상 정리 일괄 회차, 청소 인력 시간대(sim/ops.py). 현실 구성에서만 켠다.
+    # 끄면(기본) 생성기 출력은 옵션 추가 전과 같다
+    ops_realism: bool = False
 
     @classmethod
     def realistic(cls, **kw) -> "GeneratorConfig":
@@ -278,6 +281,8 @@ class GeneratorConfig(_Frozen):
         for name in ("guardian_delay_count", "cleaning_delay_count", "unregistered_count"):
             if getattr(self, name) > total:
                 raise ValueError(f"{name}가 퇴원 건수({total})보다 많다")
+        if self.ops_realism and self.discharge_mix != "realistic":
+            raise ValueError("ops_realism은 현실 구성(discharge_mix='realistic')에서만 켠다")
         if self.isolation_discharge_count > self.days:
             raise ValueError("격리 퇴실은 하루 1건까지만 둔다")
         if self.admission_mix == "test" and self.admission_cancel_count > self.admission_count - N_SPECIAL_ADMISSIONS:

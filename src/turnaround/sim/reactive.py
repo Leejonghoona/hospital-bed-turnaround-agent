@@ -7,6 +7,11 @@
 - 처방 재촉: 재촉 시각 뒤 남은 지연의 일부(gain)를 줄인다. 응답에 최소 시간이 걸린다.
 - 퇴원 라운지: 환자가 동의하면(동의율) 준비 완료 뒤 병상을 먼저 비운다. 보호자는 라운지로 온다(서울성모 안내).
 - 즉시 청소 요청: 퇴실 시각에 요청이 나가므로 기존 방식의 "퇴실 → 사람이 요청" 지연이 없어진다.
+
+운영 현실 옵션(GeneratorConfig.ops_realism, DECISIONS 2026-11-10)을 켠 병원에서만 수단 두 가지가 더 있다.
+- 퇴실 즉시 침상 정리 요청(bed_prep_request): 다음 입원이 매칭된 병상의 퇴실을 보면 침상 정리 회차를 기다리지 않게 요청한다.
+- 청소 예정표 공유(schedule_share): 다음 입원 시각을 예정표에 올려 청소 대기열이 그 병상을 먼저 고른다. 사람 배정 아님.
+이 옵션에서는 청소 시작을 병동별 대기열로 다시 계산하고, 순서가 바뀌어 늦어지는 병상은 늦어진 대로 둔다.
 """
 
 from __future__ import annotations
@@ -28,7 +33,10 @@ class ReactiveEffects(BaseModel):
     order_nudge_min_response_min: int = Field(default=15, ge=0)  # 재촉부터 오더까지 최소 (설계 가정)
     lounge_accept_rate: float = Field(default=0.6, ge=0, le=1)  # 라운지 제안 동의율 (설계 가정)
     lounge_move_min: int = Field(default=15, ge=0)  # 제안부터 라운지 이동까지 (설계 가정)
-    enabled: frozenset[str] = frozenset({"order_nudge", "lounge", "cleaning_request"})
+    # 청소 끝부터 정리 시작까지 최소 (ops_realism, 설계 가정). None: 미리 알린 이득 없이 청소 끝 뒤 기존 응답 시간(민감도)
+    bed_prep_min_response_min: int | None = Field(default=10, ge=0)
+    # bed_prep_request, schedule_share는 ops_realism 병원에서만 작동한다
+    enabled: frozenset[str] = frozenset({"order_nudge", "lounge", "cleaning_request", "bed_prep_request", "schedule_share"})
 
     def scaled(self, k: float) -> "ReactiveEffects":
         """민감도: 효과 크기를 k배로 (비율은 0~1로 자른다)."""
@@ -43,13 +51,34 @@ class Levers:
     cleaning_request_at: datetime | None = None  # 시스템 청소 요청 시각
     # 단계 재촉 (E2 확장): 단계 이름 → 재촉 시각. 처방(discharge_order)은 order_nudge_at을 쓴다
     step_nudges: tuple[tuple[str, datetime], ...] = ()
+    # 운영 현실 옵션 (ops_realism)
+    bed_prep_request_at: datetime | None = None  # 퇴실 즉시 침상 정리 요청 시각
+    schedule_share_at: datetime | None = None  # 청소 예정표에 다음 입원 시각을 공유한 시각
+    next_admission_at: datetime | None = None  # 공유한 다음 입원 예정 시각
 
 
-def retime(d: Discharge, lv: Levers, fx: ReactiveEffects) -> DischargeTimeline:
-    """생성기와 같은 의존 관계로 퇴원 시각을 다시 계산한다. 행동이 없으면 그대로 돌려준다."""
+def retime(d: Discharge, lv: Levers, fx: ReactiveEffects, clean_start: datetime | None = None) -> DischargeTimeline:
+    """생성기와 같은 의존 관계로 퇴원 시각을 다시 계산한다. 행동이 없으면 그대로 돌려준다.
+
+    clean_start는 운영 현실 옵션에서 대기열이 정한 청소 시작 시각이다. 없으면 대기열 대기 시간을 원래대로 둔다."""
+    return _retime(d, lv, fx, clean_start)[0]
+
+
+def _is_ops(d: Discharge) -> bool:
+    return "bed_prep_direct_response" in d.durations_min
+
+
+def _retime(d: Discharge, lv: Levers, fx: ReactiveEffects, clean_start: datetime | None = None):
+    """(새 시각, 청소 인력이 올 수 있는 시각). 뒤의 값은 운영 현실 옵션에서만 쓴다."""
+    from .generator import ops_bed_side, ops_cleaning_arrival
     t, dur = d.actual, d.durations_min
+    ops_mode = _is_ops(d)
+    orig_arrive = ops_cleaning_arrival(d, t.baseline_cleaning_requested_at, t.departed_at) if ops_mode else None
     if lv == Levers():
-        return t
+        if not ops_mode or clean_start is None or clean_start == t.cleaning_started_at:
+            return t, orig_arrive
+        new = t.model_copy(update=ops_bed_side(d, clean_start))
+        return (t if new == t else new), orig_arrive
     m = lambda k: timedelta(minutes=k)  # noqa: E731
     # 1) 처방 재촉: 오더가 재촉 뒤였으면 남은 지연의 gain만큼 앞당긴다
     shift = timedelta(0)
@@ -100,6 +129,19 @@ def retime(d: Discharge, lv: Levers, fx: ReactiveEffects) -> DischargeTimeline:
     else:
         requested = departed + m(dur["baseline_cleaning_request_delay"])
     extra = d.cleaning_extra_delay_min
+    if ops_mode:  # 운영 현실 옵션: 대기열이 청소 시작을, 회차·요청이 침상 정리를 정한다. min으로 자르지 않는다
+        arrive = ops_cleaning_arrival(d, requested, departed)
+        start = clean_start if clean_start is not None else arrive + (t.cleaning_started_at - orig_arrive)
+        prep_req = (max(lv.bed_prep_request_at, departed) if lv.bed_prep_request_at is not None
+                    and "bed_prep_request" in fx.enabled else None)
+        side = ops_bed_side(d, start, prep_req, fx.bed_prep_min_response_min)
+        if seq_new:
+            side.update({k: min(v, departed) for k, v in seq_new.items()})
+        new = t.model_copy(update=dict(
+            order_confirmed_at=order, rx_issued_at=rx_issued, rx_revised_at=rx_rev, rx_dispensed_at=rx_disp,
+            medication_ready_at=med, education_done_at=edu, billing_done_at=billing, departed_at=departed,
+            baseline_cleaning_requested_at=departed + m(dur["baseline_cleaning_request_delay"]), **side))
+        return (t if new == t else new), arrive
     clean_start = max(requested + m(dur["cleaning_response"] + extra), departed + m(d.aerosol_wait_min))
     clean_done = clean_start + m(dur["cleaning"])
     ready_at = clean_done + m(dur["bed_make"])
@@ -118,7 +160,7 @@ def retime(d: Discharge, lv: Levers, fx: ReactiveEffects) -> DischargeTimeline:
         baseline_cleaning_requested_at=departed + m(dur["baseline_cleaning_request_delay"]),
         cleaning_started_at=min(clean_start, t.cleaning_started_at), cleaning_done_at=min(clean_done, t.cleaning_done_at),
         bed_ready_at=min(ready_at, t.bed_ready_at), **extra_seq))
-    return t if new == t else new
+    return (t if new == t else new), None
 
 
 def lounge_accepts(case: str, fx: ReactiveEffects, seed: int = 0) -> bool:
@@ -144,12 +186,45 @@ class ReactiveReplay:
         self._lounge: dict[str, datetime] = {}
         self._clean: dict[str, datetime] = {}
         self._steps: dict[str, dict[str, datetime]] = {}
+        # 운영 현실 옵션 (ops_realism): 병동별 청소 대기열을 다시 계산하려면 모든 퇴원(사망·전동 포함)이 필요하다
+        self.ops = bool(getattr(h.config, "ops_realism", False))
+        self.all = {d.id: d for d in h.discharges}
+        self.current = {k: d.actual for k, d in self.all.items()}  # 지금 재생에 반영된 시각
+        self._ward = {b.id: b.ward_id for b in h.beds}
+        self._adm = {a.id: a for a in h.admissions}
+        self._awaiting: dict[str, tuple[str, datetime]] = {}  # 입원 요청 → (병상, 매칭을 처음 본 시각)
+        self._departed: dict[str, datetime] = {}
+        self._accepted: dict[str, datetime | None] = {}
 
     def deliver(self, store, t: datetime) -> None:
         while self.pending and self.pending[0].observed_at <= t:
             e = self.pending.pop(0)
             self.delivered.add(e.event_id)
             store.append(e)
+
+    def _watch_ops(self, e) -> None:
+        """다음 입원이 기다리는 병상과 퇴실을 본다 (운영 현실 옵션 수단의 근거)."""
+        from turnaround.events import EventType
+        if e.type is EventType.PREMATCH_CREATED or (e.type is EventType.MATCH_COMMITTED and e.source == "gateway"):
+            bed = e.payload.get("bed_id")
+            cur = self._awaiting.get(e.case_id)
+            if bed and (cur is None or cur[0] != bed):
+                self._awaiting[e.case_id] = (bed, e.observed_at)
+        elif e.type in (EventType.PREMATCH_RELEASED, EventType.ADMISSION_CANCELLED):
+            self._awaiting.pop(e.case_id, None)
+        elif e.type is EventType.PATIENT_DEPARTED and e.case_id in self.discharges:
+            self._departed.setdefault(e.case_id, e.observed_at)
+
+    def _ops_levers(self, d: Discharge) -> dict:
+        waits = [(at_, self._adm[a].requested_at) for a, (bed, at_) in self._awaiting.items()
+                 if bed == d.bed_id and a in self._adm and self._adm[a].day == d.day]
+        if not waits:
+            return {}
+        seen = min(w[0] for w in waits)
+        out = {"schedule_share_at": seen, "next_admission_at": min(w[1] for w in waits)}
+        if d.id in self._departed:
+            out["bed_prep_request_at"] = max(self._departed[d.id], seen)
+        return out
 
     def react(self, store, t: datetime) -> None:
         from turnaround.events import EventType
@@ -158,6 +233,8 @@ class ReactiveReplay:
             self._seq = max(e.seq or 0 for e in events)
         nudge, lounge, clean = self._nudge, self._lounge, self._clean
         for e in events:
+            if self.ops:
+                self._watch_ops(e)
             if e.case_id not in self.discharges:
                 continue
             if e.type is EventType.ACTION_EXECUTED and e.payload.get("action") == "remind_owner":
@@ -170,20 +247,58 @@ class ReactiveReplay:
                 lounge.setdefault(e.case_id, e.observed_at)
             elif e.type is EventType.CLEANING_REQUEST_ISSUED and e.source == "saga":
                 clean.setdefault(e.case_id, e.observed_at)
+        changed = []
         for case, d in self.discharges.items():
             lounge_at = None
             if case in lounge and lounge_accepts(case, self.fx, self.seed):
                 lounge_at = lounge[case] + timedelta(minutes=self.fx.lounge_move_min)
             lv = Levers(order_nudge_at=nudge.get(case), lounge_at=lounge_at, cleaning_request_at=clean.get(case),
-                        step_nudges=tuple(sorted(self._steps.get(case, {}).items())))
+                        step_nudges=tuple(sorted(self._steps.get(case, {}).items())),
+                        **(self._ops_levers(d) if self.ops else {}))
             if lv != self.levers[case]:
+                for name in ("bed_prep_request_at", "schedule_share_at"):
+                    if getattr(lv, name) is not None and getattr(self.levers[case], name) is None:
+                        self.applied.append({"case": case, "at": t.isoformat(), "lever": name[:-3]})
                 self.levers[case] = lv
-                self._rebuild(d, lv, t, accepted_lounge=lounge_at)
+                self._accepted[case] = lounge_at
+                changed.append(case)
+        if not changed:
+            return
+        if not self.ops:
+            for case in changed:
+                self._rebuild(self.discharges[case], retime(self.discharges[case], self.levers[case], self.fx), t,
+                              accepted_lounge=self._accepted[case])
+            return
+        self._replan_ops(t, set(changed))
 
-    def _rebuild(self, d: Discharge, lv: Levers, t: datetime, accepted_lounge: datetime | None) -> None:
+    def _replan_ops(self, t: datetime, changed: set[str]) -> None:
+        """운영 현실 옵션: 병동별 청소 대기열을 지금의 행동으로 다시 계산하고, 시각이 바뀐 퇴원만 다시 짓는다.
+        이미 시작한 청소는 고정한다. 순서가 바뀌어 늦어지는 병상도 그대로 반영한다(효과를 부풀리지 않는다)."""
+        from .ops import CleanJob, schedule_cleaning
+        share = "schedule_share" in self.fx.enabled
+        jobs = []
+        for k, d in self.all.items():
+            lv = self.levers.get(k, Levers())
+            _, arrive = _retime(d, lv, self.fx)
+            cur = self.current[k]
+            clean_len = round((cur.cleaning_done_at - cur.cleaning_started_at).total_seconds() / 60)
+            ward = self._ward.get(d.bed_id, d.bed_id.split("-")[0])
+            if cur.cleaning_started_at <= t:
+                jobs.append(CleanJob(k, ward, arrive, clean_len, fixed_start=cur.cleaning_started_at))
+            else:
+                jobs.append(CleanJob(k, ward, arrive, clean_len, not_before=t + _M,
+                                     share_at=lv.schedule_share_at if share else None,
+                                     next_admission_at=lv.next_admission_at if share else None))
+        starts = schedule_cleaning(jobs)
+        for k, d in self.all.items():
+            new_t = _retime(d, self.levers.get(k, Levers()), self.fx, starts[k])[0]
+            if new_t != self.current[k] or k in changed:
+                self._rebuild(d, new_t, t, accepted_lounge=self._accepted.get(k))
+
+    def _rebuild(self, d: Discharge, new_t: DischargeTimeline, t: datetime, accepted_lounge: datetime | None) -> None:
         from turnaround.events import Event, EventType
         from turnaround.events.replay import _Builder
-        new_t = retime(d, lv, self.fx)
+        self.current[d.id] = new_t
         b = _Builder(random.Random(f"rb-{d.id}"))
         b.discharge(d.model_copy(update={"actual": new_t}))
         fresh = {e.event_id: e for e in b.events}

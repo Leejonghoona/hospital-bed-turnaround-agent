@@ -40,6 +40,28 @@ def _entry_breakdown() -> dict:
             "done_to_ready_min": on["done_to_ready"], "request_to_start_off": off["request_to_start"], "request_to_start_on": on["request_to_start"]}
 
 
+def _entry_breakdown_realistic() -> dict:
+    """운영 현실 옵션(침상 정리 일괄 회차, 청소 인력 시간대)을 켠 병원에서 같은 쪼개 보기 (DECISIONS 2026-11-10 ops_realism).
+    scripts/measure_entry_breakdown.py --ops. 기존 entry_breakdown과 따로 둔다."""
+    d = _load("entry_breakdown_realistic.json")
+    off, on = d["off"], d["on"]
+    a, b = d["seeds"]
+    sv = lambda x: sum(x["safety"][k] for k in ("S1", "S2", "S3", "S4"))  # noqa: E731
+    v = d["variants"]
+    return {"seeds": f"{a}~{b - 1}", "day": d["day"], "n_off": off["n"], "n_on": on["n"],
+            "off_min": off["from_promised_mean"], "on_min": on["from_promised_mean"],
+            "change": round((on["from_promised_mean"] - off["from_promised_mean"]) / off["from_promised_mean"], 3),
+            "median_off_min": off["from_promised_median"], "median_on_min": on["from_promised_median"],
+            "ready_off": off["ready_at_checkin"], "ready_on": on["ready_at_checkin"],
+            "request_to_start_off": off["request_to_start"], "request_to_start_on": on["request_to_start"],
+            "done_to_ready_off": off["done_to_ready"], "done_to_ready_on": on["done_to_ready"],
+            "safety_violations_off": sv(off), "safety_violations_on": sv(on),
+            "old_levers_only_min": v["old_levers_only"]["from_promised_mean"],
+            "plus_bed_prep_request_min": v["plus_bed_prep_request"]["from_promised_mean"],
+            "plus_schedule_share_min": v["plus_schedule_share"]["from_promised_mean"],
+            "no_advance_notice_min": v["all_no_advance_notice"]["from_promised_mean"]}
+
+
 def summarize() -> dict:
     m1_all = _load("m1.json")
     m1 = m1_all["field_default"]
@@ -75,6 +97,7 @@ def summarize() -> dict:
                    "explain_selected": sel["explain"]["selected"] is not None, "date": sel["date"]},
         "regression": scen,
         "entry_breakdown": _entry_breakdown(),
+        "entry_breakdown_realistic": _entry_breakdown_realistic(),
     }
 
 

@@ -24,3 +24,11 @@ def test_summary_headline_values():
     assert s["entry_wait"]["change"] == -0.13
     assert s["entry_breakdown"]["change"] == -0.32 and s["entry_breakdown"]["ready_on"] > s["entry_breakdown"]["ready_off"]
     assert s["safety"]["violations"] == 0 and s["safety"]["holdout"]["violations"] == 0
+
+
+def test_summary_keeps_realistic_breakdown_separate():
+    s = yaml.safe_load((ROOT / "config" / "results_summary.yaml").read_text(encoding="utf-8"))
+    r = s["entry_breakdown_realistic"]
+    assert s["entry_breakdown"]["off_min"] == 33.7  # 기존 키는 그대로
+    assert r["seeds"] == "0~49" and r["safety_violations_off"] == 0 and r["safety_violations_on"] == 0
+    assert r["on_min"] < r["off_min"] and r["done_to_ready_on"] < r["done_to_ready_off"]
