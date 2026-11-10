@@ -1,0 +1,11 @@
+.git
+**/node_modules
+web/dist
+var
+**/__pycache__
+*.pyc
+.pytest_cache
+.claude
+evals/results
+docs
+tests
