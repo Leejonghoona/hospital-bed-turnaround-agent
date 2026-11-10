@@ -22,7 +22,9 @@ function keep(r: Row, tab: string, q: string) {
 }
 
 // 원무 작업 화면: 줄당 한 환자 표 + 오른쪽 상세 패널. 시안 v2 ②. ↑↓ 이동, Enter 열기, / 검색.
-export function Worklist({ user, onLogout }: { user: User; onLogout: () => void }) {
+const SHIFT_KO: Record<string, string> = { day: '낮 근무 07:00–15:00', evening: '초번 근무 15:00–23:00', night: '밤 근무 23:00–07:00' }
+
+export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
   const [wl, setWl] = useState<WL | null>(null)
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
@@ -30,6 +32,9 @@ export function Worklist({ user, onLogout }: { user: User; onLogout: () => void 
   const [pt, setPt] = useState<Patient | null>(null)
   const [dtab, setDtab] = useState<'work' | 'timeline'>('work')
   const search = useRef<HTMLInputElement>(null)
+  const [menu, setMenu] = useState(false)
+  const [shift, setShift] = useState<string | null>(null)
+  useEffect(() => { api.me().then(m => setShift(m.shift)).catch(() => {}) }, [])
 
   const load = useCallback(() => api.worklist().then(w => { setWl(w); setPick(p => p ?? w.rows[0]?.id ?? null) }), [])
   useEffect(() => { load() }, [load])
@@ -57,32 +62,29 @@ export function Worklist({ user, onLogout }: { user: User; onLogout: () => void 
     <div className="app">
       <header className="appbar">
         <div className="brand"><Logo /><b>WardFlow</b></div>
-        <div className="ctx"><span>근무</span><b>{user.role_label}</b><Icon name="chev" small /></div>
         <label className="gsearch"><Icon name="search" small />
           <input ref={search} value={q} onChange={e => setQ(e.target.value)} placeholder="환자 이름, 등록번호, 병상 검색" aria-label="검색" /><kbd>/</kbd></label>
         <div className="ab-r">
           {wl && <span className="clock">{clock(wl.now)}</span>}
           <button className="iconbtn" aria-label="새로고침" onClick={load}><Icon name="refresh" /></button>
-          <button className="iconbtn" aria-label="알림"><Icon name="bell" /></button>
-          <button className="user" onClick={onLogout} title="로그아웃"><span className="av">{user.name[0]}</span>
-            <span><div className="n">{user.name}</div><div className="r">{user.role_label}</div></span><Icon name="chev" small /></button>
+          <div className="menu-wrap">
+            <button className="user" onClick={() => setMenu(m => !m)} aria-expanded={menu} aria-haspopup="menu"><span className="av">{user.name[0]}</span>
+              <span><div className="n">{user.name}</div><div className="r">{user.role_label}</div></span><Icon name="chev" small /></button>
+            {menu && (
+              <div className="menu" role="menu">
+                <div className="who"><b>{user.name}</b><br />{user.role_label}{shift && <><br />{SHIFT_KO[shift] ?? shift}</>}</div>
+                <button role="menuitem" onClick={onSwitch}><Icon name="swap" small />다른 계정으로 로그인</button>
+                <div className="hint">같은 단말에서 다음 근무자가 이어서 쓸 때</div>
+                <button role="menuitem" onClick={onLogout}><Icon name="back" small />로그아웃</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-      <div className="body">
-        <nav className="side" aria-label="메뉴">
-          <button className="on"><Icon name="list" />오늘 할 일{c.late ? <span className="cnt red">{c.late}</span> : <span className="cnt">{c.all ?? ''}</span>}</button>
-          <button><Icon name="clock" />입원 대기</button>
-          <button><Icon name="bed" />병상 현황</button>
-          <button><Icon name="users" />환자 연락<span className="cnt">{c.contact || ''}</span></button>
-          <div className="grp">기록</div>
-          <button><Icon name="file" />배정 기록</button>
-          <button><Icon name="shield" />접속 기록</button>
-          <button><Icon name="chart" />오늘 현황</button>
-          <div className="shift"><b>낮 근무</b> 07:00 – 15:00</div>
-        </nav>
+      <div className="body nosd">
         <main className="main">
           <div className="ph"><h1>오늘 할 일</h1><span className="meta">{c.all ?? 0}건</span>
-            <div className="act"><button className="btn sm" onClick={onLogout}><Icon name="swap" small />사용자 전환</button></div></div>
+          </div>
           <div className="tabs" role="tablist">
             {TABS.map(t => (
               <button key={t.id} role="tab" aria-selected={tab === t.id} className={'tab' + (tab === t.id ? ' on' : '')} onClick={() => setTab(t.id)}>
@@ -133,9 +135,13 @@ export function Worklist({ user, onLogout }: { user: User; onLogout: () => void 
                 </div>
                 <div className="db">
                   {dtab === 'work' ? (<>
-                    <div className="alert"><Icon name="alert" /><div>{cur.kind_label}: {cur.action}<br />{cur.reason}</div></div>
-                    <div className="lab">처리 방법</div>
-                    <div className="sub">P2에서 할 일 종류별 처리 화면을 붙입니다</div>
+                    {cur.late && <div className="alert"><Icon name="alert" /><div>마감 {cur.due}{cur.due_note ? ` (${cur.due_note})` : ''}이 지났습니다{cur.status === '책임자 확인' ? '. 원무 책임자에게도 알렸습니다' : ''}</div></div>}
+                    <div className="lab">다음에 할 일</div>
+                    <div className="next"><b>{cur.action}</b><span>{cur.reason}</span></div>
+                    <div className="lab">경과</div>
+                    <div className="tl">{pt.timeline.slice(-4).reverse().map((t, i) => (
+                      <Fragment key={i}><span className="t">{t.time}</span><span className="w">{t.what}</span></Fragment>
+                    ))}</div>
                   </>) : (
                     <div className="tl">{pt.timeline.slice().reverse().map((t, i) => (
                       <Fragment key={i}><span className="t">{t.time}</span><span className="w">{t.what}{t.detail ? `, ${t.detail}` : ''}</span></Fragment>

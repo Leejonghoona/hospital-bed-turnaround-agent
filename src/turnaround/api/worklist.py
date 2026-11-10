@@ -45,6 +45,23 @@ def _short(text: str) -> str:
     return (text or "").split(" · ")[0].strip()
 
 
+def _hint(st, case: str) -> str:
+    """병상 없음 사례의 다음 판단 근거: 곧 비는 병상이 있으면 그 병상과 준비 예상 시각, 없으면 그 사실."""
+    rec = views.recommend_beds(st, case, n=1)
+    if not rec:
+        return "후보 병상 없음"
+    first = rec[-1] if rec[0].startswith("지금 맞는 빈 병상 없음") and len(rec) > 1 else rec[0]
+    if first.startswith("배정 기준에 맞는"):
+        return "오늘 비는 병상 없음"
+    bed = first.split("(")[0].replace("병동 ", "-").replace("호 ", "-").replace("번", "")
+    when = first.split(", ")[-1].rstrip(")").replace("퇴원 후 ", "").replace(" 준비 예상", "")
+    return f"{_bed_ko_short(bed)} {when} 준비 예상" if "지금" not in when else f"{_bed_ko_short(bed)} 지금 가능"
+
+
+def _bed_ko_short(s: str) -> str:
+    return s.strip()
+
+
 def admission_rows(st) -> dict:
     a = views.admission_view(st)
     ev = st.store.read()
@@ -72,9 +89,12 @@ def admission_rows(st) -> dict:
     for x in a["tasks"]:
         esc = bool(x.get("escalated_to"))
         status = "책임자 확인" if esc else "이전 근무" if x["stale"] else "대기"
-        label = "확인 필요" if x["raw_kind"] == "brain_escalate" else "작업"
-        add(x["case"], "task", label, x["kind"], x["due_at"], x["overdue"], x.get("bed"), _short(x.get("why") or ""),
-            status, x["stale"], ref=x["task_id"])
+        if x["raw_kind"] == "brain_escalate":
+            # 할 일 칸에는 무슨 일인지(병상 없음 등), 근거 칸에는 다음 판단에 쓸 사실을 둔다(같은 말 반복 금지)
+            label, action, reason = "확인 필요", _short(x.get("why") or "") or "판단 필요", _hint(st, x["case"])
+        else:
+            label, action, reason = "작업", x["kind"], _short(x.get("why") or "")
+        add(x["case"], "task", label, action, x["due_at"], x["overdue"], x.get("bed"), reason, status, x["stale"], ref=x["task_id"])
     for x in a["notices"]:
         if not (x.get("active") and x.get("undo_open")):
             continue

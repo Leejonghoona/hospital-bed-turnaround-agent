@@ -161,3 +161,32 @@ tr.row.pick td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
 .tl .t { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
 .tl .w { color: var(--sub); }
 .dfoot { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+
+/* 첫 화면 v3: 세로 구조 */
+.entry2 { min-height: 100%; background: linear-gradient(180deg, #F3F7FD 0%, #FFFFFF 46%); display: flex; flex-direction: column; align-items: center; padding: 0 24px 64px; }
+.e-top { width: 100%; max-width: 1080px; height: 72px; display: flex; align-items: center; justify-content: space-between; }
+.e-hero { text-align: center; margin-top: 56px; }
+.e-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -1.3px; line-height: 1.3; }
+.e-hero p { font-size: 17px; color: var(--sub); margin-top: 14px; white-space: nowrap; }
+.e-choose { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 720px; margin-top: 40px; }
+.e-choose .tile { height: 220px; }
+.e-how { width: 100%; max-width: 720px; margin-top: 56px; }
+.e-how h2 { font-size: 15px; font-weight: 700; color: var(--mute); text-align: center; }
+.e-how ol { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+.e-how li { display: flex; gap: 12px; align-items: flex-start; }
+.e-how .num { width: 26px; height: 26px; border-radius: 50%; background: var(--brand-50); color: var(--brand); font-size: 13px; font-weight: 800; display: grid; place-items: center; flex: none; }
+.e-how b { display: block; font-size: 14.5px; font-weight: 700; line-height: 1.45; }
+.e-how span { display: block; font-size: 13px; color: var(--mute); line-height: 1.55; margin-top: 4px; }
+
+/* 계정 메뉴 */
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: 46px; width: 240px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(17,24,39,.12); padding: 8px; z-index: 10; }
+.menu .who { padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; font-size: 13px; color: var(--sub); line-height: 1.6; }
+.menu .who b { color: var(--ink); font-size: 14px; }
+.menu button { width: 100%; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 13.5px; text-align: left; white-space: nowrap; }
+.menu button:hover { background: var(--hover); }
+.menu .hint { font-size: 12px; color: var(--mute); padding: 0 10px 6px 34px; line-height: 1.5; }
+.next { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; line-height: 1.6; }
+.next b { display: block; font-size: 14px; }
+.next span { font-size: 13px; color: var(--sub); }
+.body.nosd { grid-template-columns: 1fr; }

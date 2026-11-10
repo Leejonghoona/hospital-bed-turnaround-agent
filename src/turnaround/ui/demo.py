@@ -35,6 +35,7 @@ class DemoState:
     reviewer: object = None  # 사람 응답 모형 (없으면 늘 승인, 로드맵 07 M3)
     log: list[str] = field(default_factory=list)
     advance: object = None  # advance(to): 재생을 이어서 돌린다
+    live_from: datetime | None = None  # 이 시각부터 원무 연락은 화면의 사람이 한다(웹 운영 화면, 측정에는 쓰지 않음)
 
 
 def resident_census(h, seed: int) -> dict:
@@ -56,7 +57,8 @@ def resident_census(h, seed: int) -> dict:
 
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
                policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None,
-               reviewer=None, past_admissions: bool = True, mapped=None, occupancy: str = "sparse") -> DemoState:
+               reviewer=None, past_admissions: bool = True, mapped=None, occupancy: str = "sparse",
+               live_from: time | None = None) -> DemoState:
     """reactive(ReactiveEffects)를 주면 에이전트 행동이 그 뒤 퇴원 시각을 바꾸는 반응형 재생 (로드맵 07 M2)."""
     h = generate(seed=seed, config=config)
     if mapped is not None:  # 병원 내보내기를 매핑한 결과(병상 구조·사건)로 재생 (로드맵 07 M6)
@@ -86,6 +88,8 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())
     end = datetime.combine(base.date(), until)
     st = DemoState(h, store, gw, agent, base - timedelta(hours=8), entries)
+    if live_from is not None:
+        st.live_from = datetime.combine(base.date(), live_from)
     st.reviewer = reviewer
     feed = None
     if reactive is not None:
@@ -130,7 +134,8 @@ def _entry_humans(st: DemoState, now: datetime, ev) -> None:
     for e in ev:
         case = e.case_id
         if e.type is EventType.MATCH_COMMITTED and e.observed_at + _CONTACT_AFTER * _M <= now and \
-                (case, EventType.PATIENT_CONTACTED) not in seen and 7 <= now.hour < 20:  # 주말·휴일은 당직 원무(설계 가정)
+                (case, EventType.PATIENT_CONTACTED) not in seen and 7 <= now.hour < 20 and \
+                (st.live_from is None or e.observed_at < st.live_from):  # 주말·휴일은 당직 원무(설계 가정)
             st.store.append(_human_event(case, "patient_contacted", EventType.PATIENT_CONTACTED, now,
                                          bed_id=e.payload.get("bed_id"), by="admission_office",
                                          promised_at=_announce(st, case, now, ev).isoformat()))
