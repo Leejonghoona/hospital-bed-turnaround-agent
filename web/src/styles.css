@@ -300,3 +300,18 @@ div.bd { cursor: default; }
 .look { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; line-height: 1.6; }
 .tour-actions { display: flex; justify-content: flex-end; }
 .card td, .card th { white-space: normal; overflow: visible; text-overflow: clip; }
+/* 감염관리실 v2 */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kpi { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.kpi span { font-size: 12.5px; color: var(--mute); font-weight: 600; } .kpi b { font-size: 26px; font-weight: 800; } .kpi em { font-style: normal; font-size: 12.5px; color: var(--sub); }
+.kpi b.red { color: var(--red); } .kpi b.amber { color: var(--amber); } .kpi:hover { border-color: var(--brand-line); }
+.ipc-today { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; overflow: auto; min-height: 0; padding-bottom: 12px; }
+.span2 { grid-column: span 2; }
+.cnt { font-size: 12px; font-weight: 700; color: var(--mute); background: var(--bg); border-radius: 999px; padding: 1px 8px; margin-left: 4px; }
+.dec { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dec-detail { display: flex; flex-direction: column; gap: 8px; }
+.mates { display: flex; flex-wrap: wrap; gap: 6px; }
+.mate { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-size: 12.5px; } .mate.risk { border-color: #F5C2C2; background: var(--red-50); } .mate.free { border-color: #BFE3CC; background: var(--green-50); }
+.card td.r { text-align: right; }
+.bd.k-free { --c: var(--green); } .bd.k-iso { --c: var(--violet); } .bd.k-terminal { --c: var(--amber); } .bd.k-used { --c: #CBD2D9; }
+.dec { align-items: start; } .dec table.sel tr { height: auto; }

@@ -363,16 +363,26 @@ def test_ipc_decides_late_isolation_and_sees_terminal_cleaning():
     c = TestClient(create_app())
     i = _login(c, "ipc-lee")
     d = c.get("/api/ipc", headers=i).json()
-    assert d["approvals"] and d["terminal"] is not None
-    a = d["approvals"][0]
-    assert {"exception_id", "patient", "bed", "situation", "effect", "deadline", "organism"} <= set(a)
+    assert d["decisions"] and d["terminal"] is not None
+    assert {"decisions", "isolated", "free_np", "free_single", "terminal"} <= set(d["summary"])
+    assert d["isolated"] and d["board"]
+    a = d["decisions"][0]
+    assert {"exception_id", "patient", "bed", "situation", "effect", "deadline", "organism", "roommates"} <= set(a)
+    assert a["roommates"], "4인실 동실자가 보여야 한다"
     assert c.get("/api/ipc", headers=_login(c)).status_code == 403  # 원무는 감염관리 결정 화면을 쓰지 않는다
     # 원무는 늦은 격리 병상 결정을 승인할 수 없다
     assert c.post(f"/api/ipc/approvals/{a['exception_id']}/approve", json={}, headers=_login(c)).status_code == 403
     assert c.post(f"/api/ipc/approvals/{a['exception_id']}/decline", json={"reason": ""}, headers=i).status_code == 422
     r = c.post(f"/api/ipc/approvals/{a['exception_id']}/decline", json={"reason": "지금 병상 유지(제자리 격리)", "memo": "커튼, 1m 간격"}, headers=i)
     assert r.status_code == 200, r.text
-    assert a["exception_id"] not in {x["exception_id"] for x in c.get("/api/ipc", headers=i).json()["approvals"]}
+    assert a["exception_id"] not in {x["exception_id"] for x in c.get("/api/ipc", headers=i).json()["decisions"]}
+    # 오늘 들어올 격리 환자 확인 표시, 인계 메모
+    inc = next(x for x in d["isolated"] if x["status"] == "입원 예정")
+    assert c.post(f"/api/ipc/check/{inc['case']}", headers=i).status_code == 200
+    assert next(x for x in c.get("/api/ipc", headers=i).json()["isolated"] if x["case"] == inc["case"])["checked"]
+    assert c.post("/api/ipc/handover", json={"memo": ""}, headers=i).status_code == 422
+    assert c.post("/api/ipc/handover", json={"memo": "62-05-2 제자리 격리 유지 중, 밤에 1인실 나면 이동 검토"}, headers=i).status_code == 200
+    assert c.get("/api/ipc", headers=i).json()["handover"]
     log = c.get("/api/access-log", headers=_login(c, "admin-jung")).json()["rows"]
     assert any(x["user_id"] == "ipc-lee" and x["action"] == "격리 병상 결정" for x in log)
 

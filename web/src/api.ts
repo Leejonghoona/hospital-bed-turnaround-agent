@@ -34,11 +34,17 @@ export type WardIncoming = { ward: string; rows: WardRow[]; reasons: string[] }
 export type WardBoard = { ward: string; rooms: { id: string; label: string; grade: string; sex: string; beds: { id: string; label: string; state: string; state_ko: string; detail: string }[] }[] }
 
 export type IpcHome = {
-  holder: string; np_free: number; decline_reasons: string[]
-  approvals: { exception_id: string; case: string; patient: string; who: string; bed: string; situation: string; effect: string
-    deadline: string; since: string; trigger: string; action: string; recommend: string[]; organism: string; precautions: string }[]
-  terminal: { bed: string; departed: string; status: string }[]
-  orders: { case: string; time: string; precautions: string; organism: string }[]
+  summary: { decisions: number; first_deadline: string; isolated: number; incoming: number; free_np: number; free_single: number; terminal: number }
+  decisions: { exception_id: string; case: string; patient: string; who: string; bed: string; room: string; organism: string; precautions: string
+    deadline: string; since: string; situation: string; effect: string; roommates: { bed: string; sex: string; age: string; risk: string[] }[] }[]
+  free: { bed: string; ward: string; grade: string; state: string }[]
+  isolated: { case: string; patient: string; age: number | null; sex: string; organism: string; precautions: string; status: string; bed: string; room: string; checked: boolean }[]
+  terminal: { bed: string; ward: string; departed: string; progress: string; elapsed: string }[]
+  contacts: { index: string; room: string; count: number; beds: string[]; time: string }[]
+  night: { time: string; what: string; detail: string }[]
+  board: { ward: string; rooms: { label: string; grade: string; beds: { bed: string; tag: string; kind: string }[] }[] }[]
+  handover: { time: string; who: string; text: string }[]
+  decline_reasons: string[]
 }
 export type AdminSummary = { flow: Record<string, string>; load: Record<string, number>; safety: Record<string, any>[]; locked: { user_id: string; name: string; fails: number }[]; note: string }
 export type LogRow = { real_at: string; sim_at: string; user_id: string; name: string; ip: string; case: string | null; action: string; detail: string; hash: string }
@@ -87,6 +93,8 @@ export const api = {
   wardPrep: (c: string) => call(`/api/ward/prep/${encodeURIComponent(c)}`, { method: 'POST' }),
   wardOpinion: (c: string, reason: string, memo: string) => call(`/api/ward/opinion/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
   ipc: () => call<IpcHome>('/api/ipc'),
+  ipcCheck: (c: string) => call(`/api/ipc/check/${encodeURIComponent(c)}`, { method: 'POST' }),
+  ipcHandover: (memo: string) => call('/api/ipc/handover', { method: 'POST', body: JSON.stringify({ memo }) }),
   ipcDecide: (id: string, verb: 'approve' | 'decline', reason: string, memo: string) =>
     call<{ status: string }>(`/api/ipc/approvals/${encodeURIComponent(id)}/${verb}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
   adminSummary: () => call<AdminSummary>('/api/admin/summary'),

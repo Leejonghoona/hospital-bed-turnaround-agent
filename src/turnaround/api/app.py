@@ -550,22 +550,34 @@ def create_app() -> FastAPI:
 
     @app.get("/api/ipc")
     def ipc_home(s: Session = Depends(session)):
-        from turnaround.ui import views
+        from turnaround.api.ipc import home
+        from turnaround.api.worklist import notes
         ipc_only(s)
         st = store.demo()
-        v = views.ipc_view(st)
-        people = views._people(st.store.read())
-        org = {o["case"]: o for o in v["isolation_orders"]}
-        approvals = [{"exception_id": x["exception_id"], "case": x["case"], "patient": (people.get(x["case"]) or {}).get("name", ""),
-                      "who": x["who"], "bed": x["bed_ko"], "situation": x["situation"], "effect": x["effect"],
-                      "deadline": x["deadline"], "since": x["since"], "trigger": x["trigger_ko"], "action": x["action_ko"],
-                      "recommend": [r.replace(" · ", ", ") for r in x.get("recommend") or []],
-                      "organism": (org.get(x["who"]) or {}).get("organism", ""),
-                      "precautions": (org.get(x["who"]) or {}).get("precautions", "")}
-                     for x in views.pending_approvals(st) if x["decider"] == "ipc"]
+        ev = st.store.read()
+        out = home(st, lambda case: notes(ev, case, store.accounts))
+        handover = [n for n in notes(ev, "IPC-HANDOVER", store.accounts)][-3:]
         store.log(s, "목록 조회", detail="감염관리")
-        return {"holder": v["holder"], "approvals": approvals, "terminal": v["terminal"], "orders": v["isolation_orders"],
-                "np_free": v["np_free"], "decline_reasons": list(IPC_DECLINE)}
+        return {**out, "handover": handover, "decline_reasons": list(IPC_DECLINE)}
+
+    @app.post("/api/ipc/check/{case}")
+    def ipc_check(case: str, s: Session = Depends(session)):
+        """오늘 들어올 격리 환자의 배정 병상을 감염관리실이 확인했다는 표시."""
+        ipc_only(s)
+        st = store.demo()
+        note(st, s, case, "감염관리실 배정 확인", tag="ipc_checked")
+        store.log(s, "격리 배정 확인", case=case)
+        return {"ok": True}
+
+    @app.post("/api/ipc/handover")
+    def ipc_handover(body: ReasonIn, s: Session = Depends(session)):
+        """야간 당직에게 넘기는 인계 메모 (자유 서술. 계획 에이전트는 읽지 않는다)."""
+        ipc_only(s)
+        st = store.demo()
+        text = memo_of(body.memo, True)
+        note(st, s, "IPC-HANDOVER", text, tag="handover")
+        store.log(s, "감염관리 인계 메모")
+        return {"ok": True}
 
     @app.post("/api/ipc/approvals/{eid}/{verb}")
     def ipc_decide(eid: str, verb: str, body: ReasonIn, s: Session = Depends(session)):

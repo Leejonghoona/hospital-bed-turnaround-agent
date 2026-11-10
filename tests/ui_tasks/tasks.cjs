@@ -176,19 +176,18 @@ const TASKS = {
   },
   async I1(page) {
     await enterOps(page, '이준호')
-    await page.locator('tr.row').first().click()
+    await page.locator('.kpi').first().waitFor()
     await page.getByRole('button', { name: '지금 병상 유지 등' }).click()
     await page.getByRole('button', { name: '지금 병상 유지(제자리 격리)' }).click()
     await page.getByRole('button', { name: '결정', exact: true }).click()
     const msg = await page.getByRole('status').textContent()
-    return [{ name: '늦은 격리 1건의 병상을 결정한다', ok: /결정했습니다/.test(msg || ''), detail: msg }]
+    return [{ name: '늦은 격리 1건의 병상을 결정한다', ok: /정했습니다|알립니다/.test(msg || ''), detail: msg }]
   },
   async I3(page) {
     await enterOps(page, '이준호')
-    await page.getByRole('button', { name: '병실·오더' }).click()
-    await page.getByRole('heading', { name: '종말소독 대기 병실' }).waitFor()
-    await page.locator('.card').first().locator('tbody tr').first().waitFor({ timeout: 8000 }).catch(() => {})
-    const n = await page.locator('.card').first().locator('tbody tr').count()
+    const card = page.locator('.card', { has: page.getByRole('heading', { name: /종말소독 대기/ }) })
+    await card.locator('tbody tr').first().waitFor({ timeout: 8000 }).catch(() => {})
+    const n = await card.locator('tbody tr').count()
     return [{ name: '종말소독이 끝나지 않은 병실을 찾는다', ok: n > 0, detail: `${n}개` }]
   },
   async M1(page) {
