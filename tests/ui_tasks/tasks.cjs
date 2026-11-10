@@ -44,18 +44,18 @@ const TASKS = {
     c.push({ name: '원무팀 흐름을 끝까지 따라 한다', ok: true })
     await coach.getByRole('button', { name: '차별점 보기' }).click()
     const seen = []
-    for (const [t, sel] of [['늦게 온 안전 정보도 되돌린다', 'tr.coach-pulse'], ['병상을 먼저 만든다', 'tr.coach-pulse'], ['실행 직전에 다시 검사', '.card.blocked.coach-pulse'],
-      ['맡기는 범위는 기록이 정한다', '.card.settings.coach-pulse'], ['새 병원은 데이터로 세팅', '.card.coach-pulse'], ['모델은 바꿔 끼우고 시험으로 고른다', '.card.coach-pulse']]) {
+    for (const [t, sel] of [['늦게 온 격리 정보 반영', 'tr.coach-pulse'], ['병상 먼저 만들기', 'tr.coach-pulse'], ['실행 직전 재검사', '.card.blocked.coach-pulse'],
+      ['기록이 정하는 자율 범위', '.card.settings.coach-pulse'], ['온톨로지로 병원 데이터 연결', '.card.onboard.coach-pulse'], ['시험을 통과한 AI만 사용', '.card.coach-pulse']]) {
       await step(t)
       const ok = await page.locator(sel).first().waitFor({ timeout: 30000 }).then(() => true).catch(() => false)
       seen.push(`${(await coach.locator('.dnum').textContent()) || ''} ${ok ? 'o' : 'x'}`)
       await coach.getByRole('button', { name: /^(다음|정리 보기)$/ }).click()
     }
     c.push({ name: '차별점 6개를 각 팀의 실제 화면에서 짚는다', ok: seen.length === 6 && seen.every(x => x.endsWith('o')) && seen[0].startsWith('차별점 1/6'), detail: seen.join(' | ') })
-    const ov = page.getByRole('dialog', { name: 'WardFlow가 다른 점' })
+    const ov = page.getByRole('dialog', { name: '차별점 한눈에 보기' })
     await ov.locator('table.diff tbody tr').first().waitFor({ timeout: 15000 }).catch(() => {})
     const vals = await ov.locator('table.diff b.v').allTextContents()
-    c.push({ name: '마지막에 차별점을 숫자와 함께 정리한다', ok: vals.length === 6 && vals.includes('−13%') && vals.includes('0건'), detail: vals.join(' | ') })
+    c.push({ name: '마지막에 차별점을 숫자와 함께 정리한다', ok: vals.length === 6 && vals.includes('0건') && vals.some(v => /^−\d+%$/.test(v)), detail: vals.join(' | ') })
     return c
   },
   async F3(page) {
@@ -226,11 +226,11 @@ const TASKS = {
     c.push({ name: '판단 유형의 확정 방식을 사람 확인으로 바꾼다', ok: /이제 사람이 확인합니다/.test(await page.locator('.toast').textContent().catch(() => '') || '') })
     c.push({ name: '사람이 확인해야 하는 유형은 고정되어 있다', ok: (await page.getByText('사람 확인 고정').count()) > 0 })
     await page.getByRole('tab', { name: '모델과 평가' }).click()
-    c.push({ name: '모델 구성과 평가를 본다', ok: await page.getByRole('heading', { name: '모델 구성' }).isVisible() && await page.getByRole('heading', { name: '평가', exact: true }).isVisible() })
-    await page.getByRole('tab', { name: '새 병원 설정' }).click()
+    c.push({ name: 'AI가 맡는 일과 배포 전 시험을 본다', ok: await page.getByRole('heading', { name: 'AI가 맡는 일' }).isVisible() && await page.getByRole('heading', { name: '배포 전 시험' }).isVisible() })
+    await page.getByRole('tab', { name: '병원 연동' }).click()
     await page.getByRole('button', { name: '의료정보팀으로 승인' }).click()
     await page.getByText('승인 1명 남음').first().waitFor({ timeout: 5000 }).catch(() => {})
-    c.push({ name: '새 병원 설정판을 의료정보팀으로 승인한다', ok: await page.getByText('승인 1명 남음').first().isVisible() })
+    c.push({ name: '병원 연동 설정판을 의료정보팀으로 승인한다', ok: await page.getByText('승인 1명 남음').first().isVisible() })
     return c
   },
   async A4(page) {

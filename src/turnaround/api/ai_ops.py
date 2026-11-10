@@ -64,30 +64,35 @@ def set_autonomy(st, unit: str, to: str) -> None:
 
 
 def model_info(env=None) -> dict:
+    """모델과 평가 탭: 일마다 지금 누가 하는지, 시험 결과, 배포 전 시험. 처음 보는 사람도 읽히게 쉬운 말로 쓴다."""
     env = os.environ if env is None else env
     kind = env.get("TURNAROUND_LLM", "fake")
-    external = kind not in ("fake", "local") and bool(env.get("TURNAROUND_LLM_MODEL"))
-    using = {"fake": "결정적 규칙(외부 전송 없음)", "local": "원내 실행 모델(외부 전송 없음)"}.get(kind, "외부 모델(합성 데이터만)")
-    if kind != "fake" and not env.get("TURNAROUND_LLM_MODEL"):
-        using = "결정적 규칙(외부 전송 없음)"
+    connected = kind != "fake" and bool(env.get("TURNAROUND_LLM_MODEL"))
+    ai_now = ("원내 AI" if kind == "local" else "외부 AI") if connected else "규칙 코드"
     r = results()
     m = r["models"]
+    sf = r["safety"]
     return {
-        "using": using, "external": external,
-        "guard": "합성 데이터 확인 값이 있을 때만 허용, 이름과 연락처는 가려서 보냄",
+        "using": ("외부 AI 연결됨" if connected and kind != "local" else "원내 AI 연결됨") if connected else "외부 AI 연결 안 됨",
+        "external": connected and kind != "local",
         "roles": [
-            {"job": "병상 배정과 숫자", "who": "결정적 코드", "status": "고정"},
-            {"job": "예외 상황 판단", "who": "결정적 규칙",
-             "status": f"외부 모델 {m['candidates']}종 시험, 기준 미달" if not m["exception_selected"] else "시험 통과 모델 사용"},
-            {"job": "판단 설명문", "who": "외부 모델" if m["explain_selected"] else "결정적 규칙",
-             "status": "시험 통과 모델 중 최저 비용" if m["explain_selected"] else "시험 통과 모델 없음"},
-            {"job": "메모 정보 추출", "who": "결정적 규칙", "status": "배정에 직접 쓰지 않음"},
+            {"job": "병상 고르기, 숫자 계산", "now": "규칙 코드", "test": "AI에 맡기지 않음"},
+            {"job": "예외 상황 대응 제안", "now": "규칙 코드",
+             "test": f"후보 AI {m['candidates']}개 모두 기준 미달" if not m["exception_selected"] else "기준 통과 AI 있음"},
+            {"job": "판단 이유 설명", "now": ai_now,
+             "test": f"후보 AI {m['candidates']}개 통과, 가장 저렴한 AI 선정" if m["explain_selected"] else "기준 통과 AI 없음"},
+            {"job": "메모에서 정보 뽑기", "now": ai_now if connected else "규칙 코드", "test": "뽑은 정보는 배정에 바로 쓰지 않음"},
         ],
+        "guard": "가상(합성) 데이터만 보내고, 이름과 연락처는 가린 뒤 보냅니다",
         "checks": [
-            {"name": "회귀 시나리오", "value": f"{r['regression']['dev']}개", "sub": f"홀드아웃 {r['regression']['holdout']}개 별도"},
-            {"name": "안전 재생 검사", "value": f"위반 {r['safety']['violations']}건", "sub": f"시드 {r['safety']['seeds']}, 검사 {r['safety']['checks']}회"},
-            {"name": "홀드아웃 시드", "value": f"위반 {r['safety']['holdout']['violations']}건", "sub": f"시드 {r['safety']['holdout_seeds']}, 검사 {r['safety']['holdout']['checks']}회"},
-            {"name": "모델 선정 시험", "value": f"{m['candidates']}종", "sub": f"{m['date']}, 사전 등록 기준"},
+            {"name": "상황 재현 시험", "what": "늦은 격리, 청소 지연 같은 상황에서 판단이 그대로인지",
+             "value": f"{r['regression']['dev']}개", "sub": f"따로 둔 {r['regression']['holdout']}개"},
+            {"name": "안전 재생", "what": "가상 병원의 하루를 돌려 격리, 소독, 중복 배정 위반을 셈",
+             "value": f"위반 {sf['violations']}건", "sub": f"검사 {sf['checks']}회"},
+            {"name": "처음 보는 병원 재생", "what": "개발 중에 보지 않은 가상 병원으로 같은 검사",
+             "value": f"위반 {sf['holdout']['violations']}건", "sub": f"검사 {sf['holdout']['checks']}회"},
+            {"name": "AI 선정 시험", "what": "후보 AI를 같은 문제로 채점, 합격 기준은 시험 전에 정함",
+             "value": f"후보 {m['candidates']}개", "sub": m["date"]},
         ],
         "note": r["note"],
     }
@@ -98,7 +103,7 @@ def build_onboarding():
     """표본 새 병원 내보내기 표로 설정판을 만든다(약 2초). 시연용으로 질문은 정답표가 대신 답한다."""
     from turnaround.agent.onboarding_flow import OnboardingSession, oracle
     from turnaround.ui.scenes import SEED_NEW, _gold, _tables
-    s = OnboardingSession(_tables(), hospital="새 병원(emr_f)")
+    s = OnboardingSession(_tables(), hospital="표본 병원 EMR")
     asked = proposed = 0
     code_master = 0
     while (g := s.current()) is not None:
@@ -135,23 +140,31 @@ def onboarding_out(ob: dict) -> dict:
 
 
 def differentiators(ob: dict) -> dict:
+    """시연 끝의 차별점 표. 짧고 쉬운 문장으로(2026-11-10 사용자 지적: 읽고 싶지 않다)."""
     r = results()
-    ew, sf = r["entry_wait"], r["safety"]
+    sf = r["safety"]
+    eb = r.get("entry_breakdown")
     curves = r["autonomy"]["curves"]
     last = sum(c["periods"][-1]["ratio"] for c in curves) / len(curves)
+    if eb:
+        a_val = f"{eb['change'] * 100:.0f}%".replace("-", "−")
+        a_sub = f"도착 후 입실까지 {eb['off_min']:.0f}분 → {eb['on_min']:.0f}분"
+    else:
+        a_val = f"{r['entry_wait']['change'] * 100:.0f}%".replace("-", "−")
+        a_sub = "수속부터 입실까지"
     rows = [
-        {"key": "G2", "title": "늦게 온 안전 정보도 되돌린다", "what": "확정 뒤에 격리 오더가 나면 환자 호출을 멈추고 감염관리실에 병상 결정을 올립니다",
-         "value": "호출 보류", "value_sub": "확정 뒤 격리 오더가 난 환자", "where": "감염관리실"},
-        {"key": "A", "title": "병상을 먼저 만든다", "what": "퇴실하는 순간 시스템이 청소를 요청하고 준비를 재촉해, 빈 병상이 더 일찍 생깁니다",
-         "value": f"{ew['change'] * 100:.0f}%".replace("-", "−"), "value_sub": f"수속부터 입실까지 {ew['off_min']}분 → {ew['on_min']}분", "where": "병동"},
-        {"key": "G1", "title": "실행 직전에 다시 검사", "what": "에이전트 판단도 사람 승인도 실행 직전에 게이트웨이가 안전 조건을 다시 확인합니다",
-         "value": f"{sf['violations'] + sf['holdout']['violations']}건", "value_sub": f"실행 안전 위반, 검사 {sf['checks'] + sf['holdout']['checks']}회", "where": "AI 운영, 개요"},
-        {"key": "C", "title": "맡기는 범위를 기록으로 넓힌다", "what": "사람 결정과 충분히 일치한 판단 유형만 에이전트에 맡기고, 어긋나면 사람 확인으로 되돌립니다",
-         "value": f"{last * 100:.0f}%", "value_sub": f"위임 후 사람 손 없이 확정({r['autonomy']['days']}일 재생 마지막 구간)", "where": "AI 운영, 자율 범위"},
-        {"key": "B", "title": "새 병원은 데이터로 세팅", "what": "병원 내보내기 표를 올리면 모르는 것만 묻고, 그 병원 데이터로 하루를 시험 운영한 뒤 두 사람이 승인합니다",
-         "value": "통과" if ob["proof"]["passed"] else "실패", "value_sub": f"시험 운영, 질문 {ob['asked']}개", "where": "AI 운영, 새 병원 설정"},
-        {"key": "LLM", "title": "모델은 바꿔 끼우고 시험으로 고른다", "what": "배정과 숫자는 결정적 코드가 하고, 모델은 설명과 추출만 합니다. 기준을 못 넘은 모델은 쓰지 않습니다",
-         "value": f"시나리오 {r['regression']['dev']}개", "value_sub": f"회귀 평가, 외부 모델 {r['models']['candidates']}종 시험", "where": "AI 운영, 모델과 평가"},
+        {"key": "G2", "title": "늦게 온 격리 정보 반영", "what": "병상 확정 뒤 격리 오더가 나면, 입실을 멈추고 감염관리실에 넘깁니다.",
+         "value": "자동 보류", "value_sub": "입실 호출 전에 막음", "where": "감염관리실"},
+        {"key": "A", "title": "병상 먼저 만들기", "what": "퇴실하는 순간 청소를 요청하고, 퇴원 준비를 재촉합니다.",
+         "value": a_val, "value_sub": a_sub, "where": "병동"},
+        {"key": "G1", "title": "실행 직전 재검사", "what": "AI 판단도 사람 승인도, 실행 바로 전에 안전 조건을 다시 확인합니다.",
+         "value": f"{sf['violations'] + sf['holdout']['violations']}건", "value_sub": f"안전 위반, 검사 {sf['checks'] + sf['holdout']['checks']}회", "where": "AI 운영 개요"},
+        {"key": "C", "title": "기록이 정하는 자율 범위", "what": "사람 결정과 충분히 일치한 유형만 AI에 맡기고, 어긋나면 되돌립니다.",
+         "value": f"{last * 100:.0f}%", "value_sub": "위임 뒤 자동 확정 비율", "where": "AI 운영 자율 범위"},
+        {"key": "B", "title": "온톨로지로 병원 데이터 연결", "what": "병원마다 다른 표와 코드를 공통 개념 체계에 연결해, 같은 규칙이 어느 병원에서나 돕니다.",
+         "value": f"{ob['mapped']}개", "value_sub": "연결한 항목, 시험 운영 " + ("통과" if ob["proof"]["passed"] else "실패"), "where": "AI 운영 병원 연동"},
+        {"key": "LLM", "title": "시험을 통과한 AI만 사용", "what": "배정은 규칙 코드가 맡고, AI는 시험을 통과한 일에만 씁니다.",
+         "value": f"{r['regression']['dev']}가지", "value_sub": "상황 재현 시험", "where": "AI 운영 모델과 평가"},
     ]
     return {"rows": rows, "note": r["note"]}
 

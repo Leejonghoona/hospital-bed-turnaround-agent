@@ -4,7 +4,7 @@ import { Stats } from '../parts/Stats'
 
 const pct = (x: number) => `${Math.round(x * 1000) / 10}%`
 const minus = (x: number) => `${Math.round(x * 100)}%`.replace('-', '−')
-const TABS = [['overview', '개요'], ['autonomy', '자율 범위'], ['model', '모델과 평가'], ['onboarding', '새 병원 설정']] as const
+const TABS = [['overview', '개요'], ['autonomy', '자율 범위'], ['model', '모델과 평가'], ['onboarding', '병원 연동']] as const
 type Tab = typeof TABS[number][0]
 
 // AI 운영(의료정보팀): 에이전트가 제대로 도는지 보고 설정한다 (DECISIONS 2026-11-10).
@@ -35,7 +35,7 @@ function Overview({ d }: { d: AiOps }) {
     <div className="sec-h"><h3>재생 평가</h3><span className="tag t-gray">{d.note}</span></div>
     <div className="grid3">
       <div className="kpi"><span>사람 손 없이 확정</span><b>{pct(m.no_touch.ratio)}</b><em>확정 {m.no_touch.committed}건 중 {m.no_touch.no_touch}건</em></div>
-      <div className="kpi"><span>수속부터 입실까지</span><b>{minus(m.entry_wait.change)}</b><em>{m.entry_wait.off_min}분 → {m.entry_wait.on_min}분, 에이전트 미사용 대비</em></div>
+      <div className="kpi"><span>도착 후 입실까지</span><b>{minus(m.entry_breakdown.change)}</b><em>{m.entry_breakdown.off_min}분 → {m.entry_breakdown.on_min}분, 안내한 수속 시각부터. 도착 때 병상 준비 {Math.round(m.entry_breakdown.ready_off * 100)}% → {Math.round(m.entry_breakdown.ready_on * 100)}%</em></div>
       <div className="kpi"><span>실행 안전 위반</span><b>{m.safety.violations + m.safety.holdout.violations}건</b><em>검사 {m.safety.checks + m.safety.holdout.checks}회</em></div>
     </div>
     <section className="card blocked">
@@ -88,18 +88,18 @@ function Model({ d }: { d: AiOps }) {
   return (
     <div className="grid2">
       <section className="card">
-        <div className="card-h"><h3>모델 구성</h3><span className="tag t-green">{m.using}</span></div>
-        <table><colgroup><col style={{ width: 130 }} /><col style={{ width: 110 }} /><col /></colgroup>
-          <thead><tr><th>역할</th><th>담당</th><th>상태</th></tr></thead>
-          <tbody>{m.roles.map(r => <tr key={r.job}><td><b>{r.job}</b></td><td>{r.who}</td><td className="sub">{r.status}</td></tr>)}</tbody></table>
+        <div className="card-h"><h3>AI가 맡는 일</h3><span className={'tag ' + (m.external ? 't-blue' : 't-gray')}>{m.using}</span></div>
+        <table><colgroup><col style={{ width: 150 }} /><col style={{ width: 96 }} /><col /></colgroup>
+          <thead><tr><th>일</th><th>지금 담당</th><th>시험 결과</th></tr></thead>
+          <tbody>{m.roles.map(r => <tr key={r.job}><td><b>{r.job}</b></td><td>{r.now}</td><td className="sub">{r.test}</td></tr>)}</tbody></table>
         <dl className="kv"><dt>외부 전송</dt><dd>{m.guard}</dd></dl>
       </section>
       <section className="card">
-        <div className="card-h"><h3>평가</h3><span className="tag t-gray">{m.note}</span></div>
-        <table><colgroup><col style={{ width: 130 }} /><col style={{ width: 110 }} /><col /></colgroup>
-          <thead><tr><th>항목</th><th>결과</th><th>범위</th></tr></thead>
-          <tbody>{m.checks.map(e => <tr key={e.name}><td><b>{e.name}</b></td><td>{e.value}</td><td className="sub">{e.sub}</td></tr>)}</tbody></table>
-        <dl className="kv"><dt>재평가</dt><dd>코드나 정책이 바뀔 때마다</dd></dl>
+        <div className="card-h"><h3>배포 전 시험</h3><span className="tag t-gray">{m.note}</span></div>
+        <table><colgroup><col style={{ width: 130 }} /><col /><col style={{ width: 120 }} /></colgroup>
+          <thead><tr><th>시험</th><th>무엇을 보나</th><th>결과</th></tr></thead>
+          <tbody>{m.checks.map(e => <tr key={e.name}><td><b>{e.name}</b></td><td className="sub">{e.what}</td><td><b>{e.value}</b><div className="sub">{e.sub}</div></td></tr>)}</tbody></table>
+        <dl className="kv"><dt>다시 시험</dt><dd>코드나 규칙이 바뀔 때마다</dd></dl>
       </section>
     </div>
   )
@@ -113,23 +113,24 @@ function Onboarding({ d, onChange, toast }: { d: AiOps; onChange: (d: AiOps) => 
   }
   const done = ob.approvals.filter(a => a.done).length
   return (
-    <section className="card">
-      <div className="card-h"><h3>설정판</h3></div>
-      <table><colgroup><col /><col style={{ width: 100 }} /><col style={{ width: 110 }} /><col style={{ width: 100 }} /><col style={{ width: 140 }} /><col style={{ width: 170 }} /></colgroup>
-        <thead><tr><th>병원</th><th>질문</th><th>시험 운영</th><th>승인</th><th>상태</th><th></th></tr></thead>
+    <section className="card onboard">
+      <div className="card-h"><h3>데이터 연동</h3></div>
+      <p className="note">병원 EMR이 내보내는 표의 열과 코드를 WardFlow의 공통 개념 체계(온톨로지)에 연결합니다. 한 번 연결하면 이후 입원과 퇴원 기록은 연동으로 들어옵니다.</p>
+      <table><colgroup><col /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 100 }} /><col style={{ width: 90 }} /><col style={{ width: 130 }} /><col style={{ width: 160 }} /></colgroup>
+        <thead><tr><th>연동 대상</th><th>개념 연결</th><th>확인 질문</th><th>시험 운영</th><th>승인</th><th>상태</th><th></th></tr></thead>
         <tbody><tr>
           <td><b>{ob.hospital}</b><div className="sub">설정판 {ob.version}</div></td>
-          <td>{ob.asked}개</td>
+          <td>{ob.mapped}개</td><td>{ob.asked}개</td>
           <td><span className={'tag ' + (ob.proof.passed ? 't-green' : 't-red')}>{ob.proof.passed ? '통과' : '실패'}</span></td>
           <td>{done} / {ob.approvals.length}</td>
           <td><span className={'tag ' + (ob.status.startsWith('승인됨') ? 't-green' : 't-amber')}>{ob.status}</span></td>
           <td className="acts">{!ob.approvals[0]?.done && <button className="btn sm p" disabled={!ob.proof.passed} onClick={approve}>의료정보팀으로 승인</button>}</td>
         </tr></tbody></table>
       <div className="grid4">
-        <div><span>표 연결</span><b>{ob.mapped}개 항목</b><em>내보내기 표 {ob.tables}개</em></div>
-        <div><span>질문</span><b>{ob.asked}개</b><em>{Object.entries(ob.by_stage).map(([k, v]) => `${k} ${v}`).join(', ')}{ob.code_master ? `, 코드표로 ${ob.code_master}개 해결` : ''}</em></div>
-        <div><span>시험 운영</span><b>{ob.proof.passed ? '통과' : '실패'}</b><em>안전 위반 {ob.proof.safety}건, 순서 위반 {ob.proof.order}건, 배정 {ob.proof.commits}건</em></div>
-        <div><span>승인</span><b>{done} / {ob.approvals.length}</b><em>{ob.approvals.map(a => `${a.name} ${a.done ? '완료' : '대기'}`).join(', ')}</em></div>
+        <div><span>1. 개념 연결</span><b>{ob.mapped}개</b><em>표 {ob.tables}개의 열, 사건, 코드를 공통 개념에 연결</em></div>
+        <div><span>2. 확인 질문</span><b>{ob.asked}개</b><em>AI가 확신하지 못한 것만 사람에게 묻습니다{ob.code_master ? `. 병원 코드표로 ${ob.code_master}개 자동 해결` : ''}</em></div>
+        <div><span>3. 시험 운영</span><b>{ob.proof.passed ? '통과' : '실패'}</b><em>그 병원 데이터로 하루를 돌려 사건 순서 위반 {ob.proof.order}건, 안전 위반 {ob.proof.safety}건</em></div>
+        <div><span>4. 두 사람 승인</span><b>{done} / {ob.approvals.length}</b><em>{ob.approvals.map(a => `${a.name} ${a.done ? '완료' : '대기'}`).join(', ')}</em></div>
       </div>
     </section>
   )

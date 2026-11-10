@@ -29,6 +29,17 @@ def _safety(d: dict) -> dict:
     return {"violations": sum(s[k] for k in ("S1", "S2", "S3", "S4")), "checks": sum(s[k + "_n"] for k in ("S1", "S2", "S3", "S4"))}
 
 
+def _entry_breakdown() -> dict:
+    """안내한 수속 시각부터 입실까지(병원에 와서 기다린 시간). scripts/measure_entry_breakdown.py"""
+    d = _load("entry_breakdown.json")
+    off, on = d["off"], d["on"]
+    a, b = d["seeds"]
+    return {"seeds": f"{a}~{b - 1}", "n": on["n"], "off_min": off["from_promised_mean"], "on_min": on["from_promised_mean"],
+            "change": round((on["from_promised_mean"] - off["from_promised_mean"]) / off["from_promised_mean"], 3),
+            "ready_off": off["ready_at_checkin"], "ready_on": on["ready_at_checkin"],
+            "done_to_ready_min": on["done_to_ready"], "request_to_start_off": off["request_to_start"], "request_to_start_on": on["request_to_start"]}
+
+
 def summarize() -> dict:
     m1_all = _load("m1.json")
     m1 = m1_all["field_default"]
@@ -63,6 +74,7 @@ def summarize() -> dict:
                    "exception_selected": sel["exception"]["selected"] is not None,
                    "explain_selected": sel["explain"]["selected"] is not None, "date": sel["date"]},
         "regression": scen,
+        "entry_breakdown": _entry_breakdown(),
     }
 
 
