@@ -98,3 +98,34 @@
 {"id": "XV3-098", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 19.763, "in_tok": 638, "out_tok": 129, "finish": ["stop"]}
 {"id": "XV3-099", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 16.386, "in_tok": 656, "out_tok": 102, "finish": ["stop"]}
 {"id": "XV3-100", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 15.901, "in_tok": 658, "out_tok": 106, "finish": ["stop"]}
+{"id": "XV3-101", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 16.557, "in_tok": 639, "out_tok": 100, "finish": ["stop"]}
+{"id": "XV3-102", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 16.892, "in_tok": 638, "out_tok": 102, "finish": ["stop"]}
+{"id": "XV3-103", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 15.962, "in_tok": 641, "out_tok": 101, "finish": ["stop"]}
+{"id": "XV3-104", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 20.437, "in_tok": 640, "out_tok": 138, "finish": ["stop"]}
+{"id": "XV3-105", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 18.55, "in_tok": 665, "out_tok": 114, "finish": ["stop"]}
+{"id": "XV3-106", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 19.335, "in_tok": 664, "out_tok": 119, "finish": ["stop"]}
+{"id": "XV3-107", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 35.417, "in_tok": 650, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-108", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 36.299, "in_tok": 650, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-109", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 20.627, "in_tok": 665, "out_tok": 136, "finish": ["stop"]}
+{"id": "XV3-110", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 38.662, "in_tok": 651, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-111", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 37.542, "in_tok": 651, "out_tok": 257, "finish": ["length"]}
+{"id": "XV3-112", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 38.854, "in_tok": 651, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-113", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 18.134, "in_tok": 666, "out_tok": 116, "finish": ["stop"]}
+{"id": "XV3-114", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 36.545, "in_tok": 665, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-115", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 35.871, "in_tok": 666, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-116", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 15.65, "in_tok": 651, "out_tok": 103, "finish": ["stop"]}
+{"id": "XV3-117", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 17.568, "in_tok": 650, "out_tok": 115, "finish": ["stop"]}
+{"id": "XV3-118", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 13.812, "in_tok": 651, "out_tok": 95, "finish": ["stop"]}
+{"id": "XV3-119", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 14.01, "in_tok": 650, "out_tok": 99, "finish": ["stop"]}
+{"id": "XV3-120", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 19.225, "in_tok": 665, "out_tok": 119, "finish": ["stop"]}
+{"id": "XV3-121", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 18.229, "in_tok": 665, "out_tok": 119, "finish": ["stop"]}
+{"id": "XV3-122", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 13.994, "in_tok": 665, "out_tok": 82, "finish": ["stop"]}
+{"id": "XV3-123", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 36.075, "in_tok": 650, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-124", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 17.804, "in_tok": 666, "out_tok": 119, "finish": ["stop"]}
+{"id": "XV3-125", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 14.204, "in_tok": 651, "out_tok": 88, "finish": ["stop"]}
+{"id": "XV3-126", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 17.957, "in_tok": 664, "out_tok": 116, "finish": ["stop"]}
+{"id": "XV3-127", "action": null, "status": "llm_error", "valid": false, "error": "JSON 형식 오류: Expecting ',' delimiter: line 3 column 15 (char 47)", "latency_s": 35.864, "in_tok": 651, "out_tok": 256, "finish": ["length"]}
+{"id": "XV3-128", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 16.91, "in_tok": 667, "out_tok": 116, "finish": ["stop"]}
+{"id": "XV3-129", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 15.821, "in_tok": 665, "out_tok": 96, "finish": ["stop"]}
+{"id": "XV3-130", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 17.679, "in_tok": 663, "out_tok": 116, "finish": ["stop"]}
+{"id": "XV3-131", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 17.062, "in_tok": 651, "out_tok": 127, "finish": ["stop"]}
