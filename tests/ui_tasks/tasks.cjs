@@ -18,6 +18,9 @@ const TASKS = {
     const c = []
     c.push({ name: '시연·운영 카드가 보인다', ok: await page.getByRole('heading', { name: '시연 화면' }).isVisible() && await page.getByRole('heading', { name: '운영 화면' }).isVisible() })
     const [a, b] = await page.locator('.tile').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)] }))
+    const wrapped = await page.locator('.e-how b, .tile h3, .e-hero p').evaluateAll(els => els.filter(e => {
+      const lh = parseFloat(getComputedStyle(e).lineHeight) || 20; return e.getBoundingClientRect().height > lh * 1.5 }).map(e => e.textContent))
+    c.push({ name: '제목이 한 줄에 들어간다', ok: wrapped.length === 0, detail: wrapped.join(' | ') })
     c.push({ name: '두 카드 크기가 같다', ok: !!a && !!b && a[0] === b[0] && a[1] === b[1], detail: JSON.stringify([a, b]) })
     return c
   },
@@ -27,12 +30,12 @@ const TASKS = {
     await page.getByRole('button', { name: '데모 계정으로 시작' }).click(); clicks++
     await page.getByRole('button', { name: /김하늘/ }).first().click(); clicks++
     await page.getByRole('button', { name: '근무 시작' }).click(); clicks++
-    await page.getByRole('heading', { name: '오늘 할 일' }).waitFor()
+    await page.getByRole('heading', { name: '처리할 일' }).waitFor()
     return [{ name: '3클릭 이하로 원무 작업 화면', ok: clicks <= 3, detail: `${clicks}클릭` }]
   },
   async W1(page) {
     await enterOps(page)
-    await page.getByRole('heading', { name: '오늘 할 일' }).waitFor()
+    await page.getByRole('heading', { name: '처리할 일' }).waitFor()
     await page.locator('tr.row').first().waitFor()
     const c = []
     const rows = await page.locator('tr.row').count()
@@ -42,7 +45,40 @@ const TASKS = {
     c.push({ name: '마감 지난 일이 위', ok: late.join() === [...late].sort((x, y) => Number(y) - Number(x)).join() })
     const cut = await page.locator('td').evaluateAll(els => els.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent))
     c.push({ name: '잘린 칸이 없다', ok: cut.length === 0, detail: cut.slice(0, 3).join(' | ') })
-    c.push({ name: '이전 근무 구분', ok: await page.getByRole('tab', { name: /이전 근무/ }).isVisible() })
+    c.push({ name: '이전 근무 구분', ok: await page.getByText('인계받음').first().isVisible() })
+    const tabs = await page.locator('.tab .n').allTextContents()
+    c.push({ name: '탭 숫자 합 = 전체', ok: tabs.slice(1).reduce((a, x) => a + Number(x), 0) === Number(tabs[0]), detail: tabs.join(',') })
+    const tl = await page.locator('.tl .t').evaluateAll(els => els.filter(e => e.getBoundingClientRect().height > (parseFloat(getComputedStyle(e).lineHeight) || 19) * 1.5).length)
+    c.push({ name: '경과 시각이 한 줄', ok: tl === 0, detail: `${tl}개 줄바꿈` })
+    return c
+  },
+  async W2(page) {
+    await enterOps(page)
+    await page.locator('tr.row').first().waitFor()
+    const row = page.locator('tr.row', { hasText: '입원 안내 전화' }).first()
+    const name = await row.locator('.pt b').textContent()
+    await row.click()
+    const c = []
+    const t = page.getByLabel('환자에게 안내한 수속 시각')
+    c.push({ name: '추천 안내 시각이 보인다', ok: !!(await t.inputValue()) && await page.getByText(/추천 시각은/).isVisible() })
+    await page.getByRole('button', { name: '연락함으로 기록' }).click()
+    await page.getByRole('status').waitFor()
+    await page.waitForTimeout(300)
+    const still = await page.locator('tr.row', { hasText: '입원 안내 전화' }).filter({ hasText: name }).count()
+    c.push({ name: '기록하면 목록에서 처리됨', ok: still === 0, detail: name })
+    return c
+  },
+  async W4(page) {
+    await enterOps(page)
+    await page.locator('tr.row').first().waitFor()
+    await page.locator('tr.row', { hasText: '재연락' }).first().click()
+    const c = []
+    const panel = page.locator('aside.detail')
+    c.push({ name: '상황, 근거, 마감, 버튼이 한 패널에', ok: await panel.locator('.sit').isVisible() && await panel.locator('.eff').isVisible()
+      && await panel.getByRole('button', { name: '승인' }).isVisible() && await panel.getByRole('button', { name: '거절' }).isVisible() && await panel.locator('.alert').isVisible() })
+    await panel.getByRole('button', { name: '승인' }).click()
+    const msg = await page.getByRole('status').textContent()
+    c.push({ name: '승인 뒤 다시 확인한 결과가 보인다', ok: /다시 확인/.test(msg || ''), detail: msg })
     return c
   },
 }

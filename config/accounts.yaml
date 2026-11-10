@@ -11,7 +11,7 @@ accounts:
 - user_id: adm-seo
   name: 서민준
   role: bed_manager
-  role_label: 원무 입원파트
+  role_label: 원무 야간 당직
   ward: null
   salt: adm-seo
   password_hash: cec9fa14e34f58016d84031868a556c2fb9a668d03a78e4bb6cb89dfdeb2872f
@@ -46,7 +46,7 @@ accounts:
 - user_id: admin-jung
   name: 정예린
   role: admin
-  role_label: 병상관리 책임자
+  role_label: 의료정보팀 관리자
   ward: null
   salt: admin-jung
   password_hash: 3a14178944e9cbdba32337ecb238415736504a4ab7716238f98502c29120f244

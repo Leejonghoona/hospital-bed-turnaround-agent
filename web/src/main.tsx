@@ -18,7 +18,7 @@ function App() {
   if (view.page === 'login') return <Login demoFirst={view.demoFirst} onDone={u => setView({ page: 'app', user: u })} onBack={() => setView({ page: 'entry' })} />
   if (view.page === 'app') return <Worklist user={view.user} onLogout={logout} onSwitch={() => { token.clear(); setView({ page: 'login', demoFirst: true }) }} />
   if (view.page === 'demo') return <div className="empty">시연 화면을 준비하고 있습니다 <button className="btn sm" onClick={() => setView({ page: 'entry' })}>처음 화면</button></div>
-  return <Entry onDemo={() => setView({ page: 'demo' })} onOps={() => setView({ page: 'login', demoFirst: true })} onLogin={() => setView({ page: 'login', demoFirst: false })} />
+  return <Entry onDemo={() => setView({ page: 'demo' })} onOps={() => setView({ page: 'login', demoFirst: true })} />
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

@@ -19,6 +19,7 @@ const P: Record<string, string> = {
   refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7',
   swap: 'M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7',
   back: 'M15 18l-6-6 6-6',
+  logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
 }
 
 export function Icon({ name, small }: { name: keyof typeof P | string; small?: boolean }) {

@@ -79,6 +79,18 @@ class LoginIn(BaseModel):
     password: str = ""
 
 
+class ContactIn(BaseModel):
+    promised_at: str  # 환자에게 실제로 안내한 수속 시각 HH:MM
+
+
+class ResultIn(BaseModel):
+    result: str = ""
+
+
+class ReasonIn(BaseModel):
+    reason: str = ""
+
+
 class ShiftIn(BaseModel):
     ward: str | None = None
     shift: str | None = None
@@ -159,6 +171,74 @@ def create_app() -> FastAPI:
             raise HTTPException(404, "없는 사례입니다")
         store.log(s, "열람", case=case)
         return d
+
+    # ---- 원무 처리 (P2). 기록은 사건 저장소에 사람 사건으로 남고, 접속기록에도 남는다 ----
+    def admission_only(s: Session) -> None:
+        if s.user["role"] not in ("bed_manager", "admin"):
+            raise HTTPException(403, "원무 담당만 처리할 수 있습니다")
+
+    def row_of(st, rid: str) -> dict:
+        from turnaround.api.worklist import admission_rows
+        r = next((x for x in admission_rows(st)["rows"] if x["id"] == rid), None)
+        if r is None:
+            raise HTTPException(404, "이미 처리됐거나 없는 일입니다")
+        return r
+
+    def human(st, case: str, key: str, etype, **payload) -> None:
+        from turnaround.events import Event
+        st.store.append(Event(event_id=f"{case}:web:{key}", case_id=case, type=etype, occurred_at=st.now,
+                              observed_at=st.now, source="human", payload=payload))
+
+    @app.post("/api/contacts/{case}")
+    def contact(case: str, body: ContactIn, s: Session = Depends(session)):
+        from datetime import datetime as _dt
+
+        from turnaround.events import EventType
+        from turnaround.saga import fold
+        admission_only(s)
+        st = store.demo()
+        r = row_of(st, f"contact:{case}")
+        try:
+            hh, mm = map(int, body.promised_at.split(":"))
+            promised = st.now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        except ValueError:
+            raise HTTPException(422, "안내한 시각을 HH:MM으로 적어 주세요") from None
+        m = fold(st.store.read()).matches.get(case)
+        bed = m.bed_id if m else None
+        human(st, case, f"contacted:{_dt.now().timestamp()}", EventType.PATIENT_CONTACTED, bed_id=bed,
+              by=s.user["user_id"], promised_at=promised.isoformat())
+        store.log(s, "입원 안내 연락 기록", case=case, detail=f"{r['bed']} 수속 {body.promised_at}")
+        return {"ok": True}
+
+    @app.post("/api/tasks/{task_id}/done")
+    def task_done(task_id: str, body: ResultIn, s: Session = Depends(session)):
+        from turnaround.events import EventType
+        admission_only(s)
+        st = store.demo()
+        r = row_of(st, task_id)
+        if body.result not in r["choices"]:
+            raise HTTPException(422, "처리 내용을 목록에서 골라 주세요")
+        human(st, r["case"], f"done:{task_id}", EventType.HUMAN_TASK_DONE, task_id=task_id, by=s.user["user_id"],
+              result=body.result)
+        store.log(s, "작업 처리", case=r["case"], detail=f"{r['action']}: {body.result}")
+        return {"ok": True}
+
+    @app.post("/api/approvals/{eid}/{verb}")
+    def approval(eid: str, verb: str, body: ReasonIn, s: Session = Depends(session)):
+        admission_only(s)
+        st = store.demo()
+        r = row_of(st, eid)
+        if verb == "approve":
+            dec = st.gw.approve_action(eid, "bed_manager", st.now, approver_id=s.user["user_id"])
+            store.log(s, "승인", case=r["case"], detail=f"{r['action']}: {dec.status}")
+        elif verb == "decline":
+            if not body.reason.strip():
+                raise HTTPException(422, "거절 사유를 골라 주세요")
+            dec = st.gw.decline_action(eid, "bed_manager", body.reason.strip(), st.now, approver_id=s.user["user_id"])
+            store.log(s, "거절", case=r["case"], detail=f"{r['action']}: {body.reason.strip()}")
+        else:
+            raise HTTPException(404, "없는 처리입니다")
+        return {"status": dec.status, "reasons": list(getattr(dec, "reasons", None) or [])}
 
     @app.get("/api/access-log")
     def access_log(s: Session = Depends(session)):

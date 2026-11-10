@@ -108,7 +108,7 @@ def _rationale(trigger: str | None, action: str, ctx: dict) -> tuple[str, str]:
         sit = "기다리던 병상의 퇴원이 취소·연기됐습니다."
     else:
         sit = TRIGGER_KO.get(trigger or "", "예외") + " 상황입니다."
-    eff = {"request_recontact": "승인하면 원무에 환자 재연락 작업이 생깁니다.",
+    eff = {"request_recontact": "승인하면 환자 재연락 작업이 생기고, 바뀐 수속 시각을 다시 안내합니다.",
            "propose_rematch": "승인하면 규칙으로 다른 병상을 다시 찾고, 병동과 원무에 다시 알립니다.",
            "request_postpone_contact": "승인하면 환자 연락을 미루는 작업이 생깁니다."}.get(action, "")
     return sit, eff

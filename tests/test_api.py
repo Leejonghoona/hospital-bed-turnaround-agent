@@ -55,7 +55,8 @@ def test_admission_worklist_rows(client):
         assert k in row
     lates = [r["late"] for r in w["rows"]]
     assert lates == sorted(lates, reverse=True)  # 마감 지난 일이 위
-    assert set(w["counts"]) >= {"all", "late", "approval", "contact", "ipc_wait", "carried"}
+    assert set(w["counts"]) >= {"all", "late", "carried"}
+    assert sum(w["groups"].values()) == w["counts"]["all"]  # 탭 분류는 겹치지 않는다(합 = 전체)
 
 
 def test_viewing_a_patient_is_written_to_access_log(client):
@@ -70,3 +71,51 @@ def test_viewing_a_patient_is_written_to_access_log(client):
 
 def test_access_log_is_admin_only(client):
     assert client.get("/api/access-log", headers=_login(client)).status_code == 403
+
+
+# ---- P2 원무 처리 (W2 연락 기록, W4 승인·거절, 병상 없음 처리) ----
+
+def _rows(client, h):
+    return client.get("/api/worklist", headers=h).json()["rows"]
+
+
+def test_detail_shows_what_admission_needs_and_hides_the_rest(client):
+    h = _login(client)
+    r = _rows(client, h)[0]
+    d = client.get(f"/api/patients/{r['case']}", headers=h).json()
+    assert d["phone"].startswith("010-0000-") and d["reserved_at"] and "room_pref" in d  # 합성 연락처, 예약 시각
+    assert len(d["patient_id"]) == 8 and d["patient_id"].isdigit()
+    assert not {"organism", "rrn", "notes"} & set(d)  # 병원체명·주민번호·기록은 원무 상세에 없음
+    whats = " ".join(t["what"] for t in d["timeline"])
+    assert not any(w in whats for w in ("실행", "예외 종료", "막음", "작업 완료"))  # 내부 용어 없음
+
+
+def test_contact_recorded_removes_row(client):
+    h = _login(client, "adm-seo")
+    c = next(r for r in _rows(client, h) if r["kind"] == "contact")
+    assert c["suggest_at"]
+    r = client.post(f"/api/contacts/{c['case']}", json={"promised_at": c["suggest_at"]}, headers=h)
+    assert r.status_code == 200, r.text
+    assert c["id"] not in {x["id"] for x in _rows(client, h)}
+    log = client.get("/api/access-log", headers=_login(client, "admin-jung")).json()["rows"]
+    assert any(x["user_id"] == "adm-seo" and x["action"] == "입원 안내 연락 기록" for x in log)
+
+
+def test_no_bed_task_needs_a_choice_and_closes(client):
+    h = _login(client)
+    t = next(r for r in _rows(client, h) if r["kind_label"] == "병상 없음")
+    assert t["choices"]
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "아무거나"}, headers=h).status_code == 422
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": t["choices"][0]}, headers=h).status_code == 200
+    assert t["id"] not in {x["id"] for x in _rows(client, h)}
+
+
+def test_approval_decline_needs_reason_and_ward_cannot_act(client):
+    h = _login(client)
+    a = next(r for r in _rows(client, h) if r["kind"] == "approval")
+    w = _login(client, "ward71-park")
+    assert client.post(f"/api/approvals/{a['id']}/decline", json={"reason": "환자 사정으로 보류"}, headers=w).status_code == 403
+    assert client.post(f"/api/approvals/{a['id']}/decline", json={"reason": " "}, headers=h).status_code == 422
+    r = client.post(f"/api/approvals/{a['id']}/decline", json={"reason": "원무가 직접 처리"}, headers=h)
+    assert r.status_code == 200 and r.json()["status"]
+    assert a["id"] not in {x["id"] for x in _rows(client, h)}

@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError, token, type User } from '../api'
 import { Icon, Logo } from '../icons'
+import { shiftsFor } from '../shifts'
 
-const SHIFTS = [
-  { id: 'day', label: '낮 07:00–15:00' },
-  { id: 'evening', label: '초번 15:00–23:00' },
-  { id: 'night', label: '밤 23:00–07:00' },
-]
 const WARDS = [{ id: 'W71', label: '71병동' }, { id: 'W72', label: '72병동' }]
 
 // 로그인(개인 계정) → 오늘 근무(병동·근무조). 공용 계정은 없다. 실제 인증 수단은 범위 밖.
@@ -17,18 +13,18 @@ export function Login({ demoFirst, onDone, onBack }: { demoFirst: boolean; onDon
   const [err, setErr] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [ward, setWard] = useState<string | null>(null)
-  const [shift, setShift] = useState('day')
+  const [shift, setShift] = useState<string | null>(null)
 
   useEffect(() => { api.demoAccounts().then(setAccounts).catch(() => setAccounts([])) }, [])
 
-  const signed = (t: string, u: User) => { token.set(t); setUser(u); setWard(u.ward) }
+  const signed = (t: string, u: User) => { token.set(t); setUser(u); setWard(u.ward); setShift(shiftsFor(u.role)[0].id) }
   const submit = async () => {
     setErr('')
     try { const r = await api.login(uid, pw); signed(r.token, r.user) }
     catch (e) { setErr(e instanceof ApiError ? e.message : '로그인할 수 없습니다') }
   }
   const demo = async (id: string) => { const r = await api.demoLogin(id); signed(r.token, r.user) }
-  const start = async () => { if (user) { await api.shift(ward, shift); onDone(user) } }
+  const start = async () => { if (user && shift) { await api.shift(ward, shift); onDone(user) } }
 
   if (user) {
     const clinical = user.role === 'ward'
@@ -44,7 +40,7 @@ export function Login({ demoFirst, onDone, onBack }: { demoFirst: boolean; onDon
             <div className="seg">{WARDS.map(w => <button key={w.id} className={ward === w.id ? 'on' : ''} onClick={() => setWard(w.id)}>{w.label}</button>)}</div>
           </>)}
           <div className="lab">근무조</div>
-          <div className="seg">{SHIFTS.map(s => <button key={s.id} className={shift === s.id ? 'on' : ''} onClick={() => setShift(s.id)}>{s.label}</button>)}</div>
+          <div className="seg">{shiftsFor(user.role).map(s => <button key={s.id} className={shift === s.id ? 'on' : ''} onClick={() => setShift(s.id)}>{s.label}</button>)}</div>
           <button className="btn p full" style={{ marginTop: 8 }} onClick={start}>근무 시작</button>
         </div>
       </div></div>
@@ -54,6 +50,7 @@ export function Login({ demoFirst, onDone, onBack }: { demoFirst: boolean; onDon
   const list = (
     <div className="pane">
       <h2>데모 계정</h2>
+      <p className="note" style={{ marginTop: -6 }}>고르면 바로 로그인합니다. 직접 입력할 때 비밀번호는 demo1234입니다</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {accounts.map(a => (
           <button key={a.user_id} className="acc" onClick={() => demo(a.user_id)}>
