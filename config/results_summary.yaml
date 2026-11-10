@@ -95,3 +95,25 @@ entry_breakdown:
   done_to_ready_min: 43.7
   request_to_start_off: 62.3
   request_to_start_on: 45.6
+entry_breakdown_realistic:
+  seeds: 0~49
+  day: 3
+  n_off: 88
+  n_on: 89
+  off_min: 59.8
+  on_min: 20.2
+  change: -0.662
+  median_off_min: 15.0
+  median_on_min: 15.0
+  ready_off: 0.591
+  ready_on: 0.775
+  request_to_start_off: 62.8
+  request_to_start_on: 47.3
+  done_to_ready_off: 91.4
+  done_to_ready_on: 34.8
+  safety_violations_off: 0
+  safety_violations_on: 0
+  old_levers_only_min: 48.0
+  plus_bed_prep_request_min: 20.2
+  plus_schedule_share_min: 48.0
+  no_advance_notice_min: 23.6

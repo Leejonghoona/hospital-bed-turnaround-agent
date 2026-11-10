@@ -1,0 +1,106 @@
+{
+ "provenance": {
+  "commit": "e89566d",
+  "dirty": true,
+  "source_dirty": true,
+  "source_diff_sha": "5998b04171bc",
+  "at": "2026-11-10T09:11:19+00:00",
+  "python": "3.13.18",
+  "packages": {
+   "pydantic": "2.13.5",
+   "rdflib": "7.6.0",
+   "pyshacl": "0.40.2",
+   "streamlit": "1.67.0"
+  },
+  "policy_fingerprint": "a5aa72afdb1d"
+ },
+ "seeds": [
+  0,
+  50
+ ],
+ "day": 3,
+ "note": "합성 데이터 기준 추정",
+ "ops_realism": true,
+ "off": {
+  "n": 88,
+  "from_due_mean": 119.8,
+  "from_due_median": 90.0,
+  "from_promised_mean": 59.8,
+  "from_promised_median": 15.0,
+  "ready_at_checkin": 0.591,
+  "departed_to_request": 7.7,
+  "request_to_start": 62.8,
+  "cleaning": 32.0,
+  "done_to_ready": 91.4,
+  "safety": {
+   "S1": 0,
+   "S1_n": 113,
+   "S2": 0,
+   "S2_n": 13,
+   "S3": 0,
+   "S3_n": 186,
+   "S4": 0,
+   "S4_n": 88
+  },
+  "from_promised_clip0_mean": 62.2,
+  "from_promised_p90": 166.5
+ },
+ "on": {
+  "n": 89,
+  "from_due_mean": 79.9,
+  "from_due_median": 15.0,
+  "from_promised_mean": 20.2,
+  "from_promised_median": 15.0,
+  "ready_at_checkin": 0.775,
+  "departed_to_request": 8.0,
+  "request_to_start": 47.3,
+  "cleaning": 31.9,
+  "done_to_ready": 34.8,
+  "safety": {
+   "S1": 0,
+   "S1_n": 113,
+   "S2": 0,
+   "S2_n": 13,
+   "S3": 0,
+   "S3_n": 162,
+   "S4": 0,
+   "S4_n": 89
+  },
+  "from_promised_clip0_mean": 31.9,
+  "from_promised_p90": 60.0
+ },
+ "variants": {
+  "old_levers_only": {
+   "n": 89,
+   "from_promised_mean": 48.0,
+   "from_promised_median": 15.0,
+   "ready_at_checkin": 0.685,
+   "request_to_start": 47.3,
+   "done_to_ready": 92.1
+  },
+  "plus_bed_prep_request": {
+   "n": 89,
+   "from_promised_mean": 20.2,
+   "from_promised_median": 15.0,
+   "ready_at_checkin": 0.775,
+   "request_to_start": 47.3,
+   "done_to_ready": 34.8
+  },
+  "plus_schedule_share": {
+   "n": 89,
+   "from_promised_mean": 48.0,
+   "from_promised_median": 15.0,
+   "ready_at_checkin": 0.685,
+   "request_to_start": 47.3,
+   "done_to_ready": 92.1
+  },
+  "all_no_advance_notice": {
+   "n": 89,
+   "from_promised_mean": 23.6,
+   "from_promised_median": 15.0,
+   "ready_at_checkin": 0.775,
+   "request_to_start": 47.3,
+   "done_to_ready": 42.6
+  }
+ }
+}
