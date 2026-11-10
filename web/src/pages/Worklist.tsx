@@ -9,7 +9,8 @@ import { UndoForm } from '../parts/Undo'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 수속 안내 시각 선택지: 15분 단위 (브라우저 언어와 상관없이 24시간제로 보이게 select로 둔다)
-const SLOTS = Array.from({ length: 49 }, (_, i) => `${String(8 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`)
+// 입원 수속 창구 운영 시간 안에서만 고른다(강남세브란스 "오후 5시 30분 이후에는 응급실원무 창구"). 09:00~17:30
+const SLOTS = Array.from({ length: 35 }, (_, i) => `${String(9 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`)
 const DECLINE = ['원무가 직접 처리', '환자 사정으로 보류', '병동과 통화로 해결', '기타']
 
 function clock(d: Date) {
@@ -54,7 +55,7 @@ function Memo({ v, set, need }: { v: string; set: (s: string) => void; need: boo
 // 처리 영역: 할 일 종류마다 실제로 누르는 처리 하나. 결과는 서버에 사람 기록으로 남는다.
 function Action({ r, onDone }: { r: Row; onDone: (msg: string) => void }) {
   const [time, setTime] = useState(r.suggest_at)
-  const [outcome, setOutcome] = useState<'done' | 'no_answer'>('done')
+  const [outcome, setOutcome] = useState<'done' | 'no_answer' | 'postpone' | 'cancel'>('done')
   const [choice, setChoice] = useState<string | null>(null)
   const [declining, setDeclining] = useState(false)
   const [reason, setReason] = useState<string | null>(null)
@@ -72,18 +73,21 @@ function Action({ r, onDone }: { r: Row; onDone: (msg: string) => void }) {
     <div className="seg">
       <button className={outcome === 'done' ? 'on' : ''} onClick={() => setOutcome('done')}>통화함</button>
       <button className={outcome === 'no_answer' ? 'on' : ''} onClick={() => setOutcome('no_answer')}>연락 안 됨</button>
+      <button className={outcome === 'postpone' ? 'on' : ''} onClick={() => setOutcome('postpone')}>입원 연기</button>
+      <button className={outcome === 'cancel' ? 'on' : ''} onClick={() => setOutcome('cancel')}>입원 취소</button>
     </div>
     {outcome === 'done' && (<>
       <div className="field"><label htmlFor="pt">환자에게 안내한 수속 시각</label>
         <select id="pt" value={time} onChange={e => setTime(e.target.value)}>{[...new Set([...SLOTS, r.suggest_at])].filter(Boolean).sort().map(t => <option key={t}>{t}</option>)}</select></div>
       <div className="note">추천 시각은 {r.suggest_at}입니다. 입원 예정 시각과 병상 준비 예상을 함께 본 값입니다.</div>
     </>)}
-    <Memo v={memo} set={setMemo} need={false} />
+    <Memo v={memo} set={setMemo} need={outcome === 'postpone' || outcome === 'cancel'} />
     {err && <div className="err">{err}</div>}
-    <button className="btn p full" disabled={busy || (outcome === 'done' && !time)} onClick={() => run(async () => {
+    <button className="btn p full" disabled={busy || (outcome === 'done' && !time) || ((outcome === 'postpone' || outcome === 'cancel') && !memo.trim())} onClick={() => run(async () => {
       await api.contact(r.case, outcome, time, memo)
-      return outcome === 'done' ? `${r.patient} 입원 안내를 기록했습니다` : `${r.patient} 연락 안 됨을 기록했습니다. 할 일은 남겨 둡니다`
-    })}>{outcome === 'done' ? '연락함으로 기록' : '연락 안 됨 기록'}</button>
+      return { done: `${r.patient} 입원 안내를 기록했습니다`, no_answer: `${r.patient} 연락 안 됨을 기록했습니다. 할 일은 남겨 둡니다`,
+        postpone: `${r.patient} 입원 연기를 기록했습니다. 병상을 풀었습니다`, cancel: `${r.patient} 입원 취소를 기록했습니다. 병상을 풀었습니다` }[outcome]
+    })}>{{ done: '연락함으로 기록', no_answer: '연락 안 됨 기록', postpone: '입원 연기 기록', cancel: '입원 취소 기록' }[outcome]}</button>
   </>)
 
   if (r.kind === 'task') return (<>

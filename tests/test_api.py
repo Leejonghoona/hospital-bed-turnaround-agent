@@ -304,3 +304,18 @@ def test_ward_nurse_cannot_switch_to_other_ward_and_admin_cannot_act_as_admissio
     assert client.get("/api/worklist", headers=a).status_code == 403
     rows = _rows(client, _login(client))
     assert client.get(f"/api/patients/{rows[0]['case']}", headers=a).status_code == 403  # 의료정보팀은 환자 정보가 아니라 접속기록을 본다
+
+
+def test_contact_can_record_cancel_and_releases_bed():
+    c = TestClient(create_app())
+    h = _login(c)
+    row = next(r for r in _rows(c, h) if r["kind"] == "contact")
+    assert row["due"] == "12:00"  # 입원 당일 오전 연락 마감
+    assert c.post(f"/api/contacts/{row['case']}", json={"outcome": "cancel", "memo": ""}, headers=h).status_code == 422
+    r = c.post(f"/api/contacts/{row['case']}", json={"outcome": "cancel", "memo": "보호자 사정으로 취소"}, headers=h)
+    assert r.status_code == 200, r.text
+    assert row["case"] not in {x["case"] for x in _rows(c, h) if x["kind"] == "contact"}
+    from turnaround.saga import fold
+    st = c.app.state.store.demo()
+    m = fold(st.store.read()).matches.get(row["case"])
+    assert m is None or not m.active  # 사가가 병상을 풀었다

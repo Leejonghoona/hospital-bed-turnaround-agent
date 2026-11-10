@@ -35,6 +35,7 @@ class DemoState:
     reviewer: object = None  # 사람 응답 모형 (없으면 늘 승인, 로드맵 07 M3)
     log: list[str] = field(default_factory=list)
     advance: object = None  # advance(to): 재생을 이어서 돌린다
+    saga: object = None  # 화면에서 사람이 사건을 남긴 뒤 사가를 한 번 돌릴 때 쓴다(입원 취소 등)
     live_from: datetime | None = None  # 이 시각부터 원무 연락은 화면의 사람이 한다(웹 운영 화면, 측정에는 쓰지 않음)
 
 
@@ -97,6 +98,7 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())
     end = datetime.combine(base.date(), until)
     st = DemoState(h, store, gw, agent, base - timedelta(hours=8), entries)
+    st.saga = saga
     if live_from is not None:
         st.live_from = datetime.combine(base.date(), live_from)
     st.reviewer = reviewer

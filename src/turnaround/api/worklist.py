@@ -129,7 +129,9 @@ def admission_rows(st) -> dict:
     for x in a["contacts"]:
         tries = sum(1 for n in notes(ev, x["case"]) if n["tag"] == "contact_no_answer")
         reason = f"{x['suggest_at']:%H:%M} 수속 안내" + (f", 연락 안 됨 {tries}회" if tries else "")
-        add(x["case"], "contact", "입원 안내", "입원 안내 전화", None, False, x["bed"], reason,
+        # 입원 당일 오전에 연락한다(세브란스 "당일 오전(08:30~11:00)", 분당서울대 "오전 11시30분경"). 마감 12:00은 설계 가정
+        due = now.replace(hour=12, minute=0, second=0, microsecond=0)
+        add(x["case"], "contact", "입원 안내", "입원 안내 전화", due, due < now, x["bed"], reason,
             "다시 연락" if tries else "연락 전", suggest_at=f"{x['suggest_at']:%H:%M}",
             situation=f"{x['bed_ko']} 병상이 {x['committed']}에 확정됐습니다. 수속 시각과 병동을 안내하세요.")
     for x in a["tasks"]:
@@ -149,14 +151,16 @@ def admission_rows(st) -> dict:
                     "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무에 넘겼습니다."
                                  + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
                     "effect": "환자에게 어떻게 안내했는지 고르세요."}
+        elif x["raw_kind"] == "fee_consent" and (people.get(x["case"]) or {}).get("precautions"):
+            continue  # 격리 목적 1인실은 상급병실 비용 대상이 아니다(요양급여 기준 별표 2 단서). 동의 작업을 보이지 않는다
         elif x["raw_kind"] == "fee_consent":
             # 상급병실(1인실 등)에 배정되면 차액 동의 서명을 받아야 한다 (게이트웨이가 만드는 작업, LP-22)
             rt = st.gw.room_by_id[st.gw.room_of[x["bed"]]].room_type.value if x.get("bed") in st.gw.room_of else ""
             grade = {"single": "1인실", "negative_pressure": "음압 1인실"}.get(rt, "상급병실")
-            label, action, reason = "차액 동의", "동의서 받기", f"{grade} 배정 검토 중, 서명 전"
+            label, action, reason = "1인실 동의", "동의서 받기", f"{grade} 배정 검토 중, 동의 전"
             more = {"choices": [{"label": "서명 받음", "desc": "동의서 서명 완료"}, {"label": "동의 안 함", "desc": "기준 병실로 다시 찾아야 함"},
                                 {"label": "기타", "desc": "메모에 내용 적기"}],
-                    "situation": f"{grade} 배정을 검토 중입니다. 기준 병실과의 차액에 대해 환자나 보호자의 동의 서명이 필요합니다."}
+                    "situation": f"{grade} 배정을 검토 중입니다. 상급병실은 입원실 이용 비용 전액을 본인이 부담하므로(요양급여 기준 별표 2) 환자나 보호자의 동의가 필요합니다."}
         else:
             label, action, reason = "작업", x["kind"], _short(x.get("why") or "")
             more = {"choices": [{"label": "처리함", "desc": "처리를 마쳤습니다"}, {"label": "기타", "desc": "메모에 내용 적기"}],

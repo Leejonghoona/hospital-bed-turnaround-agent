@@ -64,7 +64,7 @@ export const api = {
   assign: (c: string, bed: string, reason: string, memo: string) => call('/api/assign', { method: 'POST', body: JSON.stringify({ case: c, bed, reason, memo }) }),
   assignments: (day?: string) => call<{ now: string; day: string; days: string[]; rows: Assignment[] }>(`/api/assignments${day ? `?day=${day}` : ''}`),
   patient: (c: string) => call<Patient>(`/api/patients/${encodeURIComponent(c)}`),
-  contact: (c: string, outcome: 'done' | 'no_answer', promised_at: string, memo: string) =>
+  contact: (c: string, outcome: 'done' | 'no_answer' | 'postpone' | 'cancel', promised_at: string, memo: string) =>
     call(`/api/contacts/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ outcome, promised_at, memo }) }),
   taskDone: (id: string, result: string, memo: string) => call(`/api/tasks/${encodeURIComponent(id)}/done`, { method: 'POST', body: JSON.stringify({ result, memo }) }),
   approval: (id: string, verb: 'approve' | 'decline', reason = '', memo = '') =>

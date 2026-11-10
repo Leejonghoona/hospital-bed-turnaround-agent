@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import os
 import secrets
+import threading
 import time as _time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -29,6 +30,7 @@ MAX_FAIL = 5  # 로그인 실패 허용 횟수 (설계 가정, 개인정보 안�
 ROLE_SCREEN = {"bed_manager": "admission", "ward": "ward", "ipc": "ipc", "id_oncall": "ipc", "admin": "manager"}
 
 
+_BUILD_LOCK = threading.Lock()
 IDLE_SEC = 15 * 60  # 일정 시간 미사용 시 자동 차단 (고시 제6조④, EMR 인증 F004 "10분~60분 이내"). 15분은 설계 가정
 _CLIENT_IP: ContextVar[str] = ContextVar("client_ip", default="")
 
@@ -52,6 +54,10 @@ class Store:
     state: object = None  # 합성 병원 하루 재생 (요청이 처음 올 때 만든다)
 
     def demo(self):
+        with _BUILD_LOCK:  # 첫 요청 여러 개가 동시에 오면 한 번만 만든다 (동시에 만들면 공유 캐시가 엉킨다)
+            return self._demo()
+
+    def _demo(self):
         if self.state is None:
             from turnaround.gateway import load_policy
             from turnaround.sim import GeneratorConfig
@@ -131,6 +137,11 @@ def create_app() -> FastAPI:
     data_dir = Path(os.environ.get("WARDFLOW_DATA_DIR") or (ROOT / "var"))
     store = Store(_load_accounts(), access_log=AccessLog(data_dir / "access_log.sqlite"))
     app.state.store = store
+
+    @app.on_event("startup")
+    def warm() -> None:
+        if os.environ.get("WARDFLOW_LAZY") != "1":  # 서버를 켤 때 합성 병원을 미리 만든다 (첫 화면이 기다리지 않게)
+            threading.Thread(target=store.demo, daemon=True).start()
 
     @app.middleware("http")
     async def remember_ip(request: Request, call_next):
@@ -318,7 +329,17 @@ def create_app() -> FastAPI:
         admission_only(s)
         st = store.demo()
         r = row_of(st, f"contact:{case}")
-        memo = memo_of(body.memo, False)
+        memo = memo_of(body.memo, body.outcome in ("postpone", "cancel"))
+        if body.outcome in ("postpone", "cancel"):
+            # 통화 중 환자가 입원을 미루거나 취소하면 입원 취소로 기록하고 사가가 병상을 푼다. 연기는 새 날짜로 다시 접수(설계 가정)
+            label = "입원 연기" if body.outcome == "postpone" else "입원 취소"
+            human(st, case, f"cancel:{secrets.token_hex(3)}", EventType.ADMISSION_CANCELLED, by=s.user["user_id"],
+                  reason=body.outcome, note=label)
+            note(st, s, case, f"{label}: {memo}")
+            if getattr(st, "saga", None) is not None:
+                st.saga.step(st.now)
+            store.log(s, label, case=case)
+            return {"ok": True}
         if body.outcome == "no_answer":
             note(st, s, case, memo, tag="contact_no_answer")
             store.log(s, "입원 안내 연락 안 됨", case=case)
