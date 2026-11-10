@@ -168,6 +168,7 @@ def create_app() -> FastAPI:
     @app.get("/api/worklist")
     def worklist(s: Session = Depends(session)):
         from turnaround.api.worklist import admission_rows
+        admission_only(s)
         st = store.demo()
         out = admission_rows(st)
         store.log(s, "목록 조회", detail="오늘 할 일")
@@ -180,8 +181,30 @@ def create_app() -> FastAPI:
         d = patient_detail(st, case, store.accounts)
         if d is None:
             raise HTTPException(404, "없는 사례입니다")
+        if not may_view(st, s, case):
+            store.log(s, "열람 거부", case=case)  # 권한 밖 열람 시도도 접속기록에 남긴다
+            raise HTTPException(403, "이 환자를 볼 권한이 없습니다")
         store.log(s, "열람", case=case)
         return d
+
+    def may_view(st, s: Session, case: str) -> bool:
+        """최소 권한: 원무는 입원 대기 환자 전체, 병동은 자기 병동에 있거나 올 환자, 감염관리실은 격리 환자만."""
+        role = s.user["role"]
+        if role in ("bed_manager", "admin"):
+            return True
+        ev = st.store.read()
+        if role == "ward":
+            bed = st.gw._assignments(ev).get(case)
+            ward = next((b.ward_id for b in st.h.beds if b.id == bed), None) if bed else None
+            if ward is None:  # 아직 병상이 없으면 진료과 담당 병동 기준
+                from turnaround.ui import views
+                dept = (views._people(ev).get(case) or {}).get("department")
+                ward = next((w.id for w in st.h.wards if dept in w.departments), None)
+            return ward is not None and ward == s.ward
+        if role in ("ipc", "id_oncall"):
+            patient, _ = st.gw._admission(case, ev)
+            return bool(patient and (patient.precautions or patient.isolation_order))
+        return False
 
     # ---- 원무 처리 (P2). 기록은 사건 저장소에 사람 사건으로 남고, 접속기록에도 남는다 ----
     def admission_only(s: Session) -> None:

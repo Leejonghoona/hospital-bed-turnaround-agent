@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, ApiError, type Board, type BoardBed } from '../api'
 
-const FIT_LABEL: Record<string, string> = { ok: '배정 가능', reason: '사유 적으면 가능', ipc: '감염관리실 승인 필요', no: '배정 불가' }
+const FIT_LABEL: Record<string, string> = { ok: '배정 가능', reason: '차선책 가능', ipc: '감염관리실 승인 필요', no: '배정 불가' }
 
 // 병상 직접 지정: 왼쪽은 환자 조건, 추천 병상, 사유와 확정. 오른쪽은 병동→병실→병상 현황판.
 // 병상마다 고를 수 있는지는 서버(게이트웨이 사전 검사)가 정하고, 확정도 게이트웨이가 다시 검사한다.
@@ -12,9 +12,17 @@ export function BedPicker({ caseId, onClose, onDone }: { caseId: string; onClose
   const [memo, setMemo] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { api.beds(caseId).then(setB).catch(() => setErr('병상 현황을 불러오지 못했습니다')) }, [caseId])
+  const [tab, setTab] = useState<string | null>(null)
+  const bRef = useRef<Board | null>(null)
+  bRef.current = b
+  useEffect(() => { api.beds(caseId).then(x => { setB(x); setTab((x.wards.find(w => x.need.dept_wards.includes(w.name)) ?? x.wards[0])?.id ?? null) }).catch(() => setErr('병상 현황을 불러오지 못했습니다')) }, [caseId])
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !(document.activeElement instanceof HTMLTextAreaElement || document.activeElement instanceof HTMLSelectElement)) {
+        setTab(t => { const ws = bRef.current?.wards ?? []; const i = ws.findIndex(w => w.id === t); const n = ws[i + (e.key === 'ArrowRight' ? 1 : -1)]; return n ? n.id : t })
+      }
+    }
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
   }, [onClose])
 
@@ -71,13 +79,21 @@ export function BedPicker({ caseId, onClose, onDone }: { caseId: string; onClose
               </>)}
             </aside>
             <section className="pk-board">
-              <div className="legend">
-                <span><i className="ok" />배정 가능</span><span><i className="reason" />사유 적으면 가능</span>
+              <div className="legend" title="← → 키로 병동을 넘길 수 있습니다">
+                <span><i className="ok" />배정 가능</span><span><i className="reason" />차선책 가능</span>
                 <span><i className="ipc" />감염관리실 승인 필요</span><span><i className="no" />배정 불가</span>
               </div>
-              {b.wards.map(w => (
+              <div className="wtabs" role="tablist" aria-label="병동">
+                {b.wards.map(w => {
+                  const free = w.rooms.flatMap(r => r.beds).filter(x => x.fit !== 'no').length
+                  return (
+                    <button key={w.id} role="tab" aria-selected={tab === w.id} className={tab === w.id ? 'on' : ''} onClick={() => setTab(w.id)}>
+                      <b>{w.name}</b><span>{b.need.dept_wards.includes(w.name) ? '담당 병동' : w.specialty}</span>
+                      <em className={free ? 'has' : ''}>{free ? `가능 ${free}` : '가능 없음'}</em></button>)
+                })}
+              </div>
+              {b.wards.filter(w => w.id === tab).map(w => (
                 <div key={w.id} className="wd">
-                  <h3>{w.name}<span>{w.specialty}{b.need.dept_wards.includes(w.name) ? ', 담당 병동' : ''}</span></h3>
                   <div className="rooms">{w.rooms.map(r => (
                     <div key={r.id} className="room">
                       <div className="rh"><b>{r.label}</b><span>{r.grade}{r.sex && ` ${r.sex}`}{r.cohort && ` 코호트`}</span></div>

@@ -207,3 +207,21 @@ def test_manual_assign_requires_reason_and_follows_gateway():
     assert mine["by"] == "김하늘" and "환자·보호자 요청" in mine["basis"]
     # 병상이 정해졌으니 그 환자의 '병상 없음' 할 일은 닫힌다
     assert case not in {x["case"] for x in _rows(c, h) if x["kind_label"] == "병상 없음"}
+
+
+# ---- 역할별 접근 (최소 권한): 다른 팀이 로그인하면 화면과 권한이 바뀐다 ----
+
+def test_role_scoping_for_worklist_and_patient_detail(client):
+    adm = _login(client)
+    rows = _rows(client, adm)
+    ward = _login(client, "ward71-park")  # 71병동 책임간호사
+    assert client.get("/api/worklist", headers=ward).status_code == 403  # 원무 할 일은 원무만
+    assert client.get("/api/assignments", headers=ward).status_code == 403
+    st = client.app.state.store.demo()
+    ward_of = {b.id: b.ward_id for b in st.h.beds}
+    with_bed = [r for r in rows if r["bed"] and r["kind"] != "confirmed"]
+    mine = next(r for r in with_bed if ward_of.get(st.gw._assignments(st.store.read()).get(r["case"], "")) == "W71")
+    other = next(r for r in with_bed if ward_of.get(st.gw._assignments(st.store.read()).get(r["case"], "")) not in (None, "W71"))
+    assert client.get(f"/api/patients/{mine['case']}", headers=ward).status_code == 200  # 자기 병동으로 오는 환자
+    assert client.get(f"/api/patients/{other['case']}", headers=ward).status_code == 403  # 다른 병동 환자
+    assert client.get("/api/me", headers=ward).json()["screen"] == "ward"

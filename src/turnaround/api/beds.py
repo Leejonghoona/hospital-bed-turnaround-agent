@@ -18,7 +18,7 @@ BLOCK_KO = {"bed_occupied": "사용 중", "precondition_unmet": "같은 병실 �
 VIOLATION_KO = {"gender_room": "다른 성별 병실", "tb_shared_room": "결핵 환자와 병실 공유 불가", "same_name_room": "같은 병실 동명이인",
                 "gender_missing": "성별 정보 없음", "unknown_bed": "없는 병상", "airborne_needs_negative_pressure": "음압실 필요",
                 "non_cohort_in_cohort_room": "다른 병원체 코호트 병실", "protective_in_cohort": "보호 격리 환자는 코호트 불가",
-                "preemptive_in_cohort": "선제 격리 환자는 코호트 불가", "isolation_room": "격리 환자를 다인실에(차선책)"}
+                "preemptive_in_cohort": "선제 격리 환자는 코호트 불가", "isolation_room": "격리 환자 다인실 배정"}
 REASON_CODES = {"patient_request": "환자·보호자 요청", "clinical": "진료상 필요(의료진 요청)", "operational": "병동 운영 사정",
                 "vip": "병원 지정 요청", "other": "기타"}
 GRADE = {"negative_pressure": "음압 1인실", "single": "1인실"}
@@ -29,7 +29,7 @@ def _fit(pre: dict) -> tuple[str, str]:
     if pre["blocked"]:
         return "no", ", ".join(BLOCK_KO.get(x, x) for x in pre["blocked"])
     why = ", ".join(VIOLATION_KO.get(x, x) for x in pre["violations"])
-    return {None: ("ok", ""), "reason_entry": ("reason", why + ". 사유를 적으면 가능"),
+    return {None: ("ok", ""), "reason_entry": ("reason", why + ". 1인실이 없을 때의 차선책(커튼, 1m 간격). 사유를 남기면 감염관리실이 나중에 검토"),
             "preapproval": ("ipc", why + ". 감염관리실 승인 필요")}.get(pre["tier"], ("no", why))
 
 
