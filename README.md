@@ -68,3 +68,42 @@ streamlit run src/turnaround/ui/app.py                          # 화면 (pip in
 python -m turnaround.evaluation.model_check --models fake,rule   # 모델 점검 (실제 모델은 아래 환경 변수)
 ```
 실제 모델: `TURNAROUND_LLM=openai|anthropic|local`, `TURNAROUND_LLM_MODEL=<모델 ID 또는 GGUF 경로>`, 외부 API는 `TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only`와 키가 있어야 붙는다.
+
+## MCP로 연결하기
+
+WardFlow의 조회 도구를 MCP(Model Context Protocol) 서버로 엽니다. 합성 시연 병원만 쓰고, 상태를 바꾸는 도구는 없습니다(확정과 배정은 실행 게이트웨이가 사람 확인 등급을 거쳐서만 합니다).
+
+```bash
+pip install -e ".[api,mcp]"
+python -m turnaround.mcp_server   # stdio. 첫 호출 때 시연 병원을 만든다(약 6초)
+```
+
+도구: `admissions_today`(오늘 입원, 사례 ID), `bed_board`(환자별 병상 현황판), `gateway_precheck`(게이트웨이 사전 검사, 기록 없음), `case_timeline`(환자 경과), `blocked_decisions`(게이트웨이가 막은 판단), `autonomy_table`(자율 범위). 환자 이름은 화면처럼 가립니다.
+
+Claude Desktop(`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "wardflow": {
+      "command": "python",
+      "args": ["-m", "turnaround.mcp_server"],
+      "cwd": "/path/to/WardFlow"
+    }
+  }
+}
+```
+
+Claude Code: `claude mcp add wardflow -- python -m turnaround.mcp_server`
+
+## 에이전트 추적
+
+LLM 호출, 계획·예외 판단, 게이트웨이 판정을 OpenTelemetry span으로 남깁니다. 기본은 꺼져 있습니다.
+
+```bash
+pip install -e ".[trace]"
+TURNAROUND_TRACE=1 TURNAROUND_TRACE_FILE=traces.jsonl uvicorn turnaround.api.app:app   # JSONL 파일로
+python scripts/trace_report.py   # 시연 병원 하루를 추적해 evals/results/final/trace_report.json
+```
+
+`LANGFUSE_PUBLIC_KEY`·`LANGFUSE_SECRET_KEY`(와 `opentelemetry-exporter-otlp-proto-http`)가 있으면 Langfuse로도 보냅니다.
