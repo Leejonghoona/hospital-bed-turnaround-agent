@@ -116,7 +116,7 @@ def admission_rows(st) -> dict:
         if x["action"] == "request_recontact":
             when = _promised(x["situation"])
             label, action = "재연락", "환자에게 다시 안내"
-            reason = f"{when} 안내, 앞 환자 퇴실 전" if when else (x["trigger_ko"] or _short(x["situation"]))
+            reason = f"{when} 안내했으나 앞 환자 퇴실 전" if when else (x["trigger_ko"] or _short(x["situation"]))
         else:
             label = {"propose_rematch": "병상 변경", "request_postpone_contact": "연락 보류"}.get(x["action"], "승인")
             action, reason = x["action_ko"], x["trigger_ko"] or _short(x["situation"])
@@ -128,7 +128,7 @@ def admission_rows(st) -> dict:
             effect="감염관리실이 병상을 결정하면 환자 재연락 작업이 생깁니다")
     for x in a["contacts"]:
         tries = sum(1 for n in notes(ev, x["case"]) if n["tag"] == "contact_no_answer")
-        reason = f"{x['suggest_at']:%H:%M} 수속으로 안내" + (f", 연락 안 됨 {tries}회" if tries else "")
+        reason = f"{x['suggest_at']:%H:%M} 수속 안내" + (f", 연락 안 됨 {tries}회" if tries else "")
         add(x["case"], "contact", "입원 안내", "입원 안내 전화", None, False, x["bed"], reason,
             "다시 연락" if tries else "연락 전", suggest_at=f"{x['suggest_at']:%H:%M}",
             situation=f"{x['bed_ko']} 병상이 {x['committed']}에 확정됐습니다. 수속 시각과 병동을 안내하세요.")
@@ -143,7 +143,7 @@ def admission_rows(st) -> dict:
             need = "격리 병상" if pp.get("precautions") else " ".join(x for x in (f"{ward}병동" if ward else "",
                                                                                  f"{sex}자" if sex else "") if x) + " 병상"
             label, action = "병상 없음", "입원 일정 정하기"
-            reason = f"{need} 오늘 없음" if hint in ("오늘 비는 병상 없음", "후보 병상 없음") else f"{need}, {hint}"
+            reason = f"{need} 없음" if hint in ("오늘 비는 병상 없음", "후보 병상 없음") else f"{need}, {hint}"
             req = pp.get("requested_at")
             more = {"choices": NO_BED_CHOICES,
                     "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무에 넘겼습니다."
@@ -256,8 +256,10 @@ def _basis(text: str) -> str:
     return ", ".join(BASIS_KO[k] for k in keys if k in BASIS_KO) or "배정 기준 충족"
 
 
-def assignments(st, accounts: dict | None = None, days: int = 2) -> dict:
-    """에이전트와 사람이 확정한 배정 기록 (최근 것이 위). 확정 주체, 근거, 되돌리기 시한, 지금 상태."""
+def assignments(st, accounts: dict | None = None, day: str | None = None) -> dict:
+    """에이전트와 사람이 확정한 배정 기록 (최근 것이 위). 하루 단위로 본다(day=YYYY-MM-DD, 없으면 오늘).
+    확정 주체, 근거, 되돌리기 시한, 지금 상태. days: 기록이 있는 날짜 목록(날짜 고르기용)."""
+    from datetime import date as _date
     from turnaround.saga import fold
     ev = st.store.read()
     people = views._people(ev)
@@ -266,9 +268,12 @@ def assignments(st, accounts: dict | None = None, days: int = 2) -> dict:
     cancelled = {e.case_id for e in ev if e.type is EventType.ADMISSION_CANCELLED and e.observed_at <= st.now}
     # 사람 직접 배정(manual_override): 확정 사건의 proposal_id(mo…)로 누가 어떤 사유로 했는지 찾는다
     manual = {e.event_id.split(":")[1]: e.payload for e in ev if e.type is EventType.MANUAL_OVERRIDE_APPLIED}
+    want = _date.fromisoformat(day) if day else st.now.date()
+    days = sorted({e.observed_at.date().isoformat() for e in ev if e.type is EventType.MATCH_COMMITTED and e.observed_at <= st.now},
+                  reverse=True)
     rows = []
     for e in ev:
-        if e.type is not EventType.MATCH_COMMITTED or e.observed_at > st.now or (st.now.date() - e.observed_at.date()).days >= days:
+        if e.type is not EventType.MATCH_COMMITTED or e.observed_at > st.now or e.observed_at.date() != want:
             continue
         bed = e.payload.get("bed_id")
         n = note.get(e.payload.get("proposal_id"))
@@ -286,11 +291,11 @@ def assignments(st, accounts: dict | None = None, days: int = 2) -> dict:
         by = "에이전트" if e.payload.get("committed_by") == "agent" else (accounts or {}).get(actor, {}).get("name", "원무")
         if mo:
             from turnaround.api.beds import REASON_CODES
-        rows.append({"at": e.observed_at.isoformat(timespec="minutes"), "time": views._hm(e.observed_at), "case": e.case_id,
+        rows.append({"at": e.observed_at.isoformat(timespec="minutes"), "time": e.observed_at.strftime("%H:%M"), "case": e.case_id,
                      **_person(people, e.case_id), "bed": views.bed_ko(bed), "bed_short": _bed(bed), "by": by,
                      "basis": f"직접 지정, {REASON_CODES.get(mo.get('reason_code'), '사유 없음')}" if mo else _basis(b.get("rationale", "")),
                      "runner_up": views.bed_ko(b["runner_up"]) if b.get("runner_up") else "",
-                     "undo_until": views._hm(until) if until else "", "undo_open": bool(until and st.now < until and state == "입실 대기"),
+                     "undo_until": until.strftime("%H:%M") if until else "", "undo_open": bool(until and st.now < until and state == "입실 대기"),
                      "state": state})
     rows.sort(key=lambda r: r["at"], reverse=True)
-    return {"now": st.now.isoformat(timespec="minutes"), "rows": rows}
+    return {"now": st.now.isoformat(timespec="minutes"), "day": want.isoformat(), "days": days, "rows": rows}

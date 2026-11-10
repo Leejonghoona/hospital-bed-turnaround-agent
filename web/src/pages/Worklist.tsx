@@ -10,9 +10,16 @@ const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 const SLOTS = Array.from({ length: 49 }, (_, i) => `${String(8 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`)
 const DECLINE = ['원무가 직접 처리', '환자 사정으로 보류', '병동과 통화로 해결', '기타']
 
-function clock(iso: string) {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} 기준`
+function clock(d: Date) {
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// 현재 시각: 합성 병원의 시각에서 시작해 실제로 흐른 시간만큼 간다 (데이터는 합성 병원 시각 기준이라 실제 시계를 그대로 쓰지 않는다)
+function useClock(start: string | undefined) {
+  const [base] = useState(() => Date.now())
+  const [, tick] = useState(0)
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(t) }, [])
+  return start ? new Date(new Date(start).getTime() + (Date.now() - base)) : null
 }
 
 function dateKo(iso: string) {
@@ -38,7 +45,7 @@ function Memo({ v, set, need }: { v: string; set: (s: string) => void; need: boo
   return (
     <div className="field"><label htmlFor="memo">메모 {need ? <em className="req">필수</em> : <span className="opt">선택</span>}</label>
       <textarea id="memo" rows={2} maxLength={500} value={v} onChange={e => set(e.target.value)}
-        placeholder="다음 근무자가 알아야 할 내용" /></div>
+        placeholder="통화 내용, 환자 요청 등" /></div>
   )
 }
 
@@ -166,6 +173,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
     return () => window.removeEventListener('keydown', onKey)
   }, [rows, pick])
 
+  const now = useClock(wl?.now)
   const groups = Object.entries(wl?.groups ?? {})
   const all = wl?.counts.all ?? 0
   const sh = shiftShort(shift)
@@ -174,13 +182,13 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
       <header className="appbar">
         <div className="brand"><Logo /><b>WardFlow</b></div>
         <nav className="gnav">
-          <button className={page === 'work' ? 'on' : ''} aria-current={page === 'work' ? 'page' : undefined} onClick={() => setPage('work')}>처리할 일</button>
+          <button className={page === 'work' ? 'on' : ''} aria-current={page === 'work' ? 'page' : undefined} onClick={() => setPage('work')}>할 일</button>
           <button className={page === 'log' ? 'on' : ''} aria-current={page === 'log' ? 'page' : undefined} onClick={() => setPage('log')}>배정 기록</button>
         </nav>
         <label className="gsearch"><Icon name="search" small />
           <input ref={search} value={q} onChange={e => setQ(e.target.value)} placeholder="환자 이름, 등록번호, 병상 검색" aria-label="검색" /></label>
         <div className="ab-r">
-          {wl && <span className="clock">{clock(wl.now)}</span>}
+          {now && <span className="clock">{clock(now)}</span>}
           <div className="menu-wrap">
             <button className="user" onClick={() => setMenu(m => !m)} aria-expanded={menu} aria-haspopup="menu"><span className="av">{user.name[0]}</span>
               <span><div className="n">{user.name}</div><div className="r">{user.role_label}</div></span><Icon name="chev" small /></button>
@@ -196,7 +204,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
       </header>
       <div className="body nosd">
         {page === 'log' ? <AssignmentLog onChange={c => setPicker(c)} key={toast} /> : <main className="main">
-          <div className="ph"><h1>처리할 일</h1><span className="meta">{all}건</span></div>
+          <div className="ph"><h1>할 일</h1></div>
           <div className="tabs" role="tablist">
             {[['all', all] as [string, number], ...groups].map(([g, n]) => (
               <button key={g} role="tab" aria-selected={tab === g} className={'tab' + (tab === g ? ' on' : '')} onClick={() => setTab(g)}>
@@ -206,10 +214,10 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
           <div className="work">
             <section className="grid">
               <div className="tbody">
-                {rows.length === 0 ? <div className="empty">처리할 일이 없습니다</div> : (
+                {rows.length === 0 ? <div className="empty">할 일이 없습니다</div> : (
                   <table>
                     <colgroup><col style={{ width: 108 }} /><col style={{ width: 200 }} /><col style={{ width: 128 }} /><col style={{ width: 76 }} /><col /><col style={{ width: 116 }} /></colgroup>
-                    <thead><tr>{th('due')}<th>할 일</th>{th('patient')}{th('bed')}<th>근거</th>{th('status')}</tr></thead>
+                    <thead><tr>{th('due')}<th>할 일</th>{th('patient')}{th('bed')}<th>내용</th>{th('status')}</tr></thead>
                     <tbody>
                       {rows.map(r => (
                         <tr key={r.id} className={'row' + (r.id === pick ? ' pick' : '')} tabIndex={0} onClick={() => setPick(r.id)}
@@ -219,7 +227,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
                           <td className="pt"><b>{r.patient}</b><span className="id">{r.patient_id}</span></td>
                           <td className="mono">{r.bed || '—'}</td>
                           <td className="sub">{r.reason}</td>
-                          <td className="st">{r.status}{r.carried && <small>전 근무에서 넘어옴</small>}</td>
+                          <td className="st">{r.status}{r.carried && <small>인계</small>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -244,8 +252,8 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
                   {cur.due_at && wl && (
                     <dl className={'sla' + (cur.late ? ' over' : '')}>
                       <dt>처리 기한</dt><dd>{dateKo(cur.due_at)}<span className="pill">{overdue(cur.due_at, wl.now)}</span></dd>
-                      {cur.status === '책임자 확인 중' && <><dt>올라감</dt><dd>원무 책임자 (기한 초과로 자동 알림)</dd></>}
-                      {cur.carried && <><dt>인계</dt><dd>전 근무에서 넘어온 일</dd></>}
+                      {cur.status === '책임자 확인 중' && <><dt>알림</dt><dd>원무 책임자에게 보냄</dd></>}
+                      {cur.carried && <><dt>인계</dt><dd>야간 당직</dd></>}
                     </dl>)}
                   {pt.notes.length > 0 && (<>
                     <div className="lab">특이사항</div>

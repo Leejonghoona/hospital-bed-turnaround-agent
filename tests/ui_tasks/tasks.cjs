@@ -30,12 +30,12 @@ const TASKS = {
     await page.getByRole('button', { name: '데모 계정으로 시작' }).click(); clicks++
     await page.getByRole('button', { name: /김하늘/ }).first().click(); clicks++
     await page.getByRole('button', { name: '근무 시작' }).click(); clicks++
-    await page.getByRole('heading', { name: '처리할 일' }).waitFor()
+    await page.getByRole('heading', { name: '할 일' }).waitFor()
     return [{ name: '3클릭 이하로 원무 작업 화면', ok: clicks <= 3, detail: `${clicks}클릭` }]
   },
   async W1(page) {
     await enterOps(page)
-    await page.getByRole('heading', { name: '처리할 일' }).waitFor()
+    await page.getByRole('heading', { name: '할 일' }).waitFor()
     await page.locator('tr.row').first().waitFor()
     const c = []
     const rows = await page.locator('tr.row').count()
@@ -45,7 +45,7 @@ const TASKS = {
     c.push({ name: '마감 지난 일이 위', ok: late.join() === [...late].sort((x, y) => Number(y) - Number(x)).join() })
     const cut = await page.locator('td').evaluateAll(els => els.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent))
     c.push({ name: '잘린 칸이 없다', ok: cut.length === 0, detail: cut.slice(0, 3).join(' | ') })
-    c.push({ name: '이전 근무 구분', ok: await page.getByText('전 근무에서 넘어옴').first().isVisible() })
+    c.push({ name: '이전 근무 구분', ok: await page.getByText('인계', { exact: true }).first().isVisible() })
     const tabs = await page.locator('.tab .n').allTextContents()
     c.push({ name: '탭 숫자 합 = 전체', ok: tabs.slice(1).reduce((a, x) => a + Number(x), 0) === Number(tabs[0]), detail: tabs.join(',') })
     const tl = await page.locator('.tl .t').evaluateAll(els => els.filter(e => e.getBoundingClientRect().height > (parseFloat(getComputedStyle(e).lineHeight) || 19) * 1.5).length)

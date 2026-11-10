@@ -153,6 +153,12 @@ def test_assignment_log_lists_agent_and_human_commits(client):
     assert all(x["state"] in {"입실 완료", "입실 대기", "되돌림", "취소"} for x in rows)
     assert [x["at"] for x in rows] == sorted((x["at"] for x in rows), reverse=True)  # 최근 것이 위
     assert client.get("/api/assignments", headers=_login(client, "ward71-park")).status_code == 403
+    # 날짜별로 본다: 기록이 있는 날짜 목록이 오고, 어제를 고르면 어제 확정만 나온다
+    d = r.json()
+    assert d["day"] == d["days"][0] and len(d["days"]) >= 2
+    y = client.get(f"/api/assignments?day={d['days'][1]}", headers=h).json()
+    assert y["rows"] and all(x["at"].startswith(d["days"][1]) for x in y["rows"])
+    assert client.get("/api/assignments?day=어제", headers=h).status_code == 422
 
 
 # ---- 병상 직접 배정 (현황판 + 추천 후보, 게이트웨이 사전 검사) ----

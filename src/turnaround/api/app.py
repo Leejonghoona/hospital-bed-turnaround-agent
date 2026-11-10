@@ -315,10 +315,16 @@ def create_app() -> FastAPI:
         return {"ok": True, "tier": d.tier}
 
     @app.get("/api/assignments")
-    def assignment_log(s: Session = Depends(session)):
+    def assignment_log(day: str | None = None, s: Session = Depends(session)):
+        from datetime import date as _date
+
         from turnaround.api.worklist import assignments
         admission_only(s)
-        out = assignments(store.demo(), store.accounts)
+        try:
+            _date.fromisoformat(day) if day else None
+        except ValueError:
+            raise HTTPException(422, "날짜는 YYYY-MM-DD로 적어 주세요") from None
+        out = assignments(store.demo(), store.accounts, day)
         store.log(s, "목록 조회", detail="배정 기록")
         return out
 
