@@ -1,0 +1,5 @@
+{"id": "XV3-001", "action": "propose_surveillance_hold", "status": "ok", "valid": true, "error": null, "latency_s": 16.488, "in_tok": 597, "out_tok": 91, "finish": ["stop"]}
+{"id": "XV3-002", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 11.092, "in_tok": 609, "out_tok": 83, "finish": ["stop"]}
+{"id": "XV3-003", "action": "propose_surveillance_hold", "status": "ok", "valid": true, "error": null, "latency_s": 16.435, "in_tok": 605, "out_tok": 119, "finish": ["stop"]}
+{"id": "XV3-004", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 13.262, "in_tok": 606, "out_tok": 99, "finish": ["stop"]}
+{"id": "XV3-005", "action": "propose_surveillance_hold", "status": "ok", "valid": true, "error": null, "latency_s": 12.735, "in_tok": 611, "out_tok": 90, "finish": ["stop"]}

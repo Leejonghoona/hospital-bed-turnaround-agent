@@ -1,0 +1,21 @@
+{
+ "model": "local:models/qwen2.5-3b-instruct-q4_k_m.gguf",
+ "dry_mean_s": 14.0,
+ "A_calls": 330,
+ "A_hours": 1.28,
+ "B_calls_per_day": 88,
+ "B_hours_per_day": 0.34,
+ "rule": "A가 4시간을 넘으면 A를 빼고 B만. 전체 상한 8시간",
+ "decision": {
+  "run_A": true,
+  "estimated_total_hours": 1.96,
+  "within_8h": true
+ },
+ "dry_run": {
+  "n": 5,
+  "valid": 5,
+  "finish": "stop 5/5",
+  "json_parse": "5/5",
+  "parser_fixes": 0
+ }
+}
