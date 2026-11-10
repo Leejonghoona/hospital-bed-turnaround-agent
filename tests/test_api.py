@@ -497,7 +497,8 @@ def test_differentiators_numbers_from_summary(client):
     d = client.get("/api/differentiators").json()
     assert d["note"] == "합성 데이터 기준 추정"
     v = {r["key"]: r["value"] for r in d["rows"]}
-    assert v["floor"] == "72.4%" and v["A"] == "−13%" and v["G1"] == "0건"
+    assert list(v) == ["G2", "A", "G1", "C", "B", "LLM"]  # 평범한 입원(바닥)은 차별점이 아니다
+    assert v["A"] == "−13%" and v["G1"] == "0건"
 
 
 def test_tour_can_switch_team_screen_only_in_tour(client):

@@ -63,7 +63,7 @@ export function WardHome({ user, onLogout, onSwitch }: { user: User; onLogout: (
                 <table><thead><tr><th>병상</th><th>환자</th><th>단계</th><th></th></tr></thead>
                   <tbody>{dis.map(d => (
                     <tr key={d.case} className={d.departed ? 'quiet' : ''}><td className="mono">{d.bed}</td><td><b>{d.patient}</b> <span className="sub">{d.age}세 {d.sex}</span></td>
-                      <td>{d.step}{d.departed && ` ${d.departed}`}</td><td>{d.flags.map(f => <span key={f} className="badge">{f}</span>)}</td></tr>))}</tbody></table>)}
+                      <td>{d.step}{d.departed && ` ${d.departed}`}</td><td>{d.clean_req && <span className="tag t-blue clean-req" title="퇴실을 감지해 시스템이 청소를 요청했습니다">청소 요청 {d.clean_req}</span>}{d.flags.map(f => <span key={f} className="badge">{f}</span>)}</td></tr>))}</tbody></table>)}
             </section>
           </div>
         </div>

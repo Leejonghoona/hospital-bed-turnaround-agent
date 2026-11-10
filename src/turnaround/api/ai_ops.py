@@ -42,17 +42,17 @@ def autonomy(st) -> list[dict]:
             ev = "아직 기록 없음"
         out.append({"unit": r["unit"], "name": UNIT_KO.get(r["unit"], r["unit"]), "what": UNIT_WHAT.get(r["unit"], ""),
                     "mode": r["mode"], "mode_ko": "에이전트" if r["mode"] == "auto" else "사람 확인",
-                    "evidence": ev, "lower95": r["agreement_lower95"], "human_n": r["human_n"],
+                    "evidence": ev, "lower95": r["agreement_lower95"], "human_n": r["human_n"], "human_agreed": r["human_agreed"],
                     "recommendation": r["recommendation"], "recommendation_ko": REC_KO[r["recommendation"]],
                     "locked": r["never"]})
     order = {"promote": 0, "demote": 1, "hold": 2}
     return sorted(out, key=lambda x: (order[x["recommendation"]], x["locked"], x["mode"] != "auto", x["name"]))
 
 
-def rule_text(st) -> str:
+def rule_text(st) -> dict:
     r = st.gw.policy.autonomy_promotion
-    return (f"사람 결정 {r.min_cases}건 이상, 에이전트 판단과의 일치율이 보수적으로 잡아 {r.min_agreement_lower95:.0%} 이상이면 맡기기를 제안합니다. "
-            f"맡긴 뒤 최근 {r.demote_window}건 중 {r.demote_disagreements}건 이상 사람이 뒤집으면 되돌리기를 제안합니다.")
+    return {"promote": f"사람 결정 {r.min_cases}건 이상, 에이전트 판단과의 일치율 하한(95% 신뢰) {r.min_agreement_lower95:.0%} 이상",
+            "demote": f"위임 뒤 최근 {r.demote_window}건 중 {r.demote_disagreements}건 이상을 사람이 뒤집으면"}
 
 
 def set_autonomy(st, unit: str, to: str) -> None:
@@ -74,20 +74,20 @@ def model_info(env=None) -> dict:
     m = r["models"]
     return {
         "using": using, "external": external,
-        "guard": "외부 모델에는 합성 데이터 확인 값이 있을 때만 보내고, 이름과 연락처를 가린 뒤 보냅니다. 확인 값이 없으면 보내지 않습니다.",
+        "guard": "합성 데이터 확인 값이 있을 때만 허용, 이름과 연락처는 가려서 보냄",
         "roles": [
-            {"job": "병상 배정과 숫자", "who": "결정적 코드", "why": "같은 입력이면 늘 같은 답. 모델은 배정하지 않습니다"},
-            {"job": "예외 상황 판단", "who": "결정적 규칙", "why": f"외부 모델 {m['candidates']}종 시험에서 기준(금지 행동 0건) 미달"
-                if not m["exception_selected"] else "시험 기준 통과 모델"},
-            {"job": "판단 설명문", "who": "외부 모델 선정됨" if m["explain_selected"] else "결정적 규칙",
-             "why": "기준을 넘은 모델 가운데 가장 싼 모델" if m["explain_selected"] else "기준 통과 모델 없음"},
-            {"job": "메모 속 정보 추출", "who": "결정적 규칙", "why": "자유 서술은 따로 떼어 두고 배정에 직접 쓰지 않습니다"},
+            {"job": "병상 배정과 숫자", "who": "결정적 코드", "status": "고정"},
+            {"job": "예외 상황 판단", "who": "결정적 규칙",
+             "status": f"외부 모델 {m['candidates']}종 시험, 기준 미달" if not m["exception_selected"] else "시험 통과 모델 사용"},
+            {"job": "판단 설명문", "who": "외부 모델" if m["explain_selected"] else "결정적 규칙",
+             "status": "시험 통과 모델 중 최저 비용" if m["explain_selected"] else "시험 통과 모델 없음"},
+            {"job": "메모 정보 추출", "who": "결정적 규칙", "status": "배정에 직접 쓰지 않음"},
         ],
         "checks": [
-            {"name": "회귀 시나리오", "value": f"{r['regression']['dev']}개", "sub": f"따로 둔 시험 {r['regression']['holdout']}개"},
+            {"name": "회귀 시나리오", "value": f"{r['regression']['dev']}개", "sub": f"홀드아웃 {r['regression']['holdout']}개 별도"},
             {"name": "안전 재생 검사", "value": f"위반 {r['safety']['violations']}건", "sub": f"시드 {r['safety']['seeds']}, 검사 {r['safety']['checks']}회"},
-            {"name": "따로 둔 시드", "value": f"위반 {r['safety']['holdout']['violations']}건", "sub": f"시드 {r['safety']['holdout_seeds']}, 검사 {r['safety']['holdout']['checks']}회"},
-            {"name": "모델 선정 시험", "value": f"{m['candidates']}종", "sub": f"{m['date']} 사전 등록 기준"},
+            {"name": "홀드아웃 시드", "value": f"위반 {r['safety']['holdout']['violations']}건", "sub": f"시드 {r['safety']['holdout_seeds']}, 검사 {r['safety']['holdout']['checks']}회"},
+            {"name": "모델 선정 시험", "value": f"{m['candidates']}종", "sub": f"{m['date']}, 사전 등록 기준"},
         ],
         "note": r["note"],
     }
@@ -136,24 +136,22 @@ def onboarding_out(ob: dict) -> dict:
 
 def differentiators(ob: dict) -> dict:
     r = results()
-    nt, ew, sf = r["no_touch"], r["entry_wait"], r["safety"]
+    ew, sf = r["entry_wait"], r["safety"]
     curves = r["autonomy"]["curves"]
     last = sum(c["periods"][-1]["ratio"] for c in curves) / len(curves)
     rows = [
-        {"key": "floor", "title": "평범한 입원은 에이전트가 확정", "what": "사람은 통보받고 되돌릴 수 있습니다. 사람은 환자 연락과 판단이 필요한 일만 합니다",
-         "value": f"{nt['ratio'] * 100:.1f}%", "value_sub": "사람 손 없이 확정", "where": "이 시연 2단계", "here": True},
-        {"key": "A", "title": "병상을 먼저 만든다", "what": "퇴실하는 순간 청소를 요청하고 준비를 재촉해, 빈 병상이 더 일찍 생깁니다",
-         "value": f"{ew['change'] * 100:.0f}%".replace("-", "−"), "value_sub": f"수속부터 입실까지 {ew['off_min']}분에서 {ew['on_min']}분", "where": "의료정보팀 AI 운영"},
-        {"key": "G1", "title": "실행 직전에 다시 검사", "what": "에이전트 판단도 사람 승인도 실행 직전에 게이트웨이가 안전 조건을 다시 확인합니다",
-         "value": f"{sf['violations']}건", "value_sub": f"안전 위반, 검사 {sf['checks'] + sf['holdout']['checks']}회", "where": "이 시연 5단계", "here": True},
         {"key": "G2", "title": "늦게 온 안전 정보도 되돌린다", "what": "확정 뒤에 격리 오더가 나면 환자 호출을 멈추고 감염관리실에 병상 결정을 올립니다",
-         "value": "호출 보류", "value_sub": "확정 뒤 격리 오더가 난 환자", "where": "감염관리실 화면"},
-        {"key": "C", "title": "맡기는 범위를 기록으로 넓힌다", "what": "사람 결정과 에이전트 판단이 충분히 일치한 유형만 에이전트에 맡기고, 어긋나면 되돌립니다",
-         "value": f"0%에서 {last * 100:.0f}%", "value_sub": f"보수적으로 시작한 병원의 {r['autonomy']['days']}일", "where": "의료정보팀 AI 운영"},
+         "value": "호출 보류", "value_sub": "확정 뒤 격리 오더가 난 환자", "where": "감염관리실"},
+        {"key": "A", "title": "병상을 먼저 만든다", "what": "퇴실하는 순간 시스템이 청소를 요청하고 준비를 재촉해, 빈 병상이 더 일찍 생깁니다",
+         "value": f"{ew['change'] * 100:.0f}%".replace("-", "−"), "value_sub": f"수속부터 입실까지 {ew['off_min']}분 → {ew['on_min']}분", "where": "병동"},
+        {"key": "G1", "title": "실행 직전에 다시 검사", "what": "에이전트 판단도 사람 승인도 실행 직전에 게이트웨이가 안전 조건을 다시 확인합니다",
+         "value": f"{sf['violations'] + sf['holdout']['violations']}건", "value_sub": f"실행 안전 위반, 검사 {sf['checks'] + sf['holdout']['checks']}회", "where": "AI 운영, 개요"},
+        {"key": "C", "title": "맡기는 범위를 기록으로 넓힌다", "what": "사람 결정과 충분히 일치한 판단 유형만 에이전트에 맡기고, 어긋나면 사람 확인으로 되돌립니다",
+         "value": f"{last * 100:.0f}%", "value_sub": f"위임 후 사람 손 없이 확정({r['autonomy']['days']}일 재생 마지막 구간)", "where": "AI 운영, 자율 범위"},
         {"key": "B", "title": "새 병원은 데이터로 세팅", "what": "병원 내보내기 표를 올리면 모르는 것만 묻고, 그 병원 데이터로 하루를 시험 운영한 뒤 두 사람이 승인합니다",
-         "value": "통과" if ob["proof"]["passed"] else "실패", "value_sub": f"표본 새 병원, 질문 {ob['asked']}개", "where": "의료정보팀 AI 운영"},
+         "value": "통과" if ob["proof"]["passed"] else "실패", "value_sub": f"시험 운영, 질문 {ob['asked']}개", "where": "AI 운영, 새 병원 설정"},
         {"key": "LLM", "title": "모델은 바꿔 끼우고 시험으로 고른다", "what": "배정과 숫자는 결정적 코드가 하고, 모델은 설명과 추출만 합니다. 기준을 못 넘은 모델은 쓰지 않습니다",
-         "value": f"시나리오 {r['regression']['dev']}개", "value_sub": f"외부 모델 {r['models']['candidates']}종 시험", "where": "의료정보팀 AI 운영"},
+         "value": f"시나리오 {r['regression']['dev']}개", "value_sub": f"회귀 평가, 외부 모델 {r['models']['candidates']}종 시험", "where": "AI 운영, 모델과 평가"},
     ]
     return {"rows": rows, "note": r["note"]}
 

@@ -98,6 +98,8 @@ def discharges(st, ward: str) -> dict:
             flags.append("종말소독")
         rows.append({"case": d.id, "patient": p.get("name") or "환자", "age": p.get("age"),
                      "sex": SEX.get(str(p.get("gender") or ""), ""), "bed": _short(d.bed_id), "step": step,
-                     "departed": dep.strftime("%H:%M") if dep else "", "flags": flags})
+                     "departed": dep.strftime("%H:%M") if dep else "", "flags": flags,
+                     # 퇴실을 감지하면 시스템이 바로 청소를 요청한다(병상 먼저 만들기, 로드맵 A)
+                     "clean_req": (lambda x: x.strftime("%H:%M") if x else "")(d.seen(EventType.CLEANING_REQUEST_ISSUED))})
     rows.sort(key=lambda r: (r["departed"] != "", r["departed"] or "", r["bed"]))
     return {"rows": rows}

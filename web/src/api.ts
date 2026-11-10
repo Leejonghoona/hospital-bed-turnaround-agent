@@ -30,7 +30,7 @@ export type WardRow = {
   case: string; patient: string; age: number | null; sex: string; bed: string; checkin: string; prep: string[]
   front: string; front_detail: string; step: string; hold: string; notified: string; by: string
 }
-export type WardDischarge = { case: string; patient: string; age: number | null; sex: string; bed: string; step: string; departed: string; flags: string[] }
+export type WardDischarge = { case: string; patient: string; age: number | null; sex: string; bed: string; step: string; departed: string; flags: string[]; clean_req: string }
 export type WardIncoming = { ward: string; rows: WardRow[]; reasons: string[] }
 export type WardBoard = { ward: string; rooms: { id: string; label: string; grade: string; sex: string; beds: { id: string; label: string; state: string; state_ko: string; detail: string }[] }[] }
 
@@ -48,7 +48,7 @@ export type IpcHome = {
   decline_reasons: string[]
 }
 export type AdminSummary = { flow: Record<string, string>; load: Record<string, number>; safety: Record<string, any>[]; locked: { user_id: string; name: string; fails: number }[]; note: string }
-export type AutonomyRow = { unit: string; name: string; what: string; mode: 'auto' | 'human'; mode_ko: string; evidence: string; lower95: number; human_n: number; recommendation: 'promote' | 'demote' | 'hold'; recommendation_ko: string; locked: boolean }
+export type AutonomyRow = { unit: string; name: string; what: string; mode: 'auto' | 'human'; mode_ko: string; evidence: string; lower95: number; human_n: number; human_agreed: number; recommendation: 'promote' | 'demote' | 'hold'; recommendation_ko: string; locked: boolean }
 export type Onboarding = { hospital: string; tables: number; mapped: number; by_stage: Record<string, number>; asked: number; code_master: number
   proof: { passed: boolean; order: number; safety: number; commits: number; events: number; beds: number }
   approvals: { role: string; name: string; done: boolean; who: string | null }[]; status: string; version: string }
@@ -60,8 +60,8 @@ export type AiOps = {
     autonomy: { days: number; curves: { seed: number; periods: { days: string; ratio: number }[]; promoted_day: Record<string, number>; safety_violations: number }[] } }
   note: string
   blocked: { time: string; case: string; case_id: string; action: string; reason: string }[]; blocked_reasons: [string, number][]
-  autonomy: AutonomyRow[]; autonomy_rule: string
-  model: { using: string; external: boolean; guard: string; roles: { job: string; who: string; why: string }[]; checks: { name: string; value: string; sub: string }[]; note: string }
+  autonomy: AutonomyRow[]; autonomy_rule: { promote: string; demote: string }
+  model: { using: string; external: boolean; guard: string; roles: { job: string; who: string; status: string }[]; checks: { name: string; value: string; sub: string }[]; note: string }
   onboarding: Onboarding
 }
 export type OpsSummary = Omit<AdminSummary, 'locked'> & { unassigned: Record<string, number> }
