@@ -95,6 +95,13 @@ class ReasonIn(BaseModel):
     memo: str = ""
 
 
+class AssignIn(BaseModel):
+    case: str
+    bed: str
+    reason: str = ""
+    memo: str = ""
+
+
 class ShiftIn(BaseModel):
     ward: str | None = None
     shift: str | None = None
@@ -268,6 +275,52 @@ def create_app() -> FastAPI:
         else:
             raise HTTPException(404, "없는 처리입니다")
         return {"status": dec.status, "reasons": list(getattr(dec, "reasons", None) or [])}
+
+    @app.get("/api/beds")
+    def beds(case: str, s: Session = Depends(session)):
+        from turnaround.api.beds import board
+        admission_only(s)
+        out = board(store.demo(), case)
+        if out is None:
+            raise HTTPException(404, "없는 사례입니다")
+        store.log(s, "병상 현황 조회", case=case)
+        return out
+
+    @app.post("/api/assign")
+    def assign(body: AssignIn, s: Session = Depends(session)):
+        from turnaround.api.beds import REASON_CODES, refusal_ko
+        admission_only(s)
+        st = store.demo()
+        if body.reason not in REASON_CODES:
+            raise HTTPException(422, "배정 사유를 골라 주세요")
+        memo = memo_of(body.memo, body.reason == "other")
+        d = st.gw.manual_override(body.case, body.bed, s.user["user_id"], "bed_manager", body.reason, st.now,
+                                  reason_text=memo or None)
+        if d.status != "applied":
+            msg = refusal_ko(d.reasons)
+            if d.tier == "reason_entry":
+                msg += ". 메모에 차선책 사유를 적어 주세요"
+            elif d.tier == "preapproval":
+                msg += ". 감염관리실 승인이 먼저 필요합니다"
+            raise HTTPException(409, msg)
+        note(st, s, body.case, memo)
+        # 병상이 정해졌으니 이 환자의 '병상 없음'(사람 확인 요청) 할 일은 처리된 것으로 닫는다
+        from turnaround.api.worklist import admission_rows
+        from turnaround.events import EventType
+        for r in admission_rows(st)["rows"]:
+            if r["case"] == body.case and r["kind_label"] == "병상 없음":
+                human(st, body.case, f"done:{r['id']}", EventType.HUMAN_TASK_DONE, task_id=r["id"], by=s.user["user_id"],
+                      result="병상 직접 배정")
+        store.log(s, "병상 직접 배정", case=body.case, detail=f"{body.bed} {REASON_CODES[body.reason]}")
+        return {"ok": True, "tier": d.tier}
+
+    @app.get("/api/assignments")
+    def assignment_log(s: Session = Depends(session)):
+        from turnaround.api.worklist import assignments
+        admission_only(s)
+        out = assignments(store.demo(), store.accounts)
+        store.log(s, "목록 조회", detail="배정 기록")
+        return out
 
     @app.get("/api/access-log")
     def access_log(s: Session = Depends(session)):

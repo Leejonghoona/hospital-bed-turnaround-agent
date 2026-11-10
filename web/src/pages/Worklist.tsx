@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { api, ApiError, type Patient, type Row, type User, type Worklist as WL } from '../api'
 import { Icon, Logo } from '../icons'
 import { shiftShort } from '../shifts'
+import { AssignmentLog } from './AssignmentLog'
+import { BedPicker } from './BedPicker'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 수속 안내 시각 선택지: 15분 단위 (브라우저 언어와 상관없이 24시간제로 보이게 select로 둔다)
@@ -11,6 +13,19 @@ const DECLINE = ['원무가 직접 처리', '환자 사정으로 보류', '병�
 function clock(iso: string) {
   const d = new Date(iso)
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} 기준`
+}
+
+function dateKo(iso: string) {
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// 기한까지 남은 시간 또는 넘긴 시간 (분 단위 내림)
+function overdue(iso: string, now: string) {
+  const m = Math.floor((new Date(now).getTime() - new Date(iso).getTime()) / 60000)
+  const a = Math.abs(m), h = Math.floor(a / 60), r = a % 60
+  const t = h ? (r ? `${h}시간 ${r}분` : `${h}시간`) : `${r}분`
+  return m > 0 ? `${t} 초과` : `${t} 남음`
 }
 
 function keep(r: Row, tab: string, q: string) {
@@ -116,6 +131,8 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'due', dir: 1 })
   const search = useRef<HTMLInputElement>(null)
   const [menu, setMenu] = useState(false)
+  const [page, setPage] = useState<'work' | 'log'>('work')
+  const [picker, setPicker] = useState<string | null>(null)
   const [shift, setShift] = useState<string | null>(null)
   useEffect(() => { api.me().then(m => setShift(m.shift)).catch(() => {}) }, [])
 
@@ -156,15 +173,20 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
     <div className="app">
       <header className="appbar">
         <div className="brand"><Logo /><b>WardFlow</b></div>
+        <nav className="gnav">
+          <button className={page === 'work' ? 'on' : ''} aria-current={page === 'work' ? 'page' : undefined} onClick={() => setPage('work')}>처리할 일</button>
+          <button className={page === 'log' ? 'on' : ''} aria-current={page === 'log' ? 'page' : undefined} onClick={() => setPage('log')}>배정 기록</button>
+        </nav>
         <label className="gsearch"><Icon name="search" small />
           <input ref={search} value={q} onChange={e => setQ(e.target.value)} placeholder="환자 이름, 등록번호, 병상 검색" aria-label="검색" /></label>
         <div className="ab-r">
           {wl && <span className="clock">{clock(wl.now)}</span>}
           <div className="menu-wrap">
             <button className="user" onClick={() => setMenu(m => !m)} aria-expanded={menu} aria-haspopup="menu"><span className="av">{user.name[0]}</span>
-              <span><div className="n">{user.name}</div><div className="r">{user.role_label}{sh && ` ${sh}`}</div></span><Icon name="chev" small /></button>
+              <span><div className="n">{user.name}</div><div className="r">{user.role_label}</div></span><Icon name="chev" small /></button>
             {menu && (
               <div className="menu" role="menu">
+                <div className="who"><b>{user.name}</b><br />{user.role_label}{sh && <><br />{sh}</>}</div>
                 <button role="menuitem" onClick={onSwitch}><Icon name="swap" small />다른 계정으로 로그인</button>
                 <button role="menuitem" onClick={onLogout}><Icon name="logout" small />로그아웃</button>
               </div>
@@ -173,7 +195,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
         </div>
       </header>
       <div className="body nosd">
-        <main className="main">
+        {page === 'log' ? <AssignmentLog onChange={c => setPicker(c)} key={toast} /> : <main className="main">
           <div className="ph"><h1>처리할 일</h1><span className="meta">{all}건</span></div>
           <div className="tabs" role="tablist">
             {[['all', all] as [string, number], ...groups].map(([g, n]) => (
@@ -208,16 +230,23 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
             <aside className="detail" aria-label="상세">
               {!cur || !pt ? <div className="empty">왼쪽에서 할 일을 고르세요</div> : (<>
                 <div className="dh">
-                  <div className="top"><span className="nm">{pt.patient}</span><span className="id">{pt.patient_id}</span></div>
+                  <div className="top"><span className="nm">{pt.patient}</span><span className="id">{pt.patient_id}</span>
+                    {cur.kind !== 'ipc_wait' && pt.status !== '입실 완료' && <button className="btn sm push" onClick={() => setPicker(cur.case)}>{pt.bed === '-' ? '병상 직접 지정' : '병상 변경'}</button>}</div>
                   <dl className="facts two">
-                    <dt>나이 성별</dt><dd>{pt.age}세 {pt.sex}</dd><dt>진료과</dt><dd>{pt.department}</dd>
-                    <dt>입원 예약</dt><dd>{pt.reserved_at}</dd><dt>희망</dt><dd>{pt.room_pref}</dd>
-                    <dt>병상</dt><dd>{pt.bed === '-' ? '배정 전' : pt.bed}</dd><dt>격리</dt><dd>{pt.isolation}</dd>
+                    <dt>나이 성별</dt><dd>{pt.age}세 {pt.sex}</dd><dt>격리</dt><dd>{pt.isolation}</dd>
+                    <dt>진료과</dt><dd>{pt.department}</dd><dt>담당 병동</dt><dd>{pt.dept_ward}</dd>
+                    <dt>입원 예약</dt><dd>{pt.reserved_at}</dd><dt>희망 병실</dt><dd>{pt.room_pref}</dd>
+                    <dt>병상</dt><dd className="wide">{pt.bed === '-' ? '배정 전' : pt.bed}</dd>
                     <dt>환자</dt><dd>{pt.phone}</dd><dt>보호자</dt><dd>{pt.guardian_phone}</dd>
                   </dl>
                 </div>
                 <div className="db">
-                  {cur.late && <div className="alert"><Icon name="alert" /><div>마감 {cur.due_note === '어제' ? '어제 ' : ''}{cur.due} 지남{cur.status === '책임자 확인 중' ? '. 원무 책임자에게도 알렸습니다' : ''}{cur.carried ? '. 전 근무에서 넘어온 일입니다' : ''}</div></div>}
+                  {cur.due_at && wl && (
+                    <dl className={'sla' + (cur.late ? ' over' : '')}>
+                      <dt>처리 기한</dt><dd>{dateKo(cur.due_at)}<span className="pill">{overdue(cur.due_at, wl.now)}</span></dd>
+                      {cur.status === '책임자 확인 중' && <><dt>올라감</dt><dd>원무 책임자 (기한 초과로 자동 알림)</dd></>}
+                      {cur.carried && <><dt>인계</dt><dd>전 근무에서 넘어온 일</dd></>}
+                    </dl>)}
                   {pt.notes.length > 0 && (<>
                     <div className="lab">특이사항</div>
                     <ul className="notes">{pt.notes.slice().reverse().map((n, i) => (
@@ -236,8 +265,9 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
               </>)}
             </aside>
           </div>
-        </main>
+        </main>}
       </div>
+      {picker && <BedPicker caseId={picker} onClose={() => setPicker(null)} onDone={m => { setPicker(null); setToast(m); load() }} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   )

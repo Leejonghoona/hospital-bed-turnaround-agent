@@ -141,3 +141,66 @@ def test_memo_is_kept_as_free_text_note_and_shown_to_next_shift(client):
     ev = client.app.state.store.demo().store.read()
     assert any(e.type is EventType.FREE_TEXT_NOTE and e.payload.get("text") == "두 번 걸었으나 받지 않음" for e in ev)
     assert client.post(f"/api/contacts/{c['case']}", json={"outcome": "no_answer", "memo": "x" * 501}, headers=h).status_code == 422
+
+
+def test_assignment_log_lists_agent_and_human_commits(client):
+    h = _login(client)
+    r = client.get("/api/assignments", headers=h)
+    assert r.status_code == 200, r.text
+    rows = r.json()["rows"]
+    assert rows and {"time", "patient", "bed", "by", "basis", "state"} <= set(rows[0])
+    assert any(x["by"] == "에이전트" for x in rows) and any(x["by"] != "에이전트" for x in rows)
+    assert all(x["state"] in {"입실 완료", "입실 대기", "되돌림", "취소"} for x in rows)
+    assert [x["at"] for x in rows] == sorted((x["at"] for x in rows), reverse=True)  # 최근 것이 위
+    assert client.get("/api/assignments", headers=_login(client, "ward71-park")).status_code == 403
+
+
+# ---- 병상 직접 배정 (현황판 + 추천 후보, 게이트웨이 사전 검사) ----
+
+def _nobed_case(client, h):
+    return next(r for r in _rows(client, h) if r["kind_label"] == "병상 없음")["case"]
+
+
+def test_bed_board_marks_each_bed_with_fit_from_gateway(client):
+    h = _login(client)
+    case = _nobed_case(client, h)
+    b = client.get(f"/api/beds?case={case}", headers=h).json()
+    assert {"need", "recommend", "wards"} <= set(b)
+    beds = [x for w in b["wards"] for r in w["rooms"] for x in r["beds"]]
+    assert len(beds) == 24 and all(x["fit"] in {"ok", "reason", "ipc", "no"} for x in beds)
+    assert all(x["why"] for x in beds if x["fit"] != "ok")  # 못 고르는 병상은 이유가 있다
+    assert all(r["grade"] for w in b["wards"] for r in w["rooms"])  # 병실 등급(1인실, 다인실 등)
+
+
+def test_manual_assign_requires_reason_and_follows_gateway():
+    """만실이라 오늘 비는 병상이 없다. 같은 병동 남자 병실 환자 한 명의 퇴원 결정을 넣어 고를 병상을 만든다(새 앱)."""
+    from datetime import timedelta
+
+    from turnaround.events import Event, EventType
+    c = TestClient(create_app())
+    h = _login(c)
+    st = c.app.state.store.demo()
+    case = _nobed_case(c, h)  # 71병동 소화기내과 남자 환자
+    room = next(r for r in st.h.rooms if r.ward_id == "W71" and r.gender is not None and r.gender.value == "M")
+    bed = next(b.id for b in st.h.beds if b.room_id == room.id and b.id in st.gw.census)
+    st.store.append(Event(event_id="t:dd", case_id="SYN-DTEST", type=EventType.DISCHARGE_DECIDED, source="his",
+                          occurred_at=st.now - timedelta(minutes=5), observed_at=st.now - timedelta(minutes=5),
+                          payload={"bed_id": bed, "name": "퇴원테스트", "patient_id": "SYN-P9999", "gender": "M", "age": 70}))
+    b = c.get(f"/api/beds?case={case}", headers=h).json()
+    beds = {x["id"]: x for w in b["wards"] for r in w["rooms"] for x in r["beds"]}
+    assert beds[bed]["fit"] == "ok" and beds[bed]["status"] == "퇴원 예정"
+    other = next(x for x in beds.values() if x["status"].startswith("배정됨"))
+    assert other["fit"] == "no" and other["why"] == "다른 환자에게 배정됨"
+    r = c.post("/api/assign", json={"case": case, "bed": other["id"], "reason": "patient_request"}, headers=h)
+    assert r.status_code == 409 and r.json()["detail"]  # 게이트웨이가 거절
+    assert c.post("/api/assign", json={"case": case, "bed": bed, "reason": ""}, headers=h).status_code == 422
+    assert c.post("/api/assign", json={"case": case, "bed": bed, "reason": "other", "memo": ""}, headers=h).status_code == 422
+    r = c.post("/api/assign", json={"case": case, "bed": bed, "reason": "patient_request"}, headers=h)
+    assert r.status_code == 200, r.text
+    log = c.get("/api/assignments", headers=h).json()["rows"]
+    mine = next(x for x in log if x["case"] == case)
+    assert mine["by"] == "김하늘" and "환자·보호자 요청" in mine["basis"]
+    # 병상이 정해졌으니 그 환자의 '병상 없음' 할 일은 닫히고, 입원 안내 연락 할 일이 생긴다
+    rows = _rows(c, h)
+    assert case not in {x["case"] for x in rows if x["kind_label"] == "병상 없음"}
+    assert case in {x["case"] for x in rows if x["kind"] == "contact"}

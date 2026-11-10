@@ -81,7 +81,7 @@ const TASKS = {
     const c = []
     const panel = page.locator('aside.detail')
     c.push({ name: '상황, 근거, 마감, 버튼이 한 패널에', ok: await panel.locator('.sit').isVisible() && await panel.locator('.eff').isVisible()
-      && await panel.getByRole('button', { name: '승인' }).isVisible() && await panel.getByRole('button', { name: '거절' }).isVisible() && await panel.locator('.alert').isVisible() })
+      && await panel.getByRole('button', { name: '승인' }).isVisible() && await panel.getByRole('button', { name: '거절' }).isVisible() && await panel.locator('.sla').isVisible() })
     await panel.getByRole('button', { name: '승인' }).click()
     const msg = await page.getByRole('status').textContent()
     c.push({ name: '승인 뒤 다시 확인한 결과가 보인다', ok: /다시 확인/.test(msg || ''), detail: msg })

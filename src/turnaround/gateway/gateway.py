@@ -1071,6 +1071,31 @@ class Gateway:
 
     # ---------- 관리자 직접 수정 ----------
 
+    def override_precheck(self, case: str, bed_id: str, events: list[Event] | None = None) -> dict:
+        """사람 직접 배정을 기록 없이 미리 검사한다(화면의 병상 선택용). manual_override와 같은 검사를 같은 순서로 쓴다.
+        blocked: 어떤 예외로도 못 넘는 물리 사실, violations/tier: 안전 위반과 예외 등급(forbidden, preapproval, reason_entry)."""
+        events = self._events() if events is None else events
+        patient, _ = self._admission(case, events)
+        if patient is None or bed_id not in self.room_of:
+            return {"blocked": ["unknown_case_or_bed"], "violations": [], "tier": None}
+        if bed_id in self._occupants(events, exclude_case=case):
+            blocked = ["bed_occupied"]  # 물리 사실(병상 점유)은 누구도, 어떤 예외로도 넘지 못한다
+        elif self._room_terminal_pending(bed_id, events):
+            blocked = ["precondition_unmet"]  # 같은 병실 종말소독 완료 전
+        elif self._out_of_service(bed_id, events):
+            blocked = ["room_out_of_service"]  # 폐쇄·고장·감시 대기
+        elif hold := self._on_hold(bed_id, events):
+            blocked = [hold]  # 잡아 둔 병상, 사후 처치 중 병상
+        elif (self._room_status(events).get(self.room_of.get(self._assignments(events).get(case, ""), ""))
+              == "surveillance_hold"):
+            blocked = ["surveillance_hold"]  # 지침 8.3.4 동실자 이동 제한
+        else:
+            blocked = []
+        if blocked:
+            return {"blocked": blocked, "violations": [], "tier": None}
+        violations = self._shacl(case, patient, bed_id, events)
+        return {"blocked": [], "violations": violations, "tier": self._safety_tier(violations, patient) if violations else None}
+
     def manual_override(self, case: str, bed_id: str, actor: str, role: str, reason: str, now: datetime,
                         safety_exception_by: tuple[str, str] | None = None,
                         reason_text: str | None = None) -> Decision:
@@ -1078,28 +1103,17 @@ class Gateway:
         mo = self.policy.manual_override
         events = self._events()
         patient, _ = self._admission(case, events)
+        pre = self.override_precheck(case, bed_id, events) if role in mo.roles and reason in mo.reason_codes else None
         if role not in mo.roles:
             d = Decision("refused", "override", None, ["role_not_allowed"])
         elif reason not in mo.reason_codes:
             d = Decision("refused", "override", None, ["reason_required"])
-        elif patient is None or bed_id not in self.room_of:
-            d = Decision("refused", "override", None, ["unknown_case_or_bed"])
-        elif bed_id in self._occupants(events, exclude_case=case):
-            # 물리 사실(병상 점유)은 누구도, 어떤 예외로도 넘지 못한다
-            d = Decision("refused", "override", None, ["bed_occupied"])
-        elif self._room_terminal_pending(bed_id, events):
-            d = Decision("refused", "override", None, ["precondition_unmet"])  # 같은 병실 종말소독 완료 전
-        elif self._out_of_service(bed_id, events):
-            d = Decision("refused", "override", None, ["room_out_of_service"])  # 폐쇄·고장·감시 대기
-        elif blocked := self._on_hold(bed_id, events):
-            d = Decision("refused", "override", None, [blocked])  # 잡아 둔 병상, 사후 처치 중 병상
-        elif (self._room_status(events).get(self.room_of.get(self._assignments(events).get(case, ""), ""))
-              == "surveillance_hold"):
-            d = Decision("refused", "override", None, ["surveillance_hold"])  # 지침 8.3.4 동실자 이동 제한
+        elif pre["blocked"]:
+            d = Decision("refused", "override", None, pre["blocked"])
         else:
-            violations = self._shacl(case, patient, bed_id, events)
+            violations = pre["violations"]
             exception = None
-            tier = self._safety_tier(violations, patient) if violations else None
+            tier = pre["tier"]
             if violations:
                 approved = self._safety_exception_recorded(case, bed_id, safety_exception_by, actor, events, now,
                                                            violations)

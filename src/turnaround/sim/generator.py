@@ -32,14 +32,22 @@ from .models import (
 _SURNAMES = ("김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오")
 _SYLLABLES = ("가", "나", "다", "라", "온", "윤", "하", "서", "도", "린", "솔", "결", "새", "봄", "별", "누", "리", "진")
 # 이름 두 글자: 위 음절 뽑기(난수 순서를 바꾸지 않으려고 그대로 둔다)를 실제 이름처럼 들리는 조합으로 1:1로 바꾼다.
-# 18×18 조합이 서로 다른 이름이 되므로 동명이인 판정은 그대로다 (2026-11-10 사용자 지적: 이름이 사람 이름 같지 않음).
+# 둘째 글자 목록은 성별마다 따로 두고 서로 겹치지 않게 해서, 새 동명이인이 생기지 않는다(동명이인 판정과 측정 결과 그대로).
+# (2026-11-10 사용자 지적: 이름이 사람 이름 같지 않음)
 _GIVEN_FIRST = ("지", "서", "민", "현", "수", "유", "하", "윤", "은", "주", "예", "도", "시", "정", "승", "재", "다", "채")
-_GIVEN_SECOND = ("원", "윤", "현", "민", "연", "진", "빈", "영", "율", "은", "서", "우", "경", "준", "솔", "하", "주", "인")
+_GIVEN_SECOND = {
+    "M": ("준", "호", "혁", "훈", "석", "수", "성", "규", "찬", "범", "환", "철", "태", "욱", "섭", "용", "근", "기"),
+    "F": ("연", "아", "희", "은", "영", "경", "정", "미", "지", "숙", "란", "화", "선", "림", "나", "소", "유", "혜"),
+    None: ("원", "윤", "현", "민", "진", "빈", "율", "서", "우", "솔", "하", "주", "인", "결", "담", "새", "람", "온"),
+}
+_GIVEN_ALT = {"M": "건", "F": "슬", None: "겸"}  # 같은 글자 반복(수수, 은은 등)을 피할 때 쓰는 글자. 어느 목록에도 없다
 
 
-def _given(a: str, b: str) -> str:
-    f, g = _GIVEN_FIRST[_SYLLABLES.index(a)], _GIVEN_SECOND[_SYLLABLES.index(b)]
-    return f + ("온" if f == g else g)  # 같은 글자 반복(민민 등)은 피한다. '온'은 둘째 글자 목록에 없어 겹치지 않는다
+def _given(a: str, b: str, gender: str | None = None) -> str:
+    second = _GIVEN_SECOND.get(gender, _GIVEN_SECOND[None])
+    f, g = _GIVEN_FIRST[_SYLLABLES.index(a)], second[_SYLLABLES.index(b)]
+    return f + (_GIVEN_ALT.get(gender, _GIVEN_ALT[None]) if f == g else g)
+
 
 _WARDS = (
     Ward(id="W71", name="71병동", specialty="내과", departments=("호흡기내과", "소화기내과", "감염내과")),
@@ -106,12 +114,12 @@ class _Gen:
         pool = [i for i in range(n) if i not in exclude]
         return set(self.rng.sample(pool, k))
 
-    def new_name(self) -> str:
+    def new_name(self, gender: Gender | None = None) -> str:
         while True:
             sur, a, b = self.rng.choice(_SURNAMES), self.rng.choice(_SYLLABLES), self.rng.choice(_SYLLABLES)
             if sur + a + b not in self.used_names:
                 self.used_names.add(sur + a + b)
-                return sur + _given(a, b)
+                return sur + _given(a, b, gender.value if gender is not None else None)
 
     def new_patient(self, *, gender: Gender | None, department: str, age: int | None = None,
                     organism: str | None = None, status: PrecautionStatus | None = None,
@@ -121,7 +129,7 @@ class _Gen:
         age = self.rng.randint(25, 90) if age is None else age
         prec = ORGANISM_PRECAUTIONS[organism] if organism else ()
         return Patient(
-            id=f"SYN-P{self._pid:04d}", name=name or self.new_name(), gender=gender, age=age,
+            id=f"SYN-P{self._pid:04d}", name=name or self.new_name(gender), gender=gender, age=age,
             department=department, precautions=prec, organism=organism,
             precaution_status=(status or PrecautionStatus.CONFIRMED) if organism else None,
             isolation_ordered_by=(ordered_by or ("ipc" if organism in _MDRO else "physician")) if organism else None,

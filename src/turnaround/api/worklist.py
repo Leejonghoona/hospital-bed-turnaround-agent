@@ -138,7 +138,7 @@ def admission_rows(st) -> dict:
             pp = people.get(x["case"]) or {}
             hint = _hint(st, x["case"])
             # 근거 칸에는 '어떤 병상이 필요한데 없는지'를 쓴다(할 일 칸의 '병상 없음'을 되풀이하지 않게)
-            ward = str(pp.get("preferred_ward_id") or "").replace("W", "")
+            ward = next((w.name.replace("병동", "") for w in st.h.wards if pp.get("department") in w.departments), "")
             sex = SEX.get(str(pp.get("gender") or ""), "")
             need = "격리 병상" if pp.get("precautions") else " ".join(x for x in (f"{ward}병동" if ward else "",
                                                                                  f"{sex}자" if sex else "") if x) + " 병상"
@@ -214,13 +214,14 @@ def patient_detail(st, case: str, accounts: dict | None = None) -> dict | None:
     t = views.case_timeline(st, case)
     reg = _person(people, case)["patient_id"]
     req = p.get("requested_at")
-    pref = " ".join(x for x in ((p.get("preferred_ward_id") or "").replace("W", "") + "병동" if p.get("preferred_ward_id") else "",
-                                "1인실 희망" if p.get("wants_single_room") else "") if x) or "없음"
+    # 환자가 고르는 것은 병동이 아니라 병실 등급이다(1인실, 다인실 등. 서울대·분당서울대 입원 안내). 병동은 진료과로 정해진다.
+    pref = "1인실 희망" if p.get("wants_single_room") else "다인실(기준 병실)"
+    dept_ward = ", ".join(w.name for w in st.h.wards if p.get("department") in w.departments)
     # 원무 상세에 두는 것: 배정과 연락에 필요한 것만(docs/검토/화면재설계/05_원무_열람범위.md). 병원체명, 주민번호, 경과기록,
     # 검사 수치는 두지 않는다. 연락처는 합성 번호(010-0000-xxxx)다.
     return {"case": case, **_person(people, case), "department": p.get("department") or "",
             "status": t["status"], "bed": t["bed_ko"], "isolation": t["isolation"],
-            "from_icu": bool(p.get("from_icu")), "room_pref": pref,
+            "from_icu": bool(p.get("from_icu")), "room_pref": pref, "dept_ward": dept_ward,
             "reserved_at": f"{datetime.fromisoformat(req):%-m월 %-d일 %H:%M}" if req else "",
             "phone": f"010-0000-{reg[-4:]}", "guardian_phone": f"010-0000-{int(reg[-4:]) + 5000:04d}",
             "notes": notes(ev, case, accounts), "timeline": _timeline(t["rows"])[-12:] + _web_rows(ev, case, accounts)}
@@ -241,3 +242,55 @@ def _web_rows(ev, case: str, accounts: dict | None) -> list[dict]:
         elif e.type is EventType.FREE_TEXT_NOTE and e.payload.get("tag") == "contact_no_answer":
             out.append({"time": e.observed_at.strftime("%H:%M"), "who": who, "what": f"{who} 연락 안 됨", "detail": ""})
     return out
+
+
+# 배정 근거: 에이전트 점수 항목을 사람이 읽는 말로 (점수 숫자는 보여 주지 않는다)
+BASIS_KO = {"department_ward_match": "진료과 담당 병동", "negative_pressure_preserve": "음압실은 아껴 둠",
+            "positive_unordered_single": "격리 확인 전이라 1인실", "single_room_requested": "1인실 희망 반영",
+            "near_nurse_station_high_risk": "낙상 위험이라 간호사실 가까이", "ward_load": "병동 업무량 나눔",
+            "ready_delay": "앞 환자 퇴실 뒤 준비"}
+
+
+def _basis(text: str) -> str:
+    keys = re.findall(r"([a-z_]+) [-+]", text or "")
+    return ", ".join(BASIS_KO[k] for k in keys if k in BASIS_KO) or "배정 기준 충족"
+
+
+def assignments(st, accounts: dict | None = None, days: int = 2) -> dict:
+    """에이전트와 사람이 확정한 배정 기록 (최근 것이 위). 확정 주체, 근거, 되돌리기 시한, 지금 상태."""
+    from turnaround.saga import fold
+    ev = st.store.read()
+    people = views._people(ev)
+    s = fold(ev)
+    note = {e.payload.get("proposal_id"): e for e in ev if e.type is EventType.WARD_ASSIGNMENT_NOTIFIED}
+    cancelled = {e.case_id for e in ev if e.type is EventType.ADMISSION_CANCELLED and e.observed_at <= st.now}
+    # 사람 직접 배정(manual_override): 확정 사건의 proposal_id(mo…)로 누가 어떤 사유로 했는지 찾는다
+    manual = {e.event_id.split(":")[1]: e.payload for e in ev if e.type is EventType.MANUAL_OVERRIDE_APPLIED}
+    rows = []
+    for e in ev:
+        if e.type is not EventType.MATCH_COMMITTED or e.observed_at > st.now or (st.now.date() - e.observed_at.date()).days >= days:
+            continue
+        bed = e.payload.get("bed_id")
+        n = note.get(e.payload.get("proposal_id"))
+        b = (n.payload.get("basis") if n else {}) or {}
+        until = datetime.fromisoformat(n.payload["objection_until"]) if n and n.payload.get("objection_until") else None
+        m = s.matches.get(e.case_id)
+        if e.case_id in cancelled:
+            state = "취소"
+        elif m is not None and m.active and m.bed_id == bed:
+            state = "입실 완료" if EventType.PATIENT_ARRIVED in m.facts else "입실 대기"
+        else:
+            state = "되돌림"
+        mo = manual.get(str(e.payload.get("proposal_id")))
+        actor = str((mo or {}).get("actor") or e.payload.get("actor") or "")
+        by = "에이전트" if e.payload.get("committed_by") == "agent" else (accounts or {}).get(actor, {}).get("name", "원무")
+        if mo:
+            from turnaround.api.beds import REASON_CODES
+        rows.append({"at": e.observed_at.isoformat(timespec="minutes"), "time": views._hm(e.observed_at), "case": e.case_id,
+                     **_person(people, e.case_id), "bed": views.bed_ko(bed), "bed_short": _bed(bed), "by": by,
+                     "basis": f"직접 지정, {REASON_CODES.get(mo.get('reason_code'), '사유 없음')}" if mo else _basis(b.get("rationale", "")),
+                     "runner_up": views.bed_ko(b["runner_up"]) if b.get("runner_up") else "",
+                     "undo_until": views._hm(until) if until else "", "undo_open": bool(until and st.now < until and state == "입실 대기"),
+                     "state": state})
+    rows.sort(key=lambda r: r["at"], reverse=True)
+    return {"now": st.now.isoformat(timespec="minutes"), "rows": rows}
