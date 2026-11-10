@@ -31,6 +31,15 @@ from .models import (
 
 _SURNAMES = ("김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오")
 _SYLLABLES = ("가", "나", "다", "라", "온", "윤", "하", "서", "도", "린", "솔", "결", "새", "봄", "별", "누", "리", "진")
+# 이름 두 글자: 위 음절 뽑기(난수 순서를 바꾸지 않으려고 그대로 둔다)를 실제 이름처럼 들리는 조합으로 1:1로 바꾼다.
+# 18×18 조합이 서로 다른 이름이 되므로 동명이인 판정은 그대로다 (2026-11-10 사용자 지적: 이름이 사람 이름 같지 않음).
+_GIVEN_FIRST = ("지", "서", "민", "현", "수", "유", "하", "윤", "은", "주", "예", "도", "시", "정", "승", "재", "다", "채")
+_GIVEN_SECOND = ("원", "윤", "현", "민", "연", "진", "빈", "영", "율", "은", "서", "우", "경", "준", "솔", "하", "주", "인")
+
+
+def _given(a: str, b: str) -> str:
+    f, g = _GIVEN_FIRST[_SYLLABLES.index(a)], _GIVEN_SECOND[_SYLLABLES.index(b)]
+    return f + ("온" if f == g else g)  # 같은 글자 반복(민민 등)은 피한다. '온'은 둘째 글자 목록에 없어 겹치지 않는다
 
 _WARDS = (
     Ward(id="W71", name="71병동", specialty="내과", departments=("호흡기내과", "소화기내과", "감염내과")),
@@ -99,10 +108,10 @@ class _Gen:
 
     def new_name(self) -> str:
         while True:
-            name = self.rng.choice(_SURNAMES) + self.rng.choice(_SYLLABLES) + self.rng.choice(_SYLLABLES)
-            if name not in self.used_names:
-                self.used_names.add(name)
-                return name
+            sur, a, b = self.rng.choice(_SURNAMES), self.rng.choice(_SYLLABLES), self.rng.choice(_SYLLABLES)
+            if sur + a + b not in self.used_names:
+                self.used_names.add(sur + a + b)
+                return sur + _given(a, b)
 
     def new_patient(self, *, gender: Gender | None, department: str, age: int | None = None,
                     organism: str | None = None, status: PrecautionStatus | None = None,

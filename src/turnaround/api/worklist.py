@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
+from turnaround.events import EventType
 from turnaround.ui import views
 
 SEX = {"M": "남", "F": "여"}
@@ -71,7 +72,24 @@ def _bed_ko_short(s: str) -> str:
 
 
 # 병상이 없을 때 원무가 고를 수 있는 처리 (설계 가정: 원무 입원 창구의 통상 대응을 옮김)
-NO_BED_CHOICES = ["대기 유지 안내", "입원 일정 변경 안내", "다른 병동 병상 요청"]
+NO_BED_CHOICES = [
+    {"label": "대기 유지 안내", "desc": "병상 나면 바로 연락"},
+    {"label": "입원 일정 변경 안내", "desc": "입원 날짜 다시 잡기"},
+    {"label": "다른 병동 병상 요청", "desc": "희망 밖 병동에 요청"},
+    {"label": "기타", "desc": "메모에 내용 적기"},
+]
+MEMO_MAX = 500
+
+
+def notes(ev, case: str, accounts: dict | None = None) -> list[dict]:
+    """사람이 남긴 자유 서술 메모(특이사항). 사람에게만 보여 주고, 계획 에이전트는 원문을 읽지 않는다(SEC-3)."""
+    out = []
+    for e in ev:
+        if e.type is EventType.FREE_TEXT_NOTE and e.case_id == case and e.payload.get("text"):
+            by = str(e.payload.get("by") or "")
+            out.append({"time": e.observed_at.strftime("%H:%M"), "who": (accounts or {}).get(by, {}).get("name", by or "병동"),
+                        "text": str(e.payload["text"]), "tag": str(e.payload.get("tag") or "")})
+    return out
 
 
 def _promised(text: str) -> str:
@@ -109,8 +127,10 @@ def admission_rows(st) -> dict:
             "감염관리 결정 대기", ref="ipc:" + x["exception_id"], situation=x["situation"],
             effect="감염관리실이 병상을 결정하면 환자 재연락 작업이 생깁니다")
     for x in a["contacts"]:
-        add(x["case"], "contact", "입원 안내", "입원 안내 전화", None, False, x["bed"], f"{x['suggest_at']:%H:%M} 수속으로 안내",
-            "연락 전", suggest_at=f"{x['suggest_at']:%H:%M}",
+        tries = sum(1 for n in notes(ev, x["case"]) if n["tag"] == "contact_no_answer")
+        reason = f"{x['suggest_at']:%H:%M} 수속으로 안내" + (f", 연락 안 됨 {tries}회" if tries else "")
+        add(x["case"], "contact", "입원 안내", "입원 안내 전화", None, False, x["bed"], reason,
+            "다시 연락" if tries else "연락 전", suggest_at=f"{x['suggest_at']:%H:%M}",
             situation=f"{x['bed_ko']} 병상이 {x['committed']}에 확정됐습니다. 수속 시각과 병동을 안내하세요.")
     for x in a["tasks"]:
         esc = bool(x.get("escalated_to"))
@@ -124,12 +144,15 @@ def admission_rows(st) -> dict:
                                                                                  f"{sex}자" if sex else "") if x) + " 병상"
             label, action = "병상 없음", "입원 일정 정하기"
             reason = f"{need} 오늘 없음" if hint in ("오늘 비는 병상 없음", "후보 병상 없음") else f"{need}, {hint}"
+            req = pp.get("requested_at")
             more = {"choices": NO_BED_CHOICES,
-                    "situation": "맞는 병상이 없어 에이전트가 배정을 멈추고 원무에 넘겼습니다.",
-                    "effect": "환자에게 안내한 내용을 고르세요. 병상이 나면 에이전트가 다시 배정합니다."}
+                    "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무에 넘겼습니다."
+                                 + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
+                    "effect": "환자에게 어떻게 안내했는지 고르세요."}
         else:
             label, action, reason = "작업", x["kind"], _short(x.get("why") or "")
-            more = {"choices": ["처리함"], "situation": x.get("why") or ""}
+            more = {"choices": [{"label": "처리함", "desc": "처리를 마쳤습니다"}, {"label": "기타", "desc": "메모에 내용 적기"}],
+                    "situation": x.get("why") or ""}
         status = "책임자 확인 중" if esc else "처리 전"
         add(x["case"], "task", label, action, x["due_at"], x["overdue"], x.get("bed"), reason, status, x["stale"],
             ref=x["task_id"], **more)
@@ -182,7 +205,7 @@ def _timeline(rows: list[dict]) -> list[dict]:
     return out
 
 
-def patient_detail(st, case: str) -> dict | None:
+def patient_detail(st, case: str, accounts: dict | None = None) -> dict | None:
     ev = st.store.read()
     people = views._people(ev)
     if case not in people:
@@ -200,4 +223,21 @@ def patient_detail(st, case: str) -> dict | None:
             "from_icu": bool(p.get("from_icu")), "room_pref": pref,
             "reserved_at": f"{datetime.fromisoformat(req):%-m월 %-d일 %H:%M}" if req else "",
             "phone": f"010-0000-{reg[-4:]}", "guardian_phone": f"010-0000-{int(reg[-4:]) + 5000:04d}",
-            "timeline": _timeline(t["rows"])[-12:]}
+            "notes": notes(ev, case, accounts), "timeline": _timeline(t["rows"])[-12:] + _web_rows(ev, case, accounts)}
+
+
+def _web_rows(ev, case: str, accounts: dict | None) -> list[dict]:
+    """화면에서 사람이 한 처리(연락 기록, 작업 처리)를 경과 끝에 붙인다."""
+    out = []
+    for e in ev:
+        if e.case_id != case or ":web:" not in e.event_id:
+            continue
+        who = (accounts or {}).get(str(e.payload.get("by")), {}).get("name", "원무")
+        if e.type is EventType.HUMAN_TASK_DONE:
+            out.append({"time": e.observed_at.strftime("%H:%M"), "who": who, "what": f"{who} 처리", "detail": e.payload.get("result", "")})
+        elif e.type is EventType.PATIENT_CONTACTED:
+            out.append({"time": e.observed_at.strftime("%H:%M"), "who": who, "what": f"{who} 입원 안내 연락",
+                        "detail": f"수속 {datetime.fromisoformat(e.payload['promised_at']):%H:%M}"})
+        elif e.type is EventType.FREE_TEXT_NOTE and e.payload.get("tag") == "contact_no_answer":
+            out.append({"time": e.observed_at.strftime("%H:%M"), "who": who, "what": f"{who} 연락 안 됨", "detail": ""})
+    return out

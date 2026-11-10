@@ -85,7 +85,7 @@ def test_detail_shows_what_admission_needs_and_hides_the_rest(client):
     d = client.get(f"/api/patients/{r['case']}", headers=h).json()
     assert d["phone"].startswith("010-0000-") and d["reserved_at"] and "room_pref" in d  # 합성 연락처, 예약 시각
     assert len(d["patient_id"]) == 8 and d["patient_id"].isdigit()
-    assert not {"organism", "rrn", "notes"} & set(d)  # 병원체명·주민번호·기록은 원무 상세에 없음
+    assert not {"organism", "rrn", "progress_notes", "nursing_notes"} & set(d)  # 병원체명·주민번호·경과기록은 원무 상세에 없음
     whats = " ".join(t["what"] for t in d["timeline"])
     assert not any(w in whats for w in ("실행", "예외 종료", "막음", "작업 완료"))  # 내부 용어 없음
 
@@ -106,7 +106,12 @@ def test_no_bed_task_needs_a_choice_and_closes(client):
     t = next(r for r in _rows(client, h) if r["kind_label"] == "병상 없음")
     assert t["choices"]
     assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "아무거나"}, headers=h).status_code == 422
-    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": t["choices"][0]}, headers=h).status_code == 200
+    labels = [c["label"] for c in t["choices"]]
+    assert all(c["desc"] for c in t["choices"]) and "기타" in labels
+    # '기타'는 메모가 있어야 한다
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "기타", "memo": ""}, headers=h).status_code == 422
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "기타", "memo": "보호자가 내일 오전 통화 원함"},
+                       headers=h).status_code == 200
     assert t["id"] not in {x["id"] for x in _rows(client, h)}
 
 
@@ -119,3 +124,20 @@ def test_approval_decline_needs_reason_and_ward_cannot_act(client):
     r = client.post(f"/api/approvals/{a['id']}/decline", json={"reason": "원무가 직접 처리"}, headers=h)
     assert r.status_code == 200 and r.json()["status"]
     assert a["id"] not in {x["id"] for x in _rows(client, h)}
+
+
+def test_memo_is_kept_as_free_text_note_and_shown_to_next_shift(client):
+    h = _login(client)
+    c = next(r for r in _rows(client, h) if r["kind"] == "contact")
+    # 연락이 안 되면 할 일은 남고, 메모와 시도 횟수가 보인다
+    r = client.post(f"/api/contacts/{c['case']}", json={"outcome": "no_answer", "memo": "두 번 걸었으나 받지 않음"}, headers=h)
+    assert r.status_code == 200, r.text
+    row = next(x for x in _rows(client, h) if x["id"] == c["id"])
+    assert row["status"] == "다시 연락" and "1회" in row["reason"]
+    d = client.get(f"/api/patients/{c['case']}", headers=_login(client, "adm-seo")).json()  # 다음 근무자
+    assert any(n["text"] == "두 번 걸었으나 받지 않음" and n["who"] == "김하늘" for n in d["notes"])
+    # 계획 에이전트가 읽지 않는 자유 서술 기록으로 저장된다(추출 필드만 쓴다, SEC-3)
+    from turnaround.events import EventType
+    ev = client.app.state.store.demo().store.read()
+    assert any(e.type is EventType.FREE_TEXT_NOTE and e.payload.get("text") == "두 번 걸었으나 받지 않음" for e in ev)
+    assert client.post(f"/api/contacts/{c['case']}", json={"outcome": "no_answer", "memo": "x" * 501}, headers=h).status_code == 422

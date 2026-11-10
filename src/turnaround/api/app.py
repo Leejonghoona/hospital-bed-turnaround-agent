@@ -80,15 +80,19 @@ class LoginIn(BaseModel):
 
 
 class ContactIn(BaseModel):
-    promised_at: str  # 환자에게 실제로 안내한 수속 시각 HH:MM
+    outcome: str = "done"  # done: 통화함, no_answer: 연락 안 됨(할 일은 남는다)
+    promised_at: str = ""  # 환자에게 실제로 안내한 수속 시각 HH:MM
+    memo: str = ""
 
 
 class ResultIn(BaseModel):
     result: str = ""
+    memo: str = ""
 
 
 class ReasonIn(BaseModel):
     reason: str = ""
+    memo: str = ""
 
 
 class ShiftIn(BaseModel):
@@ -166,7 +170,7 @@ def create_app() -> FastAPI:
     def patient(case: str, s: Session = Depends(session)):
         from turnaround.api.worklist import patient_detail
         st = store.demo()
-        d = patient_detail(st, case)
+        d = patient_detail(st, case, store.accounts)
         if d is None:
             raise HTTPException(404, "없는 사례입니다")
         store.log(s, "열람", case=case)
@@ -189,6 +193,22 @@ def create_app() -> FastAPI:
         st.store.append(Event(event_id=f"{case}:web:{key}", case_id=case, type=etype, occurred_at=st.now,
                               observed_at=st.now, source="human", payload=payload))
 
+    def memo_of(text: str, required: bool) -> str:
+        from turnaround.api.worklist import MEMO_MAX
+        m = (text or "").strip()
+        if len(m) > MEMO_MAX:
+            raise HTTPException(422, f"메모는 {MEMO_MAX}자까지 적을 수 있습니다")
+        if required and not m:
+            raise HTTPException(422, "'기타'를 고르면 메모에 내용을 적어 주세요")
+        return m
+
+    def note(st, s: Session, case: str, text: str, tag: str = "") -> None:
+        """특이사항 메모: 자유 서술 기록(FREE_TEXT_NOTE)으로 남긴다. 계획 에이전트는 원문을 읽지 않고 추출 필드만 쓴다(SEC-3)."""
+        from turnaround.events import EventType
+        if text or tag:
+            human(st, case, f"note:{secrets.token_hex(4)}", EventType.FREE_TEXT_NOTE, text=text, tag=tag,
+                  by=s.user["user_id"], case_kind="admission")
+
     @app.post("/api/contacts/{case}")
     def contact(case: str, body: ContactIn, s: Session = Depends(session)):
         from datetime import datetime as _dt
@@ -198,6 +218,11 @@ def create_app() -> FastAPI:
         admission_only(s)
         st = store.demo()
         r = row_of(st, f"contact:{case}")
+        memo = memo_of(body.memo, False)
+        if body.outcome == "no_answer":
+            note(st, s, case, memo, tag="contact_no_answer")
+            store.log(s, "입원 안내 연락 안 됨", case=case, detail=memo)
+            return {"ok": True}
         try:
             hh, mm = map(int, body.promised_at.split(":"))
             promised = st.now.replace(hour=hh, minute=mm, second=0, microsecond=0)
@@ -207,6 +232,7 @@ def create_app() -> FastAPI:
         bed = m.bed_id if m else None
         human(st, case, f"contacted:{_dt.now().timestamp()}", EventType.PATIENT_CONTACTED, bed_id=bed,
               by=s.user["user_id"], promised_at=promised.isoformat())
+        note(st, s, case, memo)
         store.log(s, "입원 안내 연락 기록", case=case, detail=f"{r['bed']} 수속 {body.promised_at}")
         return {"ok": True}
 
@@ -216,8 +242,10 @@ def create_app() -> FastAPI:
         admission_only(s)
         st = store.demo()
         r = row_of(st, task_id)
-        if body.result not in r["choices"]:
+        if body.result not in [c["label"] for c in r["choices"]]:
             raise HTTPException(422, "처리 내용을 목록에서 골라 주세요")
+        memo = memo_of(body.memo, body.result == "기타")
+        note(st, s, r["case"], memo)
         human(st, r["case"], f"done:{task_id}", EventType.HUMAN_TASK_DONE, task_id=task_id, by=s.user["user_id"],
               result=body.result)
         store.log(s, "작업 처리", case=r["case"], detail=f"{r['action']}: {body.result}")
@@ -234,6 +262,7 @@ def create_app() -> FastAPI:
         elif verb == "decline":
             if not body.reason.strip():
                 raise HTTPException(422, "거절 사유를 골라 주세요")
+            note(st, s, r["case"], memo_of(body.memo, body.reason.strip() == "기타"))
             dec = st.gw.decline_action(eid, "bed_manager", body.reason.strip(), st.now, approver_id=s.user["user_id"])
             store.log(s, "거절", case=r["case"], detail=f"{r['action']}: {body.reason.strip()}")
         else:

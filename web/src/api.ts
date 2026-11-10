@@ -3,13 +3,13 @@ export type User = { user_id: string; name: string; role: string; role_label: st
 export type Row = {
   id: string; case: string; kind: string; kind_label: string; action: string; due: string; due_note: string
   late: boolean; bed: string; reason: string; status: string; carried: boolean; patient: string; patient_id: string
-  age: number | null; sex: string; situation: string; effect: string; choices: string[]; suggest_at: string
+  age: number | null; sex: string; situation: string; effect: string; choices: { label: string; desc: string }[]; suggest_at: string
 }
 export type Worklist = { now: string; rows: Row[]; counts: Record<string, number>; groups: Record<string, number> }
 export type Patient = {
   case: string; patient: string; patient_id: string; age: number | null; sex: string; department: string
   status: string; bed: string; isolation: string; from_icu: boolean; room_pref: string; reserved_at: string
-  phone: string; guardian_phone: string; timeline: { time: string; who: string; what: string; detail: string }[]
+  phone: string; guardian_phone: string; notes: { time: string; who: string; text: string; tag: string }[]; timeline: { time: string; who: string; what: string; detail: string }[]
 }
 
 const KEY = 'wardflow.token'
@@ -43,8 +43,9 @@ export const api = {
   shift: (ward: string | null, shift: string) => call('/api/shift', { method: 'POST', body: JSON.stringify({ ward, shift }) }),
   worklist: () => call<Worklist>('/api/worklist'),
   patient: (c: string) => call<Patient>(`/api/patients/${encodeURIComponent(c)}`),
-  contact: (c: string, promised_at: string) => call(`/api/contacts/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ promised_at }) }),
-  taskDone: (id: string, result: string) => call(`/api/tasks/${encodeURIComponent(id)}/done`, { method: 'POST', body: JSON.stringify({ result }) }),
-  approval: (id: string, verb: 'approve' | 'decline', reason = '') =>
-    call<{ status: string; reasons: string[] }>(`/api/approvals/${encodeURIComponent(id)}/${verb}`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  contact: (c: string, outcome: 'done' | 'no_answer', promised_at: string, memo: string) =>
+    call(`/api/contacts/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ outcome, promised_at, memo }) }),
+  taskDone: (id: string, result: string, memo: string) => call(`/api/tasks/${encodeURIComponent(id)}/done`, { method: 'POST', body: JSON.stringify({ result, memo }) }),
+  approval: (id: string, verb: 'approve' | 'decline', reason = '', memo = '') =>
+    call<{ status: string; reasons: string[] }>(`/api/approvals/${encodeURIComponent(id)}/${verb}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
 }

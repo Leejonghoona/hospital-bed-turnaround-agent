@@ -18,40 +18,68 @@ function keep(r: Row, tab: string, q: string) {
   return (tab === 'all' || r.kind_label === tab) && s
 }
 
+// 메모(특이사항): 고르는 처리 옆에 적는 선택 입력. '기타'를 고르면 반드시 적는다.
+function Memo({ v, set, need }: { v: string; set: (s: string) => void; need: boolean }) {
+  return (
+    <div className="field"><label htmlFor="memo">메모 {need ? <em className="req">필수</em> : <span className="opt">선택</span>}</label>
+      <textarea id="memo" rows={2} maxLength={500} value={v} onChange={e => set(e.target.value)}
+        placeholder="다음 근무자가 알아야 할 내용" /></div>
+  )
+}
+
 // 처리 영역: 할 일 종류마다 실제로 누르는 처리 하나. 결과는 서버에 사람 기록으로 남는다.
 function Action({ r, onDone }: { r: Row; onDone: (msg: string) => void }) {
   const [time, setTime] = useState(r.suggest_at)
+  const [outcome, setOutcome] = useState<'done' | 'no_answer'>('done')
   const [choice, setChoice] = useState<string | null>(null)
   const [declining, setDeclining] = useState(false)
   const [reason, setReason] = useState<string | null>(null)
+  const [memo, setMemo] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const run = async (f: () => Promise<string>) => {
     setBusy(true); setErr('')
     try { onDone(await f()) } catch (e) { setErr(e instanceof ApiError ? e.message : '처리하지 못했습니다') } finally { setBusy(false) }
   }
+  const other = (choice ?? reason) === '기타'
+  const memoOk = !other || memo.trim().length > 0
 
   if (r.kind === 'contact') return (<>
-    <div className="field"><label htmlFor="pt">환자에게 안내한 수속 시각</label>
-      <select id="pt" value={time} onChange={e => setTime(e.target.value)}>{[...new Set([...SLOTS, r.suggest_at])].filter(Boolean).sort().map(t => <option key={t}>{t}</option>)}</select></div>
-    <div className="note">추천 시각은 {r.suggest_at}입니다. 입원 예정 시각과 병상 준비 예상을 함께 본 값입니다.</div>
+    <div className="seg">
+      <button className={outcome === 'done' ? 'on' : ''} onClick={() => setOutcome('done')}>통화함</button>
+      <button className={outcome === 'no_answer' ? 'on' : ''} onClick={() => setOutcome('no_answer')}>연락 안 됨</button>
+    </div>
+    {outcome === 'done' && (<>
+      <div className="field"><label htmlFor="pt">환자에게 안내한 수속 시각</label>
+        <select id="pt" value={time} onChange={e => setTime(e.target.value)}>{[...new Set([...SLOTS, r.suggest_at])].filter(Boolean).sort().map(t => <option key={t}>{t}</option>)}</select></div>
+      <div className="note">추천 시각은 {r.suggest_at}입니다. 입원 예정 시각과 병상 준비 예상을 함께 본 값입니다.</div>
+    </>)}
+    <Memo v={memo} set={setMemo} need={false} />
     {err && <div className="err">{err}</div>}
-    <button className="btn p full" disabled={busy || !time} onClick={() => run(async () => { await api.contact(r.case, time); return `${r.patient} 입원 안내를 기록했습니다` })}>연락함으로 기록</button>
+    <button className="btn p full" disabled={busy || (outcome === 'done' && !time)} onClick={() => run(async () => {
+      await api.contact(r.case, outcome, time, memo)
+      return outcome === 'done' ? `${r.patient} 입원 안내를 기록했습니다` : `${r.patient} 연락 안 됨을 기록했습니다. 할 일은 남겨 둡니다`
+    })}>{outcome === 'done' ? '연락함으로 기록' : '연락 안 됨 기록'}</button>
   </>)
 
   if (r.kind === 'task') return (<>
-    <div className="seg col">{r.choices.map(c => <button key={c} className={choice === c ? 'on' : ''} onClick={() => setChoice(c)}>{c}</button>)}</div>
+    <div className="choices">{r.choices.map(c => (
+      <button key={c.label} className={choice === c.label ? 'on' : ''} onClick={() => setChoice(c.label)}>
+        <b>{c.label}</b><span>{c.desc}</span></button>
+    ))}</div>
+    <Memo v={memo} set={setMemo} need={other} />
     {err && <div className="err">{err}</div>}
-    <button className="btn p full" disabled={busy || !choice} onClick={() => run(async () => { await api.taskDone(r.id, choice!); return `${r.patient}: ${choice} 기록했습니다` })}>처리 기록</button>
+    <button className="btn p full" disabled={busy || !choice || !memoOk} onClick={() => run(async () => { await api.taskDone(r.id, choice!, memo); return `${r.patient}: ${choice} 기록했습니다` })}>처리 기록</button>
   </>)
 
   if (r.kind === 'approval') return declining ? (<>
     <div className="lab">거절 사유</div>
     <div className="seg col">{DECLINE.map(c => <button key={c} className={reason === c ? 'on' : ''} onClick={() => setReason(c)}>{c}</button>)}</div>
+    <Memo v={memo} set={setMemo} need={other} />
     {err && <div className="err">{err}</div>}
     <div className="btns">
       <button className="btn" onClick={() => setDeclining(false)}>취소</button>
-      <button className="btn p" disabled={busy || !reason} onClick={() => run(async () => { await api.approval(r.id, 'decline', reason!); return `거절했습니다. 실행하지 않고 원무가 맡습니다` })}>거절 확정</button>
+      <button className="btn p" disabled={busy || !reason || !memoOk} onClick={() => run(async () => { await api.approval(r.id, 'decline', reason!, memo); return `거절했습니다. 실행하지 않고 원무가 맡습니다` })}>거절 확정</button>
     </div>
   </>) : (<>
     {err && <div className="err">{err}</div>}
@@ -67,6 +95,16 @@ function Action({ r, onDone }: { r: Row; onDone: (msg: string) => void }) {
   return null
 }
 
+// 정렬: 머리글을 누르면 그 칸 기준으로, 한 번 더 누르면 반대로. 마감은 서버 순서(마감 지난 일 먼저, 이른 순)가 기본.
+type SortKey = 'due' | 'patient' | 'bed' | 'status'
+const SORT_LABEL: Record<SortKey, string> = { due: '마감', patient: '환자', bed: '병상', status: '상태' }
+function sortRows(rows: Row[], order: Map<string, number>, key: SortKey, dir: 1 | -1) {
+  const cmp = (a: Row, b: Row) => key === 'due' ? (order.get(a.id)! - order.get(b.id)!)
+    : key === 'patient' ? a.patient.localeCompare(b.patient, 'ko')
+      : key === 'bed' ? (a.bed || '~').localeCompare(b.bed || '~') : a.status.localeCompare(b.status, 'ko')
+  return [...rows].sort((a, b) => dir * cmp(a, b) || order.get(a.id)! - order.get(b.id)!)
+}
+
 // 원무 작업 화면: 줄당 한 환자 표 + 오른쪽 상세(사실, 상황, 처리, 경과). 시안 v2 ②.
 export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
   const [wl, setWl] = useState<WL | null>(null)
@@ -75,6 +113,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
   const [pick, setPick] = useState<string | null>(null)
   const [pt, setPt] = useState<Patient | null>(null)
   const [toast, setToast] = useState('')
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'due', dir: 1 })
   const search = useRef<HTMLInputElement>(null)
   const [menu, setMenu] = useState(false)
   const [shift, setShift] = useState<string | null>(null)
@@ -85,7 +124,14 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
   }), [])
   useEffect(() => { load() }, [load])
 
-  const rows = useMemo(() => (wl?.rows ?? []).filter(r => keep(r, tab, q)), [wl, tab, q])
+  const rows = useMemo(() => {
+    const order = new Map((wl?.rows ?? []).map((r, i) => [r.id, i]))
+    return sortRows((wl?.rows ?? []).filter(r => keep(r, tab, q)), order, sort.key, sort.dir)
+  }, [wl, tab, q, sort])
+  const th = (k: SortKey) => (
+    <th aria-sort={sort.key === k ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+      <button className={'sortbtn' + (sort.key === k ? ' on' : '')} onClick={() => setSort(p => ({ key: k, dir: p.key === k ? (p.dir === 1 ? -1 : 1) : 1 }))}>
+        {SORT_LABEL[k]}<span className="arrow">{sort.key === k ? (sort.dir === 1 ? '↑' : '↓') : '↕'}</span></button></th>)
   const cur = rows.find(r => r.id === pick) ?? null
   useEffect(() => { if (cur) api.patient(cur.case).then(setPt).catch(() => setPt(null)); else setPt(null) }, [cur?.case])
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 4000); return () => clearTimeout(t) }, [toast])
@@ -141,7 +187,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
                 {rows.length === 0 ? <div className="empty">처리할 일이 없습니다</div> : (
                   <table>
                     <colgroup><col style={{ width: 108 }} /><col style={{ width: 200 }} /><col style={{ width: 128 }} /><col style={{ width: 76 }} /><col /><col style={{ width: 116 }} /></colgroup>
-                    <thead><tr><th>마감</th><th>할 일</th><th>환자</th><th>병상</th><th>근거</th><th>상태</th></tr></thead>
+                    <thead><tr>{th('due')}<th>할 일</th>{th('patient')}{th('bed')}<th>근거</th>{th('status')}</tr></thead>
                     <tbody>
                       {rows.map(r => (
                         <tr key={r.id} className={'row' + (r.id === pick ? ' pick' : '')} tabIndex={0} onClick={() => setPick(r.id)}
@@ -151,7 +197,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
                           <td className="pt"><b>{r.patient}</b><span className="id">{r.patient_id}</span></td>
                           <td className="mono">{r.bed || '—'}</td>
                           <td className="sub">{r.reason}</td>
-                          <td className="st">{r.status}{r.carried && <small>인계받음</small>}</td>
+                          <td className="st">{r.status}{r.carried && <small>전 근무에서 넘어옴</small>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -171,7 +217,13 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
                   </dl>
                 </div>
                 <div className="db">
-                  {cur.late && <div className="alert"><Icon name="alert" /><div>마감 {cur.due_note === '어제' ? '어제 ' : ''}{cur.due} 지남{cur.status === '책임자 확인 중' ? ', 원무 책임자도 확인 중' : ''}</div></div>}
+                  {cur.late && <div className="alert"><Icon name="alert" /><div>마감 {cur.due_note === '어제' ? '어제 ' : ''}{cur.due} 지남{cur.status === '책임자 확인 중' ? '. 원무 책임자에게도 알렸습니다' : ''}{cur.carried ? '. 전 근무에서 넘어온 일입니다' : ''}</div></div>}
+                  {pt.notes.length > 0 && (<>
+                    <div className="lab">특이사항</div>
+                    <ul className="notes">{pt.notes.slice().reverse().map((n, i) => (
+                      <li key={i}><p>{n.tag === 'contact_no_answer' && <b>연락 안 됨. </b>}{n.text}</p><span>{n.who} {n.time}</span></li>
+                    ))}</ul>
+                  </>)}
                   <div className="lab">{cur.action}</div>
                   {cur.situation && <p className="sit">{cur.situation}</p>}
                   {cur.effect && <p className="eff">{cur.effect}</p>}

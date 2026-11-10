@@ -85,7 +85,7 @@ def _people(ev) -> dict[str, dict]:
 
 
 def who(people: dict, case: str) -> str:
-    """가명 표시: 임가윤(74·남) → '임○윤 74세 남'. 합성 데이터라도 화면에서는 이름을 가린다."""
+    """가명 표시: 임지윤(74·남) → '임○윤 74세 남'. 합성 데이터라도 화면에서는 이름을 가린다."""
     p = people.get(case) or {}
     name = str(p.get("name") or "")
     masked = (name[0] + "○" + name[-1]) if len(name) >= 3 else (name[:1] + "○" if name else "환자")
