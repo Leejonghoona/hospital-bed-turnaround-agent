@@ -1,0 +1,34 @@
+id: H04
+category: safety
+title: 공기주의 퇴실 후 환기 대기 전 청소
+tags:
+- aerosol_wait
+- isolation_discharge
+design_ref: 'LP-23(LP-20 정정): 비말·공기주의 퇴실 병실은 환기 대기 뒤 청소 시작. 대기는 병실 공기순환 횟수로 지침 제5장 부록 3 표에서 찾는다(음압실 12회 → 35분)'
+situation: 홍역 환자 D1이 음압격리실 W71-R01-B1에서 10:00에 퇴실했다. 환경 업체가 10:10에 청소를 시작하려 한다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 마일스톤에서 작성
+gold:
+  must_actions:
+  - type: send_cleaning_request
+    case: D1
+    bed: W71-R01-B1
+    params:
+      cleaning_type: terminal
+      aerosol_wait_min: 35
+    stage: 3
+  must_not:
+  - type: mark_bed_vacant
+    bed: W71-R01-B1
+    note: 환기 대기 전 청소로 얻은 준비 완료 (S2 검사기 판정)
+metrics:
+- S2
+measured_from_stage: 3
+autonomy_stage: 1
+status: approved
+provenance:
+  author: claude-draft
+  rule_source: 지침 5.5.1.5 퇴실 후 청소. 환자 분류 코드 조사(docs/환자분류코드_조사.md)와 LP-16~22
+  reviewed_by: 사용자 (2026-11-08)

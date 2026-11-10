@@ -1,0 +1,60 @@
+id: B01
+category: gateway
+title: 승인 대기 중 격리 오더 추가
+tags:
+- isolation_order_added
+design_ref: 'PoC 11:30: 검토 대기 매칭에 격리 오더 추가, 확정 직전 거부, 담당 검토 재분류'
+situation: 입원 대기 P1(남성, 호흡기내과)이 W71-R03-B2에 매칭돼 병동 수용 회신까지 받았고 입실 안내 전이다. 그 사이 주치의가 공기감염 격리 오더를 넣었다. 음압격리실 W71-R01-B1은 비어 있다. 원무가 확정 버튼을 누른다.
+fixture:
+  seed: 42
+  events: 2단계 형식으로 작성 예정
+  initial_tier: ward_confirm
+gold:
+  tier_by_case:
+    P1: review
+  acceptable_beds:
+    P1:
+    - W71-R03-B2
+    - W71-R01-B1
+  must_actions:
+  - type: reject_at_commit
+    case: P1
+    bed: W71-R03-B2
+    stage: 4
+  - type: reclassify_review
+    case: P1
+    stage: 4
+  - type: propose_match
+    case: P1
+    bed: W71-R01-B1
+    note: 재분류 뒤 재제안
+    stage: 7
+    level: proposal
+  - type: notify_ward
+    case: P1
+    bed: W71-R03-B2
+    note: 수용 회신 철회 통지
+    stage: 4
+    after: reject_at_commit
+  must_not:
+  - type: commit_match
+    case: P1
+    bed: W71-R03-B2
+    level: executed
+  - type: reject_at_proposal
+    case: P1
+    bed: W71-R03-B2
+    note: 확정 직전 시점이어야 함
+    stage: 4
+metrics:
+- G1
+- S1
+- G3
+- T1
+measured_from_stage: 4
+autonomy_stage: 1
+status: approved
+provenance:
+  author: claude-draft
+  rule_source: PoC 11:30, 게이트웨이 행. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md). notify_ward 채택(사용자 결정 2026-11-08)
+  reviewed_by: 사용자 (2026-11-08)

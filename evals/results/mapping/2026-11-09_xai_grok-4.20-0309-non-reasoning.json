@@ -1,0 +1,166 @@
+{
+ "model": "xai:grok-4.20-0309-non-reasoning",
+ "date": "2026-11-09",
+ "rows": [
+  {
+   "seed": 1,
+   "fmt": "emr_a",
+   "llm": "ok",
+   "columns": {
+    "correct": 68,
+    "wrong": 0,
+    "asked": 0,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 9,
+    "wrong": 0,
+    "asked": 17,
+    "correct_proposal": 12,
+    "asked_no_proposal": 5
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 22,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_b",
+   "llm": "ok",
+   "columns": {
+    "correct": 66,
+    "wrong": 0,
+    "asked": 2,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 21,
+    "correct_proposal": 10,
+    "asked_no_proposal": 11
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 28,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_c",
+   "llm": "ok",
+   "columns": {
+    "correct": 53,
+    "wrong": 0,
+    "asked": 2,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 16,
+    "asked_no_proposal": 3
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 28,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_d",
+   "llm": "ok",
+   "columns": {
+    "correct": 66,
+    "wrong": 0,
+    "asked": 2,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 21,
+    "asked_no_proposal": 16,
+    "correct_proposal": 5
+   },
+   "format": {
+    "time_format": "asked",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 47,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_e",
+   "llm": "ok",
+   "columns": {
+    "correct": 33,
+    "wrong": 0,
+    "asked": 22,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 7,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "asked",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 41,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  }
+ ],
+ "usage": {
+  "calls": 18,
+  "input_tokens": 44313,
+  "output_tokens": 10519,
+  "latency_s": 128.16319085600003
+ }
+}

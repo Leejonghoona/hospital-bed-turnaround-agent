@@ -1,0 +1,181 @@
+{
+ "model": "xai:grok-4.20-0309-non-reasoning",
+ "date": "2026-11-09",
+ "rows": [
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 68,
+    "wrong": 0,
+    "asked": 0,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 9,
+    "wrong": 0,
+    "asked": 17,
+    "correct_proposal": 12,
+    "asked_no_proposal": 5
+   },
+   "questions": 22,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 66,
+    "wrong": 0,
+    "asked": 2,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 6,
+    "wrong": 0,
+    "asked": 17,
+    "correct_proposal": 12,
+    "asked_no_proposal": 5
+   },
+   "questions": 24,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 33,
+    "wrong": 0,
+    "asked": 22,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 14,
+    "asked_no_proposal": 5
+   },
+   "questions": 48,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "asked",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 66,
+    "wrong": 0,
+    "asked": 2,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 21,
+    "asked_no_proposal": 16,
+    "correct_proposal": 5
+   },
+   "questions": 47,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "asked",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "llm": "ok",
+   "columns": {
+    "correct": 30,
+    "wrong": 3,
+    "asked": 22,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 0,
+    "wrong": 0,
+    "asked": 21,
+    "asked_no_proposal": 16,
+    "correct_proposal": 5
+   },
+   "questions": 46,
+   "followup_questions": 0,
+   "exact_after_answers": false,
+   "error": null,
+   "wrong_columns": [
+    [
+     "환자마스터",
+     "보호자예정시각",
+     "t:guardian_eta_set",
+     "guardian_eta_set.eta"
+    ],
+    [
+     "환자마스터",
+     "보호자예정시각변경",
+     "t:guardian_eta_updated",
+     "guardian_eta_updated.eta"
+    ],
+    [
+     "환자마스터",
+     "입원예정시각",
+     "t:admission_requested",
+     "admission_requested.requested_at"
+    ]
+   ],
+   "wrong_codes": []
+  }
+ ],
+ "usage": {
+  "calls": 18,
+  "input_tokens": 44313,
+  "output_tokens": 10465,
+  "latency_s": 133.41307125799972
+ }
+}

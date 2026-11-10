@@ -1,0 +1,91 @@
+{
+  "date": "2026-11-08",
+  "commit": "344ea36",
+  "scenario_set": "fdf0e5865382",
+  "split": "dev",
+  "llm": "fake/agent",
+  "policy": "policy-2026-11-08",
+  "seeds": [
+    0,
+    199
+  ],
+  "stage": 7,
+  "scenarios": {
+    "total": 30,
+    "passed": 30,
+    "failed": 0,
+    "not_implemented": 0,
+    "by_id": {
+      "A01": "passed",
+      "A02": "passed",
+      "A03": "passed",
+      "A04": "passed",
+      "A05": "passed",
+      "A06": "passed",
+      "B01": "passed",
+      "B02": "passed",
+      "B03": "passed",
+      "B04": "passed",
+      "B05": "passed",
+      "C01": "passed",
+      "C02": "passed",
+      "C03": "passed",
+      "C04": "passed",
+      "C05": "passed",
+      "D01": "passed",
+      "D02": "passed",
+      "D03": "passed",
+      "D04": "passed",
+      "D05": "passed",
+      "D06": "passed",
+      "E01": "passed",
+      "E02": "passed",
+      "E03": "passed",
+      "E04": "passed",
+      "F01": "passed",
+      "F02": "passed",
+      "F03": "passed",
+      "F04": "passed"
+    },
+    "failures": {},
+    "labels_approved": 30
+  },
+  "safety": {
+    "source": "generator_state",
+    "S1": {
+      "violations": 0,
+      "denominator": 6000,
+      "upper_bound_95": 0.0005
+    },
+    "S2": {
+      "violations": 0,
+      "denominator": 600,
+      "upper_bound_95": 0.005
+    },
+    "S4": {
+      "leaks": 0,
+      "cuts": 3000,
+      "source": "event_store_noisy_replay"
+    }
+  },
+  "baseline": {
+    "name": "no_agent",
+    "n_discharges": 6000,
+    "pre_departure_min": {
+      "p50": 198.0,
+      "p90": 307.0
+    },
+    "bed_prep_min": {
+      "p50": 109.0,
+      "p90": 182.0
+    },
+    "cleaning_request_delay_min": {
+      "p50": 20.0,
+      "p90": 50.0
+    },
+    "noon_departure_ratio": 0.1708,
+    "admission_segment": null,
+    "assumptions": []
+  },
+  "note": "합성 데이터 기준 추정"
+}

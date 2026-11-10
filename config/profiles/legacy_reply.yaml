@@ -1,0 +1,3 @@
+# 지금 동작(회신형, 전날 사전 매칭, 청소 한 신호). 옛 승인 시나리오 회귀용 (인터뷰 Q2)
+hospital_profile:
+  id: legacy-reply

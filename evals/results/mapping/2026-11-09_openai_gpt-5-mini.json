@@ -1,0 +1,166 @@
+{
+ "model": "openai:gpt-5-mini",
+ "date": "2026-11-09",
+ "rows": [
+  {
+   "seed": 1,
+   "fmt": "emr_a",
+   "llm": "partial_failed(1/3): LLMError: HTTP 502: upstream request failed",
+   "columns": {
+    "correct": 27,
+    "wrong": 0,
+    "asked": 41,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 8,
+    "wrong": 0,
+    "asked": 18,
+    "asked_with_column": 10,
+    "correct_proposal": 8
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 51,
+   "followup_questions": 8,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_b",
+   "llm": "partial_failed(1/3): LLMError: HTTP 502: upstream request failed",
+   "columns": {
+    "correct": 25,
+    "wrong": 0,
+    "asked": 43,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 5,
+    "wrong": 0,
+    "asked": 18,
+    "correct_proposal": 10,
+    "asked_with_column": 8
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 53,
+   "followup_questions": 8,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_c",
+   "llm": "ok",
+   "columns": {
+    "correct": 51,
+    "wrong": 0,
+    "asked": 4,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 0,
+    "wrong": 0,
+    "asked": 21,
+    "asked_no_proposal": 16,
+    "correct_proposal": 5
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 37,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_d",
+   "llm": "ok",
+   "columns": {
+    "correct": 65,
+    "wrong": 0,
+    "asked": 3,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 4,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 17,
+    "asked_no_proposal": 2
+   },
+   "format": {
+    "time_format": "asked",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 38,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_e",
+   "llm": "ok",
+   "columns": {
+    "correct": 30,
+    "wrong": 0,
+    "asked": 25,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 7,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "asked",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 44,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  }
+ ],
+ "usage": {
+  "calls": 18,
+  "input_tokens": 34831,
+  "output_tokens": 22285,
+  "latency_s": 287.8801415880007
+ }
+}

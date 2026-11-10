@@ -1,0 +1,110 @@
+{
+  "model": "rule",
+  "date": "2026-11-08",
+  "planning": {
+    "reps": 1,
+    "scenarios": 30,
+    "pass_rate_first": 1.0,
+    "pass_ci95": [
+      1.0,
+      1.0
+    ],
+    "C1_pass_all_reps": 30,
+    "P1_valid_tool_choice": null,
+    "choose_calls": 0,
+    "failed": {},
+    "per_scenario": {
+      "A01": [
+        true
+      ],
+      "A02": [
+        true
+      ],
+      "A03": [
+        true
+      ],
+      "A04": [
+        true
+      ],
+      "A05": [
+        true
+      ],
+      "A06": [
+        true
+      ],
+      "B01": [
+        true
+      ],
+      "B02": [
+        true
+      ],
+      "B03": [
+        true
+      ],
+      "B04": [
+        true
+      ],
+      "B05": [
+        true
+      ],
+      "C01": [
+        true
+      ],
+      "C02": [
+        true
+      ],
+      "C03": [
+        true
+      ],
+      "C04": [
+        true
+      ],
+      "C05": [
+        true
+      ],
+      "D01": [
+        true
+      ],
+      "D02": [
+        true
+      ],
+      "D03": [
+        true
+      ],
+      "D04": [
+        true
+      ],
+      "D05": [
+        true
+      ],
+      "D06": [
+        true
+      ],
+      "E01": [
+        true
+      ],
+      "E02": [
+        true
+      ],
+      "E03": [
+        true
+      ],
+      "E04": [
+        true
+      ],
+      "F01": [
+        true
+      ],
+      "F02": [
+        true
+      ],
+      "F03": [
+        true
+      ],
+      "F04": [
+        true
+      ]
+    },
+    "wall_s": 24.9
+  }
+}

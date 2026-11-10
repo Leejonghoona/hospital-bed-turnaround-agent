@@ -1,0 +1,36 @@
+id: E01
+category: delay
+title: 보호자 도착 지연
+tags:
+- guardian_delay
+design_ref: 'PoC 10:05: 보호자 도착 예정 13시로 변경, 준비 예상 시각과 매칭 재계산. 지연 사유 코드 기록'
+situation: D1(W72-R04-B3, 비격리)의 보호자 도착 예정이 11:00에서 13:00으로 바뀌었다. 이 병상에 P1이 사전 매칭돼 있고 P1의 입원 예정은 16:00, 아직 연락 전이다. 대체할 빈 병상은 없다.
+fixture:
+  seed: 42
+  events: 2단계 형식으로 작성 예정
+gold:
+  must_actions:
+  - type: recompute_ready_time
+    case: D1
+    bed: W72-R04-B3
+    params:
+      reason: guardian_eta
+  - type: record_delay_reason
+    case: D1
+    params:
+      reason: guardian
+    stage: 4
+  must_not:
+  - type: release_prematch
+    case: P1
+    note: 매칭 유지가 유일 정답
+metrics:
+- O1
+- P2
+measured_from_stage: 3
+autonomy_stage: 1
+status: approved
+provenance:
+  author: claude-draft
+  rule_source: PoC 10:05, 업무 재설계 1. 퇴실 전. 다중 에이전트 토론 v1 (docs/라벨_토론_결과.md)
+  reviewed_by: 사용자 (2026-11-08)

@@ -1,0 +1,516 @@
+"""P0/P1: WardFlow 웹 화면용 HTTP API (docs/기획/09_실사용화면_로드맵.md). 합성 데이터.
+
+화면(React)은 이 API만 부른다. 화면 데이터는 기존 ui/views.py와 같은 함수에서 나온다.
+"""
+
+import pytest
+from fastapi.testclient import TestClient
+
+from turnaround.api.app import create_app
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _data_dir(tmp_path_factory):
+    import os
+    os.environ["WARDFLOW_DATA_DIR"] = str(tmp_path_factory.mktemp("wardflow"))  # 접속기록 파일은 시험용 임시 폴더에
+
+
+@pytest.fixture(scope="module")
+def client(_data_dir):
+    return TestClient(create_app())
+
+
+def _login(client, user="adm-kim"):
+    r = client.post("/api/demo-login", json={"user_id": user})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+def test_health(client):
+    assert client.get("/api/health").json()["ok"] is True
+
+
+def test_demo_accounts_are_personal_and_role_scoped(client):
+    accs = client.get("/api/demo-accounts").json()
+    ids = {a["user_id"] for a in accs}
+    assert {"adm-kim", "ward71-park", "ipc-lee", "admin-jung"} <= ids
+    assert all(a["name"] and a["role_label"] for a in accs)
+    assert not any("공용" in a["name"] for a in accs)  # 공용 계정 없음
+
+
+def test_password_login_and_failure_lock(client):
+    bad = [client.post("/api/login", json={"user_id": "ward72-choi", "password": "x"}).status_code for _ in range(5)]
+    assert bad[:4] == [401, 401, 401, 401] and bad[4] == 423  # 다섯 번째부터 잠김
+    ok = client.post("/api/login", json={"user_id": "adm-kim", "password": "demo1234"})
+    assert ok.status_code == 200 and ok.json()["user"]["name"]
+
+
+def test_me_requires_token(client):
+    assert client.get("/api/me").status_code == 401
+    h = _login(client)
+    me = client.get("/api/me", headers=h).json()
+    assert me["user"]["user_id"] == "adm-kim" and me["user"]["role"] == "bed_manager"
+
+
+def test_admission_worklist_rows(client):
+    h = _login(client)
+    w = client.get("/api/worklist", headers=h).json()
+    assert w["rows"], "원무 할 일이 있어야 한다"
+    row = w["rows"][0]
+    for k in ("id", "due", "late", "kind", "kind_label", "patient", "patient_id", "bed", "reason", "status"):
+        assert k in row
+    lates = [r["late"] for r in w["rows"]]
+    assert lates == sorted(lates, reverse=True)  # 마감 지난 일이 위
+    assert set(w["counts"]) >= {"all", "late", "carried"}
+    assert sum(w["groups"].values()) == w["counts"]["all"]  # 탭 분류는 겹치지 않는다(합 = 전체)
+
+
+def test_viewing_a_patient_is_written_to_access_log(client):
+    h = _login(client)
+    row = client.get("/api/worklist", headers=h).json()["rows"][0]
+    d = client.get(f"/api/patients/{row['case']}", headers=h)
+    assert d.status_code == 200 and d.json()["patient_id"] == row["patient_id"]
+    admin = _login(client, "admin-jung")
+    log = client.get("/api/access-log", headers=admin).json()["rows"]
+    assert any(e["user_id"] == "adm-kim" and e["case"] == row["case"] and e["action"] == "열람" for e in log)
+
+
+def test_access_log_is_admin_only(client):
+    assert client.get("/api/access-log", headers=_login(client)).status_code == 403
+
+
+# ---- P2 원무 처리 (W2 연락 기록, W4 승인·거절, 병상 없음 처리) ----
+
+def _rows(client, h):
+    return client.get("/api/worklist", headers=h).json()["rows"]
+
+
+def test_detail_shows_what_admission_needs_and_hides_the_rest(client):
+    h = _login(client)
+    r = _rows(client, h)[0]
+    d = client.get(f"/api/patients/{r['case']}", headers=h).json()
+    assert d["phone"].startswith("010-0000-") and d["reserved_at"] and "room_pref" in d  # 합성 연락처, 예약 시각
+    assert len(d["patient_id"]) == 8 and d["patient_id"].isdigit()
+    assert not {"organism", "rrn", "progress_notes", "nursing_notes"} & set(d)  # 병원체명·주민번호·경과기록은 원무 상세에 없음
+    whats = " ".join(t["what"] for t in d["timeline"])
+    assert not any(w in whats for w in ("실행", "예외 종료", "막음", "작업 완료"))  # 내부 용어 없음
+
+
+def test_contact_recorded_removes_row(client):
+    h = _login(client, "adm-seo")
+    c = next(r for r in _rows(client, h) if r["kind"] == "contact")
+    assert c["suggest_at"]
+    r = client.post(f"/api/contacts/{c['case']}", json={"promised_at": c["suggest_at"]}, headers=h)
+    assert r.status_code == 200, r.text
+    assert c["id"] not in {x["id"] for x in _rows(client, h)}
+    log = client.get("/api/access-log", headers=_login(client, "admin-jung")).json()["rows"]
+    assert any(x["user_id"] == "adm-seo" and x["action"] == "입원 안내 연락 기록" for x in log)
+
+
+def test_no_bed_task_needs_a_choice_and_closes(client):
+    h = _login(client)
+    t = next(r for r in _rows(client, h) if r["kind_label"] == "병상 없음")
+    assert t["choices"]
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "아무거나"}, headers=h).status_code == 422
+    labels = [c["label"] for c in t["choices"]]
+    assert all(c["desc"] for c in t["choices"]) and "기타" in labels
+    # '기타'는 메모가 있어야 한다
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "기타", "memo": ""}, headers=h).status_code == 422
+    assert client.post(f"/api/tasks/{t['id']}/done", json={"result": "기타", "memo": "보호자가 내일 오전 통화 원함"},
+                       headers=h).status_code == 200
+    assert t["id"] not in {x["id"] for x in _rows(client, h)}
+
+
+def test_approval_decline_needs_reason_and_ward_cannot_act(client):
+    h = _login(client)
+    a = next(r for r in _rows(client, h) if r["kind"] == "approval")
+    w = _login(client, "ward71-park")
+    assert client.post(f"/api/approvals/{a['id']}/decline", json={"reason": "환자 사정으로 보류"}, headers=w).status_code == 403
+    assert client.post(f"/api/approvals/{a['id']}/decline", json={"reason": " "}, headers=h).status_code == 422
+    r = client.post(f"/api/approvals/{a['id']}/decline", json={"reason": "원무가 직접 처리"}, headers=h)
+    assert r.status_code == 200 and r.json()["status"]
+    assert a["id"] not in {x["id"] for x in _rows(client, h)}
+
+
+def test_memo_is_kept_as_free_text_note_and_shown_to_next_shift(client):
+    h = _login(client)
+    c = next(r for r in _rows(client, h) if r["kind"] == "contact")
+    # 연락이 안 되면 할 일은 남고, 메모와 시도 횟수가 보인다
+    r = client.post(f"/api/contacts/{c['case']}", json={"outcome": "no_answer", "memo": "두 번 걸었으나 받지 않음"}, headers=h)
+    assert r.status_code == 200, r.text
+    row = next(x for x in _rows(client, h) if x["id"] == c["id"])
+    assert row["status"] == "다시 연락" and "1회" in row["reason"]
+    d = client.get(f"/api/patients/{c['case']}", headers=_login(client, "adm-seo")).json()  # 다음 근무자
+    assert any(n["text"] == "두 번 걸었으나 받지 않음" and n["who"] == "김하늘" for n in d["notes"])
+    # 계획 에이전트가 읽지 않는 자유 서술 기록으로 저장된다(추출 필드만 쓴다, SEC-3)
+    from turnaround.events import EventType
+    ev = client.app.state.store.demo().store.read()
+    assert any(e.type is EventType.FREE_TEXT_NOTE and e.payload.get("text") == "두 번 걸었으나 받지 않음" for e in ev)
+    assert client.post(f"/api/contacts/{c['case']}", json={"outcome": "no_answer", "memo": "x" * 501}, headers=h).status_code == 422
+
+
+def test_assignment_log_lists_agent_and_human_commits(client):
+    h = _login(client)
+    r = client.get("/api/assignments", headers=h)
+    assert r.status_code == 200, r.text
+    rows = r.json()["rows"]
+    assert rows and {"time", "patient", "bed", "by", "basis", "state"} <= set(rows[0])
+    assert any(x["by"] == "에이전트" for x in rows) and any(x["by"] != "에이전트" for x in rows)
+    assert all(x["state"] in {"입실 완료", "입실 대기", "되돌림", "취소"} for x in rows)
+    assert [x["at"] for x in rows] == sorted((x["at"] for x in rows), reverse=True)  # 최근 것이 위
+    assert client.get("/api/assignments", headers=_login(client, "ward71-park")).status_code == 403
+    # 날짜별로 본다: 기록이 있는 날짜 목록이 오고, 어제를 고르면 어제 확정만 나온다
+    d = r.json()
+    assert d["day"] == d["days"][0] and len(d["days"]) >= 2
+    y = client.get(f"/api/assignments?day={d['days'][1]}", headers=h).json()
+    assert y["rows"] and all(x["at"].startswith(d["days"][1]) for x in y["rows"])
+    assert client.get("/api/assignments?day=어제", headers=h).status_code == 422
+
+
+# ---- 병상 직접 배정 (현황판 + 추천 후보, 게이트웨이 사전 검사) ----
+
+def _nobed_case(client, h):
+    return next(r for r in _rows(client, h) if r["kind_label"] == "병상 없음")["case"]
+
+
+def test_bed_board_marks_each_bed_with_fit_from_gateway(client):
+    h = _login(client)
+    case = _nobed_case(client, h)
+    b = client.get(f"/api/beds?case={case}", headers=h).json()
+    assert {"need", "recommend", "wards"} <= set(b)
+    beds = [x for w in b["wards"] for r in w["rooms"] for x in r["beds"]]
+    assert len(beds) == len(client.app.state.store.demo().h.beds) >= 100 and all(x["fit"] in {"ok", "reason", "ipc", "no"} for x in beds)
+    assert all(x["why"] for x in beds if x["fit"] != "ok")  # 못 고르는 병상은 이유가 있다
+    assert all(r["grade"] for w in b["wards"] for r in w["rooms"])  # 병실 등급(1인실, 다인실 등)
+
+
+def test_manual_assign_requires_reason_and_follows_gateway():
+    """시연용 병원은 병상 약 6%가 비어 있다. 할 일에 있는 환자 한 명을 빈 병상에 직접 배정한다(새 앱)."""
+    c = TestClient(create_app())
+    h = _login(c)
+    rows = _rows(c, h)
+    pick = None
+    for r in sorted(rows, key=lambda x: x["kind_label"] != "병상 없음"):  # 병상 없음 환자부터
+        b = c.get(f"/api/beds?case={r['case']}", headers=h).json()
+        beds = {x["id"]: x for w in b["wards"] for rm in w["rooms"] for x in rm["beds"]}
+        ok = next((x for x in beds.values() if x["fit"] == "ok"), None)
+        if ok:
+            pick = (r, beds, ok)
+            break
+    assert pick, "빈 병상 중 하나는 배정 가능해야 한다"
+    r, beds, ok = pick
+    case = r["case"]
+    other = next(x for x in beds.values() if x["status"].startswith("배정됨"))
+    assert other["fit"] == "no" and other["why"] == "다른 환자에게 배정됨"
+    res = c.post("/api/assign", json={"case": case, "bed": other["id"], "reason": "patient_request"}, headers=h)
+    assert res.status_code == 409 and res.json()["detail"]  # 게이트웨이가 거절
+    assert c.post("/api/assign", json={"case": case, "bed": ok["id"], "reason": ""}, headers=h).status_code == 422
+    assert c.post("/api/assign", json={"case": case, "bed": ok["id"], "reason": "other", "memo": ""}, headers=h).status_code == 422
+    res = c.post("/api/assign", json={"case": case, "bed": ok["id"], "reason": "patient_request"}, headers=h)
+    assert res.status_code == 200, res.text
+    log = c.get("/api/assignments", headers=h).json()["rows"]
+    mine = next(x for x in log if x["case"] == case)
+    assert mine["by"] == "김하늘" and "환자·보호자 요청" in mine["basis"]
+    # 병상이 정해졌으니 그 환자의 '병상 없음' 할 일은 닫힌다
+    assert case not in {x["case"] for x in _rows(c, h) if x["kind_label"] == "병상 없음"}
+
+
+# ---- 역할별 접근 (최소 권한): 다른 팀이 로그인하면 화면과 권한이 바뀐다 ----
+
+def test_role_scoping_for_worklist_and_patient_detail(client):
+    adm = _login(client)
+    rows = _rows(client, adm)
+    ward = _login(client, "ward71-park")  # 71병동 책임간호사
+    assert client.get("/api/worklist", headers=ward).status_code == 403  # 원무 할 일은 원무만
+    assert client.get("/api/assignments", headers=ward).status_code == 403
+    st = client.app.state.store.demo()
+    ward_of = {b.id: b.ward_id for b in st.h.beds}
+    with_bed = [r for r in rows if r["bed"] and r["kind"] != "confirmed"]
+    mine = next(r for r in with_bed if ward_of.get(st.gw._assignments(st.store.read()).get(r["case"], "")) == "W71")
+    other = next(r for r in with_bed if ward_of.get(st.gw._assignments(st.store.read()).get(r["case"], "")) not in (None, "W71"))
+    assert client.get(f"/api/patients/{mine['case']}", headers=ward).status_code == 200  # 자기 병동으로 오는 환자
+    assert client.get(f"/api/patients/{other['case']}", headers=ward).status_code == 403  # 다른 병동 환자
+    assert client.get("/api/me", headers=ward).json()["screen"] == "ward"
+
+
+def test_undo_agent_assignment_within_window():
+    c = TestClient(create_app())
+    h = _login(c)
+    row = next(r for r in c.get("/api/assignments", headers=h).json()["rows"] if r["undo_open"])
+    assert c.post(f"/api/assignments/{row['case']}/undo", json={"reason": ""}, headers=h).status_code == 422
+    assert c.post(f"/api/assignments/{row['case']}/undo", json={"reason": "기타", "memo": ""}, headers=h).status_code == 422
+    r = c.post(f"/api/assignments/{row['case']}/undo", json={"reason": "환자 요청"}, headers=h)
+    assert r.status_code == 200, r.text
+    after = next(x for x in c.get("/api/assignments", headers=h).json()["rows"] if x["case"] == row["case"] and x["at"] == row["at"])
+    assert after["state"] == "되돌림" and not after["undo_open"]
+    log = c.get("/api/access-log", headers=_login(c, "admin-jung")).json()["rows"]
+    assert any(x["action"] == "배정 되돌림" and x["user_id"] == "adm-kim" and "환자 요청" in x["detail"] for x in log)
+    # 시한이 지났거나 이미 되돌린 배정은 되돌릴 수 없다
+    assert c.post(f"/api/assignments/{row['case']}/undo", json={"reason": "환자 요청"}, headers=h).status_code == 409
+
+
+def test_unlock_requires_own_password(client):
+    h = _login(client)
+    assert client.post("/api/unlock", json={"password": "틀림"}, headers=h).status_code == 401
+    assert client.post("/api/unlock", json={"password": "demo1234"}, headers=h).status_code == 200
+
+
+
+# ---- 보안 검수 반영 (docs/검토/현실괴리/05_관리자_보안.md) ----
+
+def test_locked_account_stays_locked_even_with_right_password(client):
+    for _ in range(5):
+        client.post("/api/login", json={"user_id": "dr-kang", "password": "x"})
+    assert client.post("/api/login", json={"user_id": "dr-kang", "password": "demo1234"}).status_code == 423
+    assert client.post("/api/demo-login", json={"user_id": "dr-kang"}).status_code == 423  # 데모 로그인도 막힌다
+    log = client.get("/api/access-log", headers=_login(client, "admin-jung")).json()["rows"]
+    assert any(x["user_id"] == "dr-kang" and x["action"] == "로그인 실패" for x in log)
+    assert any(x["user_id"] == "dr-kang" and x["action"] == "계정 잠김" for x in log)
+    # 관리자가 확인한 뒤 잠금을 푼다 (EMR 인증 F003 권고)
+    a = _login(client, "admin-jung")
+    assert client.post("/api/accounts/dr-kang/unlock", headers=_login(client, "adm-kim")).status_code == 403
+    assert client.post("/api/accounts/dr-kang/unlock", headers=a).status_code == 200
+    assert client.post("/api/login", json={"user_id": "dr-kang", "password": "demo1234"}).status_code == 200
+
+
+def test_idle_session_is_cut_on_server_and_reopened_with_password(client):
+    h = _login(client)
+    tok = h["Authorization"].split()[1]
+    client.app.state.store.sessions[tok].last_seen -= 16 * 60  # 16분 동안 아무것도 안 함
+    r = client.get("/api/worklist", headers=h)
+    assert r.status_code == 401 and "잠" in r.json()["detail"]
+    assert client.post("/api/unlock", json={"password": "demo1234"}, headers=h).status_code == 200
+    assert client.get("/api/worklist", headers=h).status_code == 200
+
+
+def test_access_log_is_persistent_append_only_with_real_time_and_ip(client):
+    import os
+    import sqlite3
+    h = _login(client)
+    rows = client.get("/api/access-log", headers=_login(client, "admin-jung")).json()["rows"]
+    x = rows[0]
+    assert {"real_at", "sim_at", "ip", "user_id", "action", "case", "hash"} <= set(x)
+    assert x["real_at"][:4] >= "2026" and x["ip"]
+    path = os.path.join(os.environ["WARDFLOW_DATA_DIR"], "access_log.sqlite")
+    with sqlite3.connect(path) as db:  # 파일로 남는다 (재시작해도 보존)
+        assert db.execute("select count(*) from access_log").fetchone()[0] >= len(rows)
+    assert client.get("/api/access-log/verify", headers=_login(client, "admin-jung")).json()["ok"] is True  # 연결 해시로 위변조 확인
+
+
+def test_ward_nurse_cannot_switch_to_other_ward_and_admin_cannot_act_as_admission(client):
+    w = _login(client, "ward71-park")
+    assert client.post("/api/shift", json={"ward": "W72", "shift": "day"}, headers=w).status_code == 403
+    a = _login(client, "admin-jung")
+    assert client.get("/api/worklist", headers=a).status_code == 403
+    rows = _rows(client, _login(client))
+    assert client.get(f"/api/patients/{rows[0]['case']}", headers=a).status_code == 403  # 의료정보팀은 환자 정보가 아니라 접속기록을 본다
+
+
+def test_contact_can_record_cancel_and_releases_bed():
+    c = TestClient(create_app())
+    h = _login(c)
+    row = next(r for r in _rows(c, h) if r["kind"] == "contact")
+    assert row["due"] == "12:00"  # 입원 당일 오전 연락 마감
+    assert c.post(f"/api/contacts/{row['case']}", json={"outcome": "cancel", "memo": ""}, headers=h).status_code == 422
+    r = c.post(f"/api/contacts/{row['case']}", json={"outcome": "cancel", "memo": "보호자 사정으로 취소"}, headers=h)
+    assert r.status_code == 200, r.text
+    assert row["case"] not in {x["case"] for x in _rows(c, h) if x["kind"] == "contact"}
+    from turnaround.saga import fold
+    st = c.app.state.store.demo()
+    m = fold(st.store.read()).matches.get(row["case"])
+    assert m is None or not m.active  # 사가가 병상을 풀었다
+
+
+# ---- 병동 화면 (P3) ----
+
+def test_ward_incoming_prep_and_opinion_goes_to_admission():
+    c = TestClient(create_app())
+    w = _login(c, "ward71-park")
+    c.post("/api/shift", json={"ward": "W71", "shift": "day"}, headers=w)
+    inc = c.get("/api/ward/incoming", headers=w).json()
+    assert inc["ward"] == "71병동" and inc["rows"], "71병동으로 올 환자가 있어야 한다"
+    r0 = inc["rows"][0]
+    assert {"case", "patient", "bed", "checkin", "prep", "front", "step"} <= set(r0)
+    assert all(x["bed"].startswith("71-") for x in inc["rows"])  # 내 병동만
+    assert c.get("/api/ward/incoming", headers=_login(c)).status_code == 403  # 원무는 병동 화면 API를 쓰지 않는다
+    # 준비 완료
+    assert c.post(f"/api/ward/prep/{r0['case']}", headers=w).status_code == 200
+    assert next(x for x in c.get("/api/ward/incoming", headers=w).json()["rows"] if x["case"] == r0["case"])["step"] == "준비 완료"
+    # 의견은 배정을 풀지 않고 원무 할 일로 간다 (원무가 정하고 수간호사는 의견: 서울고법 2013누25193)
+    assert c.post(f"/api/ward/opinion/{r0['case']}", json={"reason": "", "memo": ""}, headers=w).status_code == 422
+    assert c.post(f"/api/ward/opinion/{r0['case']}", json={"reason": "간호 인력 부족", "memo": ""}, headers=w).status_code == 200
+    st = c.app.state.store.demo()
+    assert r0["case"] in st.gw._assignments(st.store.read())  # 배정은 그대로
+    rows = _rows(c, _login(c))
+    op = next(x for x in rows if x["case"] == r0["case"] and x["kind_label"] == "병동 의견")
+    assert "간호 인력 부족" in op["reason"]
+    # 다른 병동 환자는 준비 완료로 바꿀 수 없다
+    other = next(x for x in rows if x["bed"] and not x["bed"].startswith("71-"))
+    assert c.post(f"/api/ward/prep/{other['case']}", headers=w).status_code == 403
+
+
+def test_ward_board_shows_only_my_ward():
+    c = TestClient(create_app())
+    w = _login(c, "ward72-choi")
+    b = c.get("/api/ward/board", headers=w).json()
+    assert b["rooms"] and all(bd["id"].startswith("W72-") for r in b["rooms"] for bd in r["beds"])
+    assert {"state", "state_ko", "detail"} <= set(b["rooms"][0]["beds"][0])
+    d = c.get("/api/ward/discharges", headers=w).json()["rows"]
+    assert d and all(x["bed"].startswith("72-") for x in d) and {"step", "departed", "flags"} <= set(d[0])
+
+
+# ---- 감염관리실·관리자 화면 (P4) ----
+
+def test_ipc_decides_late_isolation_and_sees_terminal_cleaning():
+    c = TestClient(create_app())
+    i = _login(c, "ipc-lee")
+    d = c.get("/api/ipc", headers=i).json()
+    assert d["decisions"] and d["terminal"] is not None
+    assert {"decisions", "isolated", "free_np", "free_single", "terminal"} <= set(d["summary"])
+    assert d["isolated"] and d["board"]
+    a = d["decisions"][0]
+    assert {"exception_id", "patient", "bed", "situation", "effect", "deadline", "organism", "roommates"} <= set(a)
+    assert a["roommates"], "4인실 동실자가 보여야 한다"
+    assert c.get("/api/ipc", headers=_login(c)).status_code == 403  # 원무는 감염관리 결정 화면을 쓰지 않는다
+    # 원무는 늦은 격리 병상 결정을 승인할 수 없다
+    assert c.post(f"/api/ipc/approvals/{a['exception_id']}/approve", json={}, headers=_login(c)).status_code == 403
+    assert c.post(f"/api/ipc/approvals/{a['exception_id']}/decline", json={"reason": ""}, headers=i).status_code == 422
+    r = c.post(f"/api/ipc/approvals/{a['exception_id']}/decline", json={"reason": "지금 병상 유지(제자리 격리)", "memo": "커튼, 1m 간격"}, headers=i)
+    assert r.status_code == 200, r.text
+    assert a["exception_id"] not in {x["exception_id"] for x in c.get("/api/ipc", headers=i).json()["decisions"]}
+    # 오늘 들어올 격리 환자 확인 표시, 인계 메모
+    inc = next(x for x in d["isolated"] if x["status"] == "입원 예정")
+    assert c.post(f"/api/ipc/check/{inc['case']}", headers=i).status_code == 200
+    assert next(x for x in c.get("/api/ipc", headers=i).json()["isolated"] if x["case"] == inc["case"])["checked"]
+    assert c.post("/api/ipc/handover", json={"memo": ""}, headers=i).status_code == 422
+    assert c.post("/api/ipc/handover", json={"memo": "62-05-2 제자리 격리 유지 중, 밤에 1인실 나면 이동 검토"}, headers=i).status_code == 200
+    assert c.get("/api/ipc", headers=i).json()["handover"]
+    log = c.get("/api/access-log", headers=_login(c, "admin-jung")).json()["rows"]
+    assert any(x["user_id"] == "ipc-lee" and x["action"] == "격리 병상 결정" for x in log)
+
+
+def test_admin_summary_locked_accounts_and_masked_case_trail():
+    c = TestClient(create_app())
+    a = _login(c, "admin-jung")
+    s = c.get("/api/admin/summary", headers=a).json()
+    assert {"flow", "safety", "load"} <= set(s) and all("위반" in x for x in s["safety"])
+    assert c.get("/api/admin/summary", headers=_login(c)).status_code == 403
+    case = _rows(c, _login(c))[0]["case"]
+    t = c.get(f"/api/admin/case/{case}", headers=a).json()
+    assert t["patient"].count("○") == 1 and t["trail"]  # 감사용 경과: 이름은 가린다
+    assert c.get(f"/api/admin/case/{case}", headers=_login(c)).status_code == 403
+
+
+# ---- 시연 화면 (P5) ----
+
+def test_tour_three_chapters_step_through(client):
+    ch = client.get("/api/tour").json()["chapters"]
+    assert [c["title"] for c in ch] == ["평범한 배정", "안내 시각 지연 재연락", "늦은 격리를 시스템이 막음"]
+    r = client.post("/api/tour/start", json={"chapter": "iso"}).json()
+    assert r["step"] == 1 and "격리" in r["caption"] and "·" not in r["caption"]
+    while not r["done"]:
+        r = client.post(f"/api/tour/{r['run']}/next").json()
+    assert "거부" in r["caption"] or "막" in r["caption"]
+    assert any("거절" in x["what"] for x in r["changed"])
+
+
+def test_admissions_today_is_everyday_list_with_issue_badges(client):
+    h = _login(client)
+    d = client.get("/api/admissions", headers=h).json()
+    rows, sm = d["rows"], d["summary"]
+    assert sm["total"] >= 20 and sm["by_agent"] > 0  # 평소 일(자동 확정 포함)이 다 보인다
+    assert {"checkin", "patient", "bed", "bed_state", "by", "contact", "stage", "issues"} <= set(rows[0])
+    with_issue = [r for r in rows if r["issues"]]
+    assert with_issue and rows[: len(with_issue)] == with_issue  # 확인할 것이 있는 행이 위
+    assert any(not r["issues"] for r in rows)  # 예외 없는 평소 행이 대부분
+    assert client.get("/api/admissions", headers=_login(client, "ward71-park")).status_code == 403
+
+
+def test_tour_session_uses_its_own_hospital(client):
+    r = client.post("/api/tour/login").json()
+    t = {"Authorization": f"Bearer {r['token']}"}
+    h = _login(client)
+    ops_before = {x["case"]: x["contact"] for x in client.get("/api/admissions", headers=h).json()["rows"]}
+    row = next(x for x in client.get("/api/admissions", headers=t).json()["rows"]
+               if x["contact"] == "안내 전" and ops_before.get(x["case"]) == "안내 전")
+    c = next(x for x in row["rows"] if x["kind"] == "contact")
+    assert client.post(f"/api/contacts/{row['case']}", json={"outcome": "done", "promised_at": c["suggest_at"]}, headers=t).status_code == 200
+    mine = next(x for x in client.get("/api/admissions", headers=t).json()["rows"] if x["case"] == row["case"])
+    ops = next(x for x in client.get("/api/admissions", headers=h).json()["rows"] if x["case"] == row["case"])
+    assert mine["contact"].startswith("안내함") and ops["contact"] == "안내 전"  # 시연에서 한 일은 운영 화면에 영향 없음
+
+
+def test_concurrent_requests_do_not_break_event_store(client):
+    """화면은 여러 요청을 한꺼번에 보낸다. 같은 합성 병원을 여러 스레드가 동시에 읽어도 깨지지 않아야 한다."""
+    from concurrent.futures import ThreadPoolExecutor
+    h = _login(client)
+    paths = ["/api/admissions", "/api/worklist", "/api/assignments", "/api/me"] * 6
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        codes = list(ex.map(lambda p: client.get(p, headers=h).status_code, paths))
+    assert set(codes) == {200}, codes
+
+
+def test_ai_ops_admin_only_and_contents(client):
+    assert client.get("/api/admin/ai-ops", headers=_login(client, "adm-kim")).status_code == 403
+    h = _login(client, "admin-jung")
+    d = client.get("/api/admin/ai-ops", headers=h).json()
+    assert d["note"] == "합성 데이터 기준 추정"
+    assert d["measured"]["no_touch"]["ratio"] == 0.724 and d["measured"]["entry_breakdown"]["change"] == -0.32
+    assert d["today"]["safety"] == 0
+    assert d["autonomy"] and all(r["mode"] in ("auto", "human") for r in d["autonomy"])
+    assert d["model"]["using"] == "외부 AI 연결 안 됨" and not d["model"]["external"]
+    ob = d["onboarding"]
+    assert ob["proof"]["passed"] and [a["done"] for a in ob["approvals"]] == [False, False]
+
+
+def test_ai_ops_autonomy_change_and_lock(client):
+    h = _login(client, "admin-jung")
+    rows = client.get("/api/admin/ai-ops", headers=h).json()["autonomy"]
+    auto = next(r for r in rows if r["mode"] == "auto")
+    r = client.post(f"/api/admin/autonomy/{auto['unit']}", json={"to": "human"}, headers=h)
+    assert r.status_code == 200
+    assert next(x for x in r.json()["autonomy"] if x["unit"] == auto["unit"])["mode"] == "human"
+    locked = next(r for r in rows if r["locked"])
+    assert client.post(f"/api/admin/autonomy/{locked['unit']}", json={"to": "auto"}, headers=h).status_code == 409
+    client.post(f"/api/admin/autonomy/{auto['unit']}", json={"to": "auto"}, headers=h)
+    log = client.get("/api/access-log", headers=h).json()["rows"]
+    assert any(x["action"] == "자율 범위 변경" for x in log) and any(x["action"] == "자율 범위 변경 거부" for x in log)
+
+
+def test_onboarding_approval_by_informatics(client):
+    h = _login(client, "admin-jung")
+    ob = client.post("/api/admin/onboarding/approve", headers=h).json()
+    assert ob["approvals"][0]["done"] and not ob["approvals"][1]["done"] and ob["status"] == "승인 1명 남음"
+
+
+def test_bed_lead_sees_flow_not_patients(client):
+    h = _login(client, "lead-han")
+    me = client.get("/api/me", headers=h).json()
+    assert me["screen"] == "ops" and me["user"]["role_label"] == "원무팀"
+    d = client.get("/api/ops/summary", headers=h).json()
+    assert "flow" in d and d["note"] == "합성 데이터 기준 추정"
+    assert client.get("/api/worklist", headers=h).status_code == 403
+    assert client.get("/api/admin/ai-ops", headers=h).status_code == 403
+
+
+def test_differentiators_numbers_from_summary(client):
+    d = client.get("/api/differentiators").json()
+    assert d["note"] == "합성 데이터 기준 추정"
+    v = {r["key"]: r["value"] for r in d["rows"]}
+    assert list(v) == ["G2", "A", "G1", "C", "B", "LLM"]  # 평범한 입원(바닥)은 차별점이 아니다
+    assert v["A"] == "−66%" and v["G1"] == "0건"
+
+
+def test_tour_can_switch_team_screen_only_in_tour(client):
+    admin = _login(client, "admin-jung")
+    assert client.post("/api/tour/as/ipc-lee", headers=_login(client, "adm-kim")).status_code == 403
+    before = client.get("/api/admin/ai-ops", headers=admin).json()["onboarding"]["approvals"]
+    t = client.post("/api/tour/login").json()["token"]
+    h = {"Authorization": f"Bearer {t}"}
+    r = client.post("/api/tour/as/admin-jung", headers=h).json()
+    assert r["user"]["role"] == "admin" and r["screen"] == "manager"
+    tour_ob = client.get("/api/admin/ai-ops", headers=h).json()["onboarding"]
+    assert [a["done"] for a in tour_ob["approvals"]] == [False, False]  # 시연은 자기 설정판을 따로 쓴다
+    assert client.post("/api/admin/onboarding/approve", headers=h).json()["approvals"][0]["done"]
+    # 시연에서 한 승인은 운영 설정판에 남지 않는다
+    assert client.get("/api/admin/ai-ops", headers=admin).json()["onboarding"]["approvals"] == before

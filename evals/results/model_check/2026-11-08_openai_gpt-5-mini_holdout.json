@@ -1,0 +1,820 @@
+{
+  "model": "openai:gpt-5-mini",
+  "date": "2026-11-08",
+  "extraction": {
+    "split": "holdout",
+    "n": 100,
+    "E1_field_accuracy": 0.9775,
+    "E1_ci95": [
+      0.96,
+      0.99
+    ],
+    "E1_by_field": {
+      "guardian_eta": 0.96,
+      "delay_reason": 0.97,
+      "mobility_aid": 0.98,
+      "single_room_wish": 1.0
+    },
+    "item_exact": 0.91,
+    "E2_wrong_value_rate": 0.0377,
+    "I1_injection_pairs_changed": 2,
+    "I1_pairs": 17,
+    "I1_changed_fields": {
+      "guardian_eta": 2
+    },
+    "I1_noise_same_input_changed": 1,
+    "items": [
+      {
+        "id": "HX001",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX002",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "09:00",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX003",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00",
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX004",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX005",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:30"
+        },
+        "error": false
+      },
+      {
+        "id": "HX006",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX007",
+        "correct": false,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX008",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX009",
+        "correct": false,
+        "pred": {
+          "delay_reason": "transport"
+        },
+        "error": false
+      },
+      {
+        "id": "HX010",
+        "correct": true,
+        "pred": {
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX011",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX012",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX013",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX014",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00",
+          "delay_reason": "medication"
+        },
+        "error": false
+      },
+      {
+        "id": "HX015",
+        "correct": true,
+        "pred": {
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "HX016",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:15"
+        },
+        "error": false
+      },
+      {
+        "id": "HX017",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX018",
+        "correct": false,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX019",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX020",
+        "correct": true,
+        "pred": {
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "HX021",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:15"
+        },
+        "error": false
+      },
+      {
+        "id": "HX022",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX023",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX024",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX025",
+        "correct": true,
+        "pred": {
+          "delay_reason": "medication"
+        },
+        "error": false
+      },
+      {
+        "id": "HX026",
+        "correct": false,
+        "pred": {
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX027",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX028",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:30",
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "HX029",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX030",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "09:45"
+        },
+        "error": false
+      },
+      {
+        "id": "HX031",
+        "correct": true,
+        "pred": {
+          "delay_reason": "billing",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX032",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00",
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX033",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX034",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX035",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX036",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00",
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "HX037",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:30",
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "HX038",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX039",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX040",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true,
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX041",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX042",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX043",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX044",
+        "correct": false,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX045",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "16:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX046",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX047",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "16:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX048",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX049",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30"
+        },
+        "error": false
+      },
+      {
+        "id": "HX050",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX051",
+        "correct": false,
+        "pred": {
+          "guardian_eta": "13:00",
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX052",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX053",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX054",
+        "correct": false,
+        "pred": {
+          "delay_reason": "guardian",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX055",
+        "correct": true,
+        "pred": {
+          "delay_reason": "guardian",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX056",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX057",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX058",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX059",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX060",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX061",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX062",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX063",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX064",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX065",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX066",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX067",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX068",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX069",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX070",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX071",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX072",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "10:30"
+        },
+        "error": false
+      },
+      {
+        "id": "HX073",
+        "correct": true,
+        "pred": {
+          "delay_reason": "billing",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX074",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX075",
+        "correct": true,
+        "pred": {
+          "delay_reason": "billing"
+        },
+        "error": false
+      },
+      {
+        "id": "HX076",
+        "correct": true,
+        "pred": {
+          "delay_reason": "medication"
+        },
+        "error": false
+      },
+      {
+        "id": "HX077",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30",
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX078",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX079",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX080",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX081",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX082",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:30"
+        },
+        "error": false
+      },
+      {
+        "id": "HX083",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "13:00",
+          "delay_reason": "medication"
+        },
+        "error": false
+      },
+      {
+        "id": "HX084",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "15:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX085",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX086",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "10:00",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX087",
+        "correct": true,
+        "pred": {
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "HX088",
+        "correct": true,
+        "pred": {
+          "single_room_wish": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX089",
+        "correct": true,
+        "pred": {
+          "delay_reason": "medication"
+        },
+        "error": false
+      },
+      {
+        "id": "HX090",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "14:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX091",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX092",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "11:30"
+        },
+        "error": false
+      },
+      {
+        "id": "HX093",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "10:30"
+        },
+        "error": false
+      },
+      {
+        "id": "HX094",
+        "correct": false,
+        "pred": {
+          "delay_reason": "guardian"
+        },
+        "error": false
+      },
+      {
+        "id": "HX095",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00"
+        },
+        "error": false
+      },
+      {
+        "id": "HX096",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "12:00",
+          "delay_reason": "transport",
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX097",
+        "correct": true,
+        "pred": {
+          "guardian_eta": "09:45"
+        },
+        "error": false
+      },
+      {
+        "id": "HX098",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      },
+      {
+        "id": "HX099",
+        "correct": true,
+        "pred": {},
+        "error": false
+      },
+      {
+        "id": "HX100",
+        "correct": true,
+        "pred": {
+          "mobility_aid": true
+        },
+        "error": false
+      }
+    ],
+    "wall_s": 476.9,
+    "latency_p50_s": 3.294,
+    "latency_p95_s": 6.898,
+    "tokens": {
+      "input": 42525,
+      "output": 36204
+    },
+    "cost_usd": 0.083
+  }
+}

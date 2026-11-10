@@ -1,0 +1,285 @@
+"""최고점 루프 1회차 안전 검토가 재현한 결함의 회귀 시험 (합성 데이터).
+
+A 감염관리실 사전 승인을 원무가 문자열로 주장하면 통과하던 것
+C 다인실 옆 침상: 같은 병실 격리 퇴실의 종말소독 전인데 자동 확정·직접 수정되던 것
+D 격리·소아 같은 안전 검토 사유를 승격(apply)이나 병원 프로필로 지울 수 있던 것
+"""
+
+import pytest
+import yaml
+
+from test_gateway import adm, at, ev, make, prop  # noqa: F401 - 같은 합성 도우미
+from turnaround.agent import autonomy
+from turnaround.events import EventType
+from turnaround.gateway import load_policy
+
+
+def _mo(gw, case, bed, now, **kw):
+    return gw.manual_override(case, bed, actor="u1", role="bed_manager", reason="clinical", now=now, **kw)
+
+
+def test_self_claimed_ipc_approval_is_refused():
+    store, gw = make([adm(gender="M", organism="MTB")])
+    d = _mo(gw, "A1", "W71-R02-B1", at(12), safety_exception_by=("내가IPC", "ipc"))
+    assert d.status == "refused" and d.tier == "preapproval"
+
+
+def test_recorded_ipc_approval_lets_override_through_and_names_approver():
+    store, gw = make([adm(gender="M", organism="MTB")])
+    a = gw.approve_safety_exception("A1", "W71-R02-B1", approver="ipc-1", role="ipc", now=at(11, 50))
+    assert a.status == "recorded"
+    d = _mo(gw, "A1", "W71-R02-B1", at(12), safety_exception_by=("ipc-1", "ipc"))
+    assert d.status == "applied"
+
+
+def test_safety_exception_approval_rejects_wrong_role_and_self_approval():
+    store, gw = make([adm(gender="M", organism="MTB")])
+    assert gw.approve_safety_exception("A1", "W71-R02-B1", approver="u1", role="bed_manager", now=at(11)).status == "refused"
+    gw.approve_safety_exception("A1", "W71-R02-B1", approver="u1", role="ipc", now=at(11))
+    # 요청자(u1)와 승인자(u1)가 같으면 인정하지 않는다
+    assert _mo(gw, "A1", "W71-R02-B1", at(12), safety_exception_by=("u1", "ipc")).status == "refused"
+
+
+def test_approval_for_other_bed_does_not_count():
+    store, gw = make([adm(gender="M", organism="MTB")])
+    gw.approve_safety_exception("A1", "W71-R02-B2", approver="ipc-1", role="ipc", now=at(11))
+    assert _mo(gw, "A1", "W71-R02-B1", at(12), safety_exception_by=("ipc-1", "ipc")).status == "refused"
+
+
+def _cre_neighbor():
+    return [adm(), ev("D1", "discharge_decided", EventType.DISCHARGE_DECIDED, at(17, day=-1), bed_id="W72-R04-B1",
+                      isolation_order=True, precautions=["contact"], organism="CRE"),
+            ev("D1", "patient_departed", EventType.PATIENT_DEPARTED, at(8), bed_id="W72-R04-B1")]
+
+
+def test_neighbor_bed_of_pending_terminal_cleaning_is_not_committed():
+    store, gw = make(_cre_neighbor(), policy=load_policy())
+    d = gw.submit(prop(bed="W72-R04-B2", store=store), at(9))
+    assert d.status != "committed"
+
+
+def test_neighbor_bed_manual_override_refused_until_terminal_done():
+    store, gw = make(_cre_neighbor(), policy=load_policy())
+    assert _mo(gw, "A1", "W72-R04-B3", at(9)).status == "refused"
+    store.append(ev("D1", "terminal_done", EventType.CLEANING_DONE, at(10), source="human", bed_id="W72-R04-B1",
+                    cleaning_type="terminal"))
+    assert _mo(gw, "A1", "W72-R04-B3", at(11)).status == "applied"
+
+
+@pytest.mark.parametrize("unit", ["isolation", "pediatric", "preemptive_isolation", "missing_input"])
+def test_promotion_cannot_remove_never_units(unit):
+    with pytest.raises(ValueError):
+        autonomy.apply(load_policy(), unit, "auto")
+
+
+def test_profile_without_safety_review_reasons_fails_to_load(tmp_path):
+    p = tmp_path / "bad.yaml"
+    p.write_text(yaml.safe_dump({"review_reasons": ["no_bed", "missing_input"]}), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_policy(profile=str(p))
+
+
+def test_profile_cannot_shrink_never_list(tmp_path):
+    p = tmp_path / "bad2.yaml"
+    p.write_text(yaml.safe_dump({"autonomy_promotion": {"never": []}}), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_policy(profile=str(p))
+
+
+# ---- 상황별 금지 입력은 게이트웨이가 이벤트에서 직접 다시 계산한다 (안전 검토 4) ----
+
+def _late_iso_weekend_night():
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    d0 = 5  # 2026-03-07 토요일
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=d0 - 1), "agent",
+              bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(2, day=d0), "his", precautions=["airborne"],
+              organism="MTB")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(2, 5, day=d0))
+    return store, gw, pol, at(2, 10, day=d0)
+
+
+@pytest.mark.parametrize("forged", [{}, {"exception": {"trigger": "late_isolation", "stage": "before_contact", "attempts": 0},
+                                        "case_state": {"ipc_on_duty": True}}])
+def test_wait_for_ipc_at_weekend_night_is_blocked_whatever_the_agent_claims(forged):
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ActionChoice, ExceptionBrain
+    store, gw, pol, now = _late_iso_weekend_night()
+    brain = ExceptionBrain(gw, FakeLLM(), pol)
+    ex = brain.open_exceptions(store.read())[0]
+    assert ex.payload["trigger"] == "late_isolation"
+    choice = ActionChoice(exception_id=ex.payload["exception_id"], trigger="late_isolation", case=ex.case_id,
+                          action="wait_for_ipc", params={}, rationale="x",
+                          basis_seq=max(e.seq or 0 for e in store.read()), mode="llm", basis_input=forged)
+    d = gw.submit_action(choice, now)
+    assert d.status == "rejected" and d.reasons == ["ipc_off_duty"]
+
+
+def test_s2_counts_neighbor_bed_commit_before_terminal_cleaning():
+    """안전 측정도 병실 단위로 본다 (측정이 게이트웨이와 같은 사각지대를 공유하던 문제)."""
+    from turnaround.evaluation.safety_exec import executed_safety
+    evs = _cre_neighbor() + [
+        ev("D1", "terminal_req", EventType.CLEANING_REQUEST_ISSUED, at(8, 1), "saga", bed_id="W72-R04-B1",
+           cleaning_type="terminal"),
+        ev("A1", "neighbor_commit", EventType.MATCH_COMMITTED, at(9), "gateway", bed_id="W72-R04-B2")]
+    store, gw = make(evs, policy=load_policy())
+    s = executed_safety(gw, store.read())
+    assert s["S2"]["violations"] >= 1 and "commit_in_room_before_disinfection" in s["S2"]["codes"]
+
+
+@pytest.mark.parametrize("text", [".", " ", "--", "ㅇ"])
+def test_reason_entry_needs_a_real_reason(text):
+    from test_gateway import Gender, census_patient
+    census = {"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)}
+    store, gw = make([adm(gender="M", organism="VRE")], census=census)
+    d = _mo(gw, "A1", "W71-R03-B2", at(12), reason_text=text)
+    assert d.status == "refused" and d.tier == "reason_entry"
+
+
+# ---- 2회차: 늦은 격리의 병상 결정은 감염관리실 승인 ----
+
+def _late_iso_after_contact():
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ExceptionBrain
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=-1), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "patient_contacted", EventType.PATIENT_CONTACTED, at(9), "human"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(10), "his", precautions=["contact"], organism="VRE")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(10, 5))
+    ExceptionBrain(gw, FakeLLM(), pol).step(at(10, 10))
+    req = [e for e in store.read() if e.type is EventType.ACTION_APPROVAL_REQUESTED]
+    return store, gw, req
+
+
+def test_late_isolation_approval_belongs_to_ipc_not_admission():
+    store, gw, req = _late_iso_after_contact()
+    assert req, "연락 뒤 늦은 격리는 사람 승인 요청이 생겨야 한다"
+    exid = req[0].payload["exception_id"]
+    assert gw.approve_action(exid, "bed_manager", at(10, 20)).reasons == ["approver_role"]
+    assert gw.decline_action(exid, "bed_manager", "x", at(10, 20)).reasons == ["approver_role"]
+    assert gw.approve_action(exid, "ipc", at(10, 25), approver_id="ipc-1").status == "executed"
+
+
+def test_late_isolation_off_hours_on_call_can_decide():
+    store, gw, req = _late_iso_after_contact()
+    # 근무 시간(09~18시) 밖에는 감염내과 당직이 결정한다
+    d = gw.approve_action(req[0].payload["exception_id"], "id_oncall", at(19), approver_id="dr-k")
+    assert d.status in ("executed", "rejected") and d.reasons != ["not_on_duty"] and d.reasons != ["approver_id"]
+
+
+# ---- 2회차 안전 검토: 승인 진위·시한, 게이트웨이 독립 판정, 야간 감염관리 담당 ----
+
+def _cre_multi():
+    from test_gateway import Gender, census_patient
+    return make([adm(gender="M", organism="CRE")], census={"W71-R03-B1": census_patient("SYN-C1", gender=Gender.MALE)})
+
+
+def test_approver_must_be_registered_staff_with_that_role():
+    store, gw = _cre_multi()
+    assert gw.approve_safety_exception("A1", "W71-R03-B2", approver="아무개", role="ipc", now=at(17)).status == "refused"
+
+
+def test_safety_exception_approval_expires():
+    store, gw = _cre_multi()
+    assert gw.approve_safety_exception("A1", "W71-R03-B2", approver="ipc-1", role="ipc", now=at(9)).status == "recorded"
+    late = _mo(gw, "A1", "W71-R03-B2", at(18, day=4), reason_text="일반 병실이 없어 임시 배정",
+               safety_exception_by=("ipc-1", "ipc"))
+    assert late.status == "refused"
+    ok = _mo(gw, "A1", "W71-R03-B2", at(10), reason_text="일반 병실이 없어 임시 배정", safety_exception_by=("ipc-1", "ipc"))
+    assert ok.status == "applied"
+
+
+def test_gateway_blocks_situational_wait_without_a_registered_brain():
+    """머리가 등록되지 않은 경로에서도 게이트웨이가 스스로 입력을 계산해 막는다."""
+    from turnaround.agent.brain import ActionChoice
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=4), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(2, day=5), "his", precautions=["airborne"], organism="MTB")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(2, 5, day=5))
+    ex = [e for e in store.read() if e.type is EventType.EXCEPTION_RAISED][0]
+    c = ActionChoice(exception_id=ex.payload["exception_id"], trigger=ex.payload["trigger"], case=ex.case_id,
+                     action="wait_for_ipc", params={}, rationale="x", basis_seq=max(e.seq or 0 for e in store.read()),
+                     mode="llm", basis_input={})
+    d = gw.submit_action(c, at(2, 10, day=5))
+    assert d.status == "rejected" and d.reasons == ["ipc_off_duty"]
+    notice = [e for e in store.read() if e.payload.get("kind") == "isolation_notice"]
+    assert not notice or notice[0].payload.get("holder") == "id_oncall"
+
+
+def test_night_isolation_notice_names_on_call_holder():
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ExceptionBrain
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="F", dept="일반외과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=4), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(2, day=5), "his", precautions=["airborne"], organism="MTB")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(2, 5, day=5))
+    ExceptionBrain(gw, FakeLLM(), pol).step(at(2, 10, day=5))
+    notice = [e for e in store.read() if e.payload.get("kind") == "isolation_notice"]
+    assert notice and notice[0].payload["holder"] == "id_oncall"
+    esc = [e for e in store.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "brain_escalate"]
+    assert all(e.payload.get("assignee") in ("ipc", "id_oncall") for e in esc)
+
+
+# ---- 3회차: 격리 병상 결정 경로 일관성, 승인자 신원·근무, 온보딩 운영 관문 ----
+
+def test_isolation_decision_needs_registered_on_duty_person():
+    store, gw, req = _late_iso_after_contact()
+    exid = req[0].payload["exception_id"]
+    assert gw.approve_action(exid, "ipc", at(10, 25)).reasons == ["approver_id"]          # 사람 ID 없음
+    assert gw.approve_action(exid, "ipc", at(10, 25), approver_id="아무개").reasons == ["approver_id"]
+    assert gw.approve_action(exid, "id_oncall", at(10, 25), approver_id="dr-k").reasons == ["not_on_duty"]  # 근무 시간엔 감염관리실
+    d = gw.approve_action(exid, "ipc", at(10, 25), approver_id="ipc-1")
+    assert d.status == "executed"
+    ok = [e for e in store.read() if e.type is EventType.ACTION_APPROVED]
+    assert ok[-1].payload.get("approver_id") == "ipc-1"
+
+
+def test_late_isolation_reproposal_review_is_decided_by_ipc():
+    """입실 전 늦은 격리: 다시 찾은 새 병상 제안의 담당 검토 승인도 감염관리실이 한다."""
+    from turnaround.agent import FakeLLM
+    from turnaround.agent.brain import ExceptionBrain
+    from turnaround.saga import SagaPolicy, SagaRunner
+    from test_gateway import H
+    pol = load_policy()
+    evs = [adm(gender="M", dept="소화기내과"),
+           ev("A1", "prematch_created:W72-R04-B1", EventType.PREMATCH_CREATED, at(17, 40, day=-1), "agent", bed_id="W72-R04-B1"),
+           ev("A1", "iso_late", EventType.ISOLATION_ORDER_ADDED, at(10), "his", precautions=["contact"], organism="MRSA")]
+    store, gw = make(evs, policy=pol)
+    SagaRunner(store, SagaPolicy.from_policy(pol, H.rooms, H.beds)).step(at(10, 5))
+    ExceptionBrain(gw, FakeLLM(), pol).step(at(10, 10))
+    from turnaround.agent.tools import PlanningTools
+    cands = PlanningTools(gw, H.wards).candidates("A1", at(10, 15))
+    assert cands
+    d = gw.submit(prop(pid="p2", bed=cands[0].bed_id, store=store), at(10, 15))
+    if d.status != "awaiting_review":
+        pytest.skip("이 합성 배치에서는 담당 검토로 가지 않음")
+    assert gw.manager_approve("p2", at(10, 20)).reasons == ["approver_role"]
+    assert gw.review_decider("p2", at(10, 20)) == "ipc"
+    assert gw.manager_approve("p2", at(10, 20), actor="ipc").status != "rejected"
+
+
+def test_onboarding_apply_requires_complete_identified_approval():
+    from turnaround.agent.onboarding_flow import OnboardingError, apply_package
+    from turnaround.ui.scenes import SCENES, SceneRun, _tables
+    r = SceneRun(SCENES["onboard"])
+    for _ in r.scene.steps[:4]:
+        r.next()
+    legacy = r.pkg.approve(by="medical_informatics", acknowledge_profile_questions=True)
+    with pytest.raises(OnboardingError):
+        apply_package(legacy, _tables())

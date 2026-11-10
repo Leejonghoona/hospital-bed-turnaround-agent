@@ -1,0 +1,43 @@
+{
+ "provenance": {
+  "commit": "f8abc56",
+  "dirty": true,
+  "source_dirty": false,
+  "source_diff_sha": null,
+  "at": "2026-11-09T20:22:23+00:00",
+  "python": "3.13.18",
+  "packages": {
+   "pydantic": "2.13.5",
+   "rdflib": "7.6.0",
+   "pyshacl": "0.40.2",
+   "streamlit": "1.67.0"
+  },
+  "policy_fingerprint": "a5aa72afdb1d"
+ },
+ "seeds": [
+  0,
+  19
+ ],
+ "field_default": {
+  "admission_cases": 304,
+  "committed": 203,
+  "no_touch_committed": 147,
+  "S1": 0,
+  "S1_n": 203,
+  "S2": 0,
+  "S2_n": 22,
+  "no_touch_ratio": 0.724,
+  "per_seed_min": 0.5
+ },
+ "legacy": {
+  "admission_cases": 304,
+  "committed": 273,
+  "no_touch_committed": 0,
+  "S1": 0,
+  "S1_n": 274,
+  "S2": 8,
+  "S2_n": 22,
+  "no_touch_ratio": 0.0,
+  "per_seed_min": 0.0
+ }
+}

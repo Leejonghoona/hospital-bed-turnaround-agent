@@ -1,0 +1,43 @@
+// 화면 스크린샷 브라우저 조작 (scripts/screenshots.py가 Streamlit을 띄운 뒤 부른다). 합성 데이터 화면만 찍는다.
+const { chromium } = require('playwright');
+const [port, out, scale, only] = process.argv.slice(2);
+const SCENES = [['day', '1. 평범한 하루', 3], ['exception', '2. 예외와 승인', 4], ['onboard', '3. 새 병원 시작하기', 5]];
+
+async function idle(page) {
+  await page.waitForTimeout(600);
+  await page.waitForFunction(() => !document.querySelector('[data-testid="stStatusWidget"]'), null, { timeout: 180000 });
+  await page.waitForTimeout(900);
+}
+
+(async () => {
+  const b = await chromium.launch();
+  const page = await b.newPage({ viewport: { width: 1440, height: 1600 }, deviceScaleFactor: Number(scale || 2) });
+  for (const [sid, title, n] of SCENES) {
+    if (only && only !== sid) continue;
+    await page.goto(`http://127.0.0.1:${port}`);
+    await idle(page);
+    const side = page.getByTestId('stSidebar');
+    await side.getByTestId('stSelectbox').click();
+    await page.getByRole('option', { name: title }).click();
+    await idle(page);
+    for (let i = 1; i <= n; i++) {
+      await page.getByRole('button', { name: '다음 ▶' }).click();
+      await page.getByText(`${i}/${n} 단계`).waitFor({ timeout: 180000 });  // 그 단계가 끝나 진행 표시가 바뀔 때까지
+      await idle(page);
+      const f = `${out}/scene_${sid}_${i}.png`;
+      // Streamlit은 안쪽 영역이 스크롤되므로 뷰포트를 내용 높이만큼 늘려 전체를 찍는다 (3회차 검토: 아래가 잘림)
+      const h = await page.evaluate(() => {
+        const m = document.querySelector('[data-testid="stMain"]') || document.querySelector('section.main');
+        return Math.ceil(Math.max(m ? m.scrollHeight : 0, document.body.scrollHeight));
+      });
+      await page.setViewportSize({ width: 1440, height: Math.min(Math.max(1600, h + 40), 9000) });
+      await idle(page);
+      await page.screenshot({ path: f, fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 1600 });
+      const lang = await page.evaluate(() => document.documentElement.lang);
+      const text = await page.innerText('body');
+      console.log(JSON.stringify({ file: f, step: i, ok: text.includes('화면') && !text.includes('Traceback') && lang === 'ko', lang }));
+    }
+  }
+  await b.close();
+})().catch(e => { console.error(e); process.exit(1); });

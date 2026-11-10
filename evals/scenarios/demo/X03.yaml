@@ -1,0 +1,19 @@
+id: X03
+category: saga
+title: 퇴실 뒤 격리 오더, 입실 가능 되돌림과 다음 환자 보호
+tags: [late_isolation, demo_d2]
+design_ref: 'DECISIONS 2026-11-09 "퇴실 뒤 격리 오더의 청소 상향", 설계 개정 3.7 (다)'
+situation: D1이 11:00에 W72-R04-B1에서 퇴실했고 일반 청소 뒤 12:00에 입실 가능이 됐다. 다음 환자 P1은 12:30에 그 병상으로 확정됐고 아직
+  입실 전이다. 13:00에 D1의 VRE 격리 오더가 늦게 들어왔다.
+fixture: {seed: 10042, split: demo, profile: field_default, events: 실행기 고정 데이터}
+gold:
+  must_actions:
+  - {type: send_cleaning_request, case: D1, bed: W72-R04-B1, params: {cleaning_type: terminal}}
+  - {type: revoke_vacancy, case: D1, bed: W72-R04-B1, params: {reason: late_isolation}}
+  - {type: create_human_task, case: P1, bed: W72-R04-B1, params: {reason: late_isolation_next_committed}, note: 확정은 책임 순간이라 사람}
+  must_not:
+  - {type: mark_bed_vacant, case: D1, params: {count_over: 1}, note: 종말소독 완료 전 다시 입실 가능으로 바꾸지 않는다}
+metrics: [S2]
+measured_from_stage: 3
+status: draft
+provenance: {author: claude-draft, reviewed_by: 미검토, rule_source: '설계 개정 안전·현장 검토가 재현한 결함과 3.7 (다) 표'}

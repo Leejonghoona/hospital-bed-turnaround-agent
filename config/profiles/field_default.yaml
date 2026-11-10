@@ -1,0 +1,30 @@
+# 현장 기본값 (DECISIONS 2026-11-09 현장 조사 반영 결정·설계 개정 인터뷰). 스위치는 단계마다 정책 기본값으로 옮긴다.
+version: policy-2026-11-09-field
+# 담당 검토 사유: 점수 근접(close_scores)은 뺀다. 두 후보 모두 안전 기준 통과, 동점은 사람 판단 대상 아님 (DECISIONS 2026-11-09 M1)
+review_reasons: [isolation, preemptive_isolation, pediatric, icu_stepdown, single_room_preference, grade_upgrade, same_name_same_ward,
+                 no_bed, integrated_care_consent_missing, missing_input, isolation_discharge_bed]
+hospital_profile:
+  id: synthetic-field-2026-11
+  assignment:
+    timing: same_day_morning        # 공개 안내 14곳 모두 입원 당일 오전 배정
+  ward_confirmation:
+    mode: notify                    # 서울고법 2013누25193, 블로그·영상: 병동은 통보받음
+    merge_manager_confirm_into_commit: true   # 인터뷰 Q1
+  discharge_sequence:
+    preset: field                   # 심사·조제 병행 → 연락 → 수납 → 영수증 → 약 전달·교육 → 퇴실
+    rx_due_at: "09:00"
+    departure_due_at: "11:00"       # 서울대·서울성모·강북삼성 등 퇴실 11시 규정
+  guardian:
+    lounge_enabled: true            # 서울성모 "중앙휴게실 사용"
+  cleaning:
+    split: true                     # 병원 직원 침상 정리 + 미화 표면 청소 (해운대백 과업지시서, 동아대 영상)
+    readiness_scope: {multi: bed_unit, single: room, negative_pressure: room, isolation: room_terminal}
+  isolation:
+    risk_conditions: [mdro_history, recent_other_hospital_stay, icu_transfer]
+  room_change:
+    display_chain: true
+  admission_window: ["14:00", "17:00"]   # 서울성모 14~17, 해운대백 15~17 피크
+brain:
+  enabled: true
+autonomy:
+  official_commit: auto            # 검토 사유 없는 사례는 에이전트가 확정, 병동·원무에 통보 (DECISIONS 2026-11-09)

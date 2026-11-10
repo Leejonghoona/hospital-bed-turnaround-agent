@@ -1,0 +1,43 @@
+id: H02
+category: tier
+title: 선제 격리 해제 전후
+tags:
+- preemptive
+- ipc
+design_ref: 'LP-17, LP-19: 선제 격리는 1인실만. 1일 이상 간격 선별검사 2회 연속 음성이면 감염관리실이 해제. 지침 부록 A 6'
+situation: 'P1(남성)은 과거 CRE 이력으로 감염관리실이 선제 격리했다. 1막: 선별검사 1회 음성 상태에서 다인실 W71-R03-B2 제안이 들어온다. 2막: 다음 날 2회째 음성이 나오고 감염관리실이 격리를 해제한 뒤 같은 제안이 들어온다.'
+fixture:
+  seed: 10042
+  split: holdout
+  events: 마일스톤에서 작성
+gold:
+  tier_by_case:
+    P1: review
+  must_actions:
+  - type: reject_at_proposal
+    case: P1
+    bed: W71-R03-B2
+    note: '1막: 해제 전 다인실'
+    stage: 4
+  - type: propose_match
+    case: P1
+    bed: W71-R03-B2
+    note: '2막: 해제 뒤 허용'
+    stage: 7
+    level: proposal
+  must_not:
+  - type: commit_match
+    case: P1
+    bed: W71-R03-B2
+    note: '1막: 해제 전'
+    level: executed
+metrics:
+- S1
+- T1
+measured_from_stage: 4
+autonomy_stage: 1
+status: approved
+provenance:
+  author: claude-draft
+  rule_source: 지침 부록 A 6 선제 격리. 환자 분류 코드 조사(docs/환자분류코드_조사.md)와 LP-16~22
+  reviewed_by: 사용자 (2026-11-08)

@@ -1,0 +1,165 @@
+{
+ "model": "fake",
+ "date": "2026-11-09",
+ "rows": [
+  {
+   "seed": 1,
+   "fmt": "emr_a",
+   "llm": "fake",
+   "columns": {
+    "correct": 68,
+    "wrong": 0,
+    "asked": 0,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 12,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 19,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_b",
+   "llm": "fake",
+   "columns": {
+    "correct": 68,
+    "wrong": 0,
+    "asked": 0,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 9,
+    "wrong": 0,
+    "asked": 14,
+    "correct_proposal": 14
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 19,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_c",
+   "llm": "fake",
+   "columns": {
+    "correct": 55,
+    "wrong": 0,
+    "asked": 0,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 14,
+    "asked_no_proposal": 5
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 26,
+   "followup_questions": 0,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_d",
+   "llm": "fake",
+   "columns": {
+    "correct": 32,
+    "wrong": 0,
+    "asked": 36,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 21,
+    "correct_proposal": 7,
+    "asked_with_column": 14
+   },
+   "format": {
+    "time_format": "asked",
+    "bool_values": "correct",
+    "list_sep": "correct",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 49,
+   "followup_questions": 19,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  },
+  {
+   "seed": 1,
+   "fmt": "emr_e",
+   "llm": "fake",
+   "columns": {
+    "correct": 16,
+    "wrong": 0,
+    "asked": 39,
+    "missed": 0
+   },
+   "codes": {
+    "correct": 2,
+    "wrong": 0,
+    "asked": 19,
+    "correct_proposal": 2,
+    "asked_with_column": 17
+   },
+   "format": {
+    "time_format": "correct",
+    "bool_values": "correct",
+    "list_sep": "asked",
+    "bed_parts": "correct",
+    "bed_part_style": "correct"
+   },
+   "questions": 43,
+   "followup_questions": 17,
+   "exact_after_answers": true,
+   "error": null,
+   "wrong_columns": [],
+   "wrong_codes": []
+  }
+ ],
+ "usage": {
+  "calls": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "latency_s": 0.0
+ }
+}

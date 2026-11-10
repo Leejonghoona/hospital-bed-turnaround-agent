@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-08",
+  "commit": "1c0df33",
+  "scenario_set": "bdc2261f865c",
+  "split": "holdout",
+  "llm": "none",
+  "policy": "policy-2026-11-08",
+  "seeds": [
+    0,
+    0
+  ],
+  "stage": 4,
+  "scenarios": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "not_implemented": 0,
+    "by_id": {
+      "H01": "passed",
+      "H02": "passed",
+      "H03": "passed",
+      "H04": "passed",
+      "H05": "passed"
+    },
+    "failures": {},
+    "labels_approved": 5
+  },
+  "safety": {
+    "source": "generator_state",
+    "S1": {
+      "violations": 0,
+      "denominator": 30,
+      "upper_bound_95": 0.1
+    },
+    "S2": {
+      "violations": 0,
+      "denominator": 3,
+      "upper_bound_95": 1.0
+    },
+    "S4": {
+      "leaks": 0,
+      "cuts": 15,
+      "source": "event_store_noisy_replay"
+    }
+  },
+  "baseline": {
+    "name": "no_agent",
+    "n_discharges": 30,
+    "pre_departure_min": {
+      "p50": 199.0,
+      "p90": 351.0
+    },
+    "bed_prep_min": {
+      "p50": 102.0,
+      "p90": 217.0
+    },
+    "cleaning_request_delay_min": {
+      "p50": 22.0,
+      "p90": 80.0
+    },
+    "noon_departure_ratio": 0.2,
+    "admission_segment": null,
+    "assumptions": []
+  },
+  "note": "합성 데이터 기준 추정"
+}

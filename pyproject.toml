@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "turnaround"
+version = "0.1.0"
+description = "병상 턴어라운드 관제 에이전트 데모 (합성 데이터 전용)"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.6",
+  "pyyaml>=6",
+  "rdflib>=7",
+  "pyshacl>=0.25",
+  "requests>=2.31",  # 실제 LLM HTTP 호출 (환경 변수가 있을 때만 씀)
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "fhir.resources>=7", "httpx>=0.27", "opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20"]  # fhir.resources: R4 구조 검증 (테스트 전용)
+local = ["llama-cpp-python>=0.3"]  # 원내 모델 실측 (GGUF)
+claudesub = ["claude-agent-sdk"]  # 구독 계정 Claude Code 경유 평가 (개인 평가용)
+ui = ["streamlit>=1.30"]
+trace = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20"]  # 에이전트 추적 (TURNAROUND_TRACE=1). Langfuse로 보내려면 opentelemetry-exporter-otlp-proto-http
+mcp = ["mcp>=1.2"]  # MCP 서버 (python -m turnaround.mcp_server, 읽기 전용)
+api = ["fastapi>=0.116,<0.120", "uvicorn>=0.30", "httpx>=0.27"]  # WardFlow 웹 화면용 API
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+markers = ["slow: 오래 걸리는 검사 (pytest -m slow 로 따로 돌린다)"]
+addopts = "-m 'not slow'"
+
+[tool.setuptools.package-data]
+turnaround = ["ontology/*.ttl"]

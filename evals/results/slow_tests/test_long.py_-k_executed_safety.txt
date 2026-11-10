@@ -1,0 +1,4 @@
+{'source': 'system_executed', 'seeds': [0, 49], 'day': 1, 'until': '23:45', 'S1': {'violations': 0, 'denominator': 410, 'upper_bound_95': 0.00732, 'codes': []}, 'S2': {'violations': 0, 'denominator': 58, 'upper_bound_95': 0.05172, 'codes': []}}
+.
+1 passed, 31 deselected in 2987.40s (0:49:47)
+exit=0

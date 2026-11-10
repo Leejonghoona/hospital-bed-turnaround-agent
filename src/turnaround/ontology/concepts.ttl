@@ -1,0 +1,35 @@
+@prefix ta:   <urn:turnaround:> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# 경량 온톨로지: 개념 계층. 설계 문서 데이터 섹션의 예시를 그대로 옮겼다.
+# 새 질환이나 병실 유형은 여기 한 줄로 추가하면 SHACL 제약이 하위 개념까지 따라간다.
+
+# 병실: 음압격리실 → 1인실 → 병실
+ta:Room                 a rdfs:Class ; rdfs:label "병실" .
+ta:SingleRoom           rdfs:subClassOf ta:Room ; rdfs:label "1인실" .
+ta:NegativePressureRoom rdfs:subClassOf ta:SingleRoom ; rdfs:label "음압격리실" .
+ta:MultiRoom            rdfs:subClassOf ta:Room ; rdfs:label "다인실" .
+ta:CohortRoom           rdfs:subClassOf ta:MultiRoom ; rdfs:label "코호트실(같은 병원체 환자만)" .
+ta:Bed                  a rdfs:Class ; rdfs:label "병상" .
+
+# 환자: 결핵 의심 → 공기감염 격리 필요 → 격리 필요. 전파경로 주의 체계 (LP-16, 질병관리청 표준예방지침)
+ta:Patient                      a rdfs:Class ; rdfs:label "환자" .
+ta:IsolationPatient             rdfs:subClassOf ta:Patient ; rdfs:label "격리 필요" .
+ta:AirborneIsolationPatient     rdfs:subClassOf ta:IsolationPatient ; rdfs:label "공기감염 격리 필요" .
+ta:ContactIsolationPatient      rdfs:subClassOf ta:IsolationPatient ; rdfs:label "접촉주의" .
+ta:DropletIsolationPatient      rdfs:subClassOf ta:IsolationPatient ; rdfs:label "비말주의" .
+ta:SuspectedTuberculosisPatient rdfs:subClassOf ta:AirborneIsolationPatient ; rdfs:label "결핵 의심" .
+
+# 병상 회전 기록
+ta:BedTurnover a rdfs:Class ; rdfs:label "병상 회전(퇴실부터 다음 확정까지)" .
+
+# 표준 코드 대응 (ONT-4). 주석일 뿐이며 규칙(shapes.ttl)은 바꾸지 않는다.
+# SNOMED CT: 주의 절차 코드(Flag.code). FHIR: location-physical-type 코드(Location.physicalType).
+ta:AirborneIsolationPatient skos:exactMatch <http://snomed.info/id/409524006> .  # Airborne precautions
+ta:DropletIsolationPatient  skos:exactMatch <http://snomed.info/id/409525007> .  # Droplet precautions
+ta:ContactIsolationPatient  skos:exactMatch <http://snomed.info/id/409529001> .  # Contact precautions
+ta:Room skos:closeMatch <http://terminology.hl7.org/CodeSystem/location-physical-type#ro> .
+ta:Bed  skos:closeMatch <http://terminology.hl7.org/CodeSystem/location-physical-type#bd> .
+ta:Ward skos:closeMatch <http://terminology.hl7.org/CodeSystem/location-physical-type#wa> .
+# 음압격리실은 FHIR physicalType에 대응 개념이 없다 (어댑터는 확장으로 표현). 대응을 두지 않는다.

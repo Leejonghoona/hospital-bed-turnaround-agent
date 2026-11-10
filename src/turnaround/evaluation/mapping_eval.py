@@ -1,0 +1,127 @@
+"""매핑 에이전트 평가 (로드맵 07 M6-4·5). 합성 데이터 기준 추정.
+
+- 열: 정답 매핑의 (표, 열) → 정규 키와 초안 비교. 맞음 / 틀림(질문 없이 틀린 키) / 질문.
+- 코드값: 정답 코드표의 (키, 원천값) → 정규값과 초안 비교. 맞음 / 틀림 / 질문(안전 코드 상시 확인 포함).
+- 끝까지: 질문에 정답으로 답한 매핑으로 변환한 결과가 정규 사건·병상 구조와 완전히 같은가.
+"""
+
+from __future__ import annotations
+
+from turnaround.agent.mapping_agent import MappingDraft, answer, followup_questions, propose_mapping
+from turnaround.ontology.mapping import apply_mapping
+
+
+def gold_answers(draft, gold) -> dict:
+    out = {}
+    for q in draft.questions:
+        if q.id.startswith("col:"):
+            _, t, c = q.id.split(":", 2)
+            out[q.id] = gold.tables[t].columns.get(c) if t in gold.tables else None
+        elif q.id.startswith("code:"):
+            _, k, v = q.id.split(":", 2)
+            out[q.id] = gold.codes.get(k, {}).get(v, v)
+        elif q.id == "fmt:time":
+            out[q.id] = gold.time_format
+        elif q.id == "fmt:sep":
+            out[q.id] = gold.list_sep
+        elif q.id == "fmt:bool":
+            out[q.id] = gold.bool_values
+        elif q.id.startswith("evt:"):
+            code = q.id[4:]
+            out[q.id] = next((tm.event_codes.get(code) for tm in gold.tables.values() if tm.kind == "events"), None)
+    return out
+
+
+def score(tables: dict, gold, canonical_events, h, llm=None, lexicon=None) -> dict:
+    d = propose_mapping(tables, llm=llm, lexicon=lexicon, data_class="synthetic")
+    first = d
+    if any(q.id == "layout" for q in d.questions):  # 사람이 병상 표와 세 열을 알려 주면 다시 만든다
+        lay = next(t for t, tm in gold.tables.items() if tm.kind == "layout")
+        d = propose_mapping(tables, llm=llm, hints={"layout": (lay, gold.bed_parts)}, lexicon=lexicon,
+                             data_class="synthetic")
+        d.questions = [q for q in first.questions if q.id == "layout"] + d.questions
+    asked = {q.id for q in d.questions}
+    col = {"correct": 0, "wrong": 0, "asked": 0, "missed": 0}
+    wrong_cols = []
+    present = {t: {c for r in rows for c, v in r.items() if v != ""} for t, rows in tables.items()}
+    seen_vals: dict[str, set] = {}
+    for t, tm in gold.tables.items():
+        for r in tables.get(t, []):
+            for c, k in tm.columns.items():
+                v = r.get(c, "")
+                if v != "":
+                    seen_vals.setdefault(k, set()).update(v.split(gold.list_sep) if k.endswith(("precautions", "departments"))
+                                                          else [v])
+    for t, tm in gold.tables.items():
+        if tm.kind == "events":
+            used = {r[tm.event_columns[1]] for r in tables.get(t, [])}
+            items = [(f"evt:{code}", k) for code, k in tm.event_codes.items() if code in used]
+        else:
+            items = [(c, k) for c, k in tm.columns.items() if c in present.get(t, set())]
+        for c, k in items:
+            got = d.columns.get((t, c))
+            if got == k:
+                col["correct"] += 1
+            elif f"col:{t}:{c}" in asked or c in asked:
+                col["asked"] += 1
+            elif got is None:
+                col["missed"] += 1
+            else:
+                col["wrong"] += 1
+                wrong_cols.append((t, c, got, k))
+    fmt = {}
+    for k, gv, dv in (("time_format", gold.time_format, d.mapping.time_format), ("bool_values", gold.bool_values,
+                      d.mapping.bool_values), ("list_sep", gold.list_sep, d.mapping.list_sep),
+                      ("bed_parts", gold.bed_parts, d.mapping.bed_parts), ("bed_part_style", gold.bed_part_style,
+                                                                          d.mapping.bed_part_style)):
+        qid = {"time_format": "fmt:time", "bool_values": "fmt:bool", "list_sep": "fmt:sep"}.get(k)
+        fmt[k] = "correct" if gv == dv and qid not in asked else ("asked" if qid in asked else "wrong")
+    code = {"correct": 0, "wrong": 0, "asked": 0}
+    wrong_codes = []
+    for k, cm in gold.codes.items():
+        if k == "departments":
+            continue
+        for src, canon in cm.items():
+            if src not in seen_vals.get(k, set()):
+                continue  # 데이터에 나오지 않는 코드
+            got = d.mapping.codes.get(k, {}).get(src, src)
+            qid = f"code:{k}:{src}"
+            col_asked = any(q.id.startswith("col:") and gold.tables[q.id.split(":", 2)[1]].columns.get(
+                q.id.split(":", 2)[2]) == k for q in d.questions if q.id.startswith("col:") and q.id.split(":", 2)[1] in gold.tables)
+            if col_asked and got != canon:
+                code["asked"] += 1
+                code["asked_with_column"] = code.get("asked_with_column", 0) + 1
+                continue
+            if qid in asked and (got != canon or any(q.id == qid and q.proposal in (None, canon)
+                                                     for q in d.questions)):
+                code["asked"] += 1
+                code["correct_proposal" if any(q.id == qid and q.proposal == canon for q in d.questions)
+                     else "asked_no_proposal"] = code.get("correct_proposal" if any(
+                         q.id == qid and q.proposal == canon for q in d.questions) else "asked_no_proposal", 0) + 1
+            elif got == canon:
+                code["correct"] += 1
+            else:
+                code["wrong"] += 1
+                wrong_codes.append((k, src, got, canon))
+    final = answer(d, gold_answers(d, gold))
+    # 2차: 답을 반영한 매핑으로 값을 풀어 보고 허용되지 않는 값을 다시 묻는다
+    follow = followup_questions(final, tables)
+    if follow:
+        d2 = MappingDraft(mapping=final, questions=follow, evidence={}, columns={})
+        final = answer(d2, gold_answers(d2, gold))
+    key = lambda e: (e.event_id, e.type, e.occurred_at, e.source,  # noqa: E731
+                     tuple(sorted((a, str(b)) for a, b in e.payload.items())))
+    error = None
+    try:
+        out = apply_mapping(final, tables)
+        exact = sorted(map(key, out.events)) == sorted(map(key, canonical_events)) and out.beds == h.beds \
+            and out.rooms == h.rooms
+    except Exception as e:  # noqa: BLE001 - 변환 실패도 결과로 기록
+        exact, error = False, f"{type(e).__name__}: {e}"[:200]
+    return {"llm": d.evidence.get("llm", "fake"), "structure_questions": sum(1 for q in first.questions if q.id == "layout"),
+            "columns": col, "codes": code, "format": fmt, "questions": len(d.questions), "followup_questions": len(follow), "exact_after_answers": exact, "error": error,
+            "wrong_columns": wrong_cols, "wrong_codes": wrong_codes,
+            "order_checks": d.evidence.get("order_checks", {})}
+
+
+__all__ = ["gold_answers", "score"]

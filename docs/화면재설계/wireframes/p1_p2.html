@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>와이어프레임: 첫 화면·로그인·원무 작업 화면</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Malgun Gothic",sans-serif;background:#e9ebee;color:#222;padding:24px;word-break:keep-all}
+.frame{width:1366px;height:768px;background:#fff;border:2px solid #555;margin:0 auto 40px;position:relative;overflow:hidden}
+.cap{width:1366px;margin:0 auto 8px;font:700 18px sans-serif;color:#333}
+.note{width:1366px;margin:-28px auto 40px;font-size:14px;color:#555;line-height:1.6}
+.band{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:13px;font-weight:700}
+.band.ops{background:#d9dde3;color:#222}.band.demo{background:#e6defa;color:#3b1f8c}
+.top{height:46px;border-bottom:1px solid #999;display:flex;align-items:center;padding:0 16px;gap:16px;font-size:14px}
+.top b{font-size:16px}.top .r{margin-left:auto;display:flex;gap:10px}
+.btn{border:1.5px solid #333;border-radius:4px;padding:5px 12px;font-size:13px;background:#fff;display:inline-block}
+.btn.p{background:#333;color:#fff}
+.box{border:1.5px dashed #888;border-radius:6px;padding:14px}
+.ph{background:repeating-linear-gradient(45deg,#f2f2f2,#f2f2f2 8px,#e6e6e6 8px,#e6e6e6 16px)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{border-bottom:1px solid #ccc;padding:5px 7px;text-align:left;white-space:nowrap}
+th{background:#f0f0f0;font-weight:700;color:#333}
+tr.sel td{background:#fff6cc}
+tr.late td:first-child{border-left:4px solid #b00}
+.tag{border:1px solid #666;border-radius:3px;padding:0 4px;font-size:11px}
+.lbl{font-size:12px;color:#555;margin-bottom:4px}
+.syn{position:absolute;right:16px;bottom:8px;font-size:12px;color:#444}
+</style></head><body>
+
+<div class="cap">① 첫 화면 (로그인 전)</div>
+<div class="frame">
+  <div class="top"><b>병실관리AI</b><span>퇴원 확정부터 다음 환자 입실까지, 사람은 책임질 순간에만</span><span class="r"><span class="tag">합성 데이터 · 실제 환자 아님</span></span></div>
+  <div style="padding:60px 120px">
+    <div style="font-size:26px;font-weight:800">어떻게 보시겠어요?</div>
+    <div style="font-size:15px;color:#555;margin-top:6px">둘 다 합성(가상) 병원 데이터입니다.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:36px">
+      <div class="box" style="height:300px">
+        <div class="tag" style="display:inline-block">처음이시면 권장</div>
+        <div style="font-size:22px;font-weight:800;margin-top:14px">시연 화면</div>
+        <div style="font-size:14px;margin-top:10px;line-height:1.7">대표 사례 3개를 '다음' 버튼으로 따라갑니다(약 3분)<br>① 평범한 배정 ② 안내 시각 지연 재연락 ③ 늦은 격리를 시스템이 막음</div>
+        <div class="ph" style="height:80px;margin-top:16px;border-radius:4px"></div>
+        <div style="margin-top:14px"><span class="btn p">시연 시작</span></div>
+      </div>
+      <div class="box" style="height:300px">
+        <div class="tag" style="display:inline-block">직접 써 보기</div>
+        <div style="font-size:22px;font-weight:800;margin-top:14px">운영 화면</div>
+        <div style="font-size:14px;margin-top:10px;line-height:1.7">역할(원무·병동·감염관리실·관리자)로 로그인해 하루 업무를 직접 처리합니다<br>공개 데모는 '데모 계정으로 들어가기'로 바로 시작</div>
+        <div class="ph" style="height:80px;margin-top:16px;border-radius:4px"></div>
+        <div style="margin-top:14px"><span class="btn p">로그인</span> <span class="btn">데모 계정으로 들어가기</span></div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:#555;margin-top:24px">실제 인증·병원 시스템 연동은 이 데모의 범위 밖입니다 · GitHub · 설계 문서</div>
+  </div>
+</div>
+<div class="note">근거: 첫 화면 두 갈래와 모드 분리(03 조사 B-3), 첫 3줄에 무엇을·사람이 책임지는 지점(02 조사), "합성 데이터" 고정 표시(CLAUDE.md 1·6).</div>
+
+<div class="cap">② 운영 화면 로그인 → 근무 병동·역할 선택</div>
+<div class="frame">
+  <div class="band ops"><span>운영 화면 · 합성 병원 #0</span><span>합성 데이터 · 실제 환자 아님</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;padding:60px 120px">
+    <div class="box">
+      <div style="font-size:20px;font-weight:800">로그인</div>
+      <div class="lbl" style="margin-top:18px">사번(개인 계정)</div><div class="box ph" style="height:36px;padding:0"></div>
+      <div class="lbl" style="margin-top:12px">비밀번호</div><div class="box ph" style="height:36px;padding:0"></div>
+      <div style="margin-top:16px"><span class="btn p">로그인</span></div>
+      <div style="font-size:12px;color:#555;margin-top:14px;line-height:1.6">공용 계정은 없습니다(사람마다 계정).<br>로그인 실패가 반복되면 잠깁니다.<br>15분 동안 조작이 없으면 화면이 잠깁니다(설정값).</div>
+      <div style="border-top:1px solid #ccc;margin-top:16px;padding-top:12px;font-size:13px">데모 계정: <span class="btn">원무 김○○</span> <span class="btn">71병동 책임 박○○</span> <span class="btn">감염관리 이○○</span> <span class="btn">관리자</span></div>
+    </div>
+    <div class="box">
+      <div style="font-size:20px;font-weight:800">오늘 근무</div>
+      <div style="font-size:14px;margin-top:10px">박○○ (간호부 · 책임간호사)</div>
+      <div class="lbl" style="margin-top:18px">근무 병동</div>
+      <div style="display:flex;gap:8px"><span class="btn p">71병동</span><span class="btn">72병동</span></div>
+      <div class="lbl" style="margin-top:14px">근무조</div>
+      <div style="display:flex;gap:8px"><span class="btn">낮(07~15)</span><span class="btn p">초번(15~23)</span><span class="btn">밤(23~07)</span></div>
+      <div style="margin-top:20px"><span class="btn p">시작</span></div>
+      <div style="font-size:12px;color:#555;margin-top:12px">권한은 역할에 따라 정해집니다. 이 병동 환자만 보입니다.</div>
+    </div>
+  </div>
+</div>
+<div class="note">근거: 개인 계정·계정 공유 금지·로그인 실패 제한·미사용 자동 차단 10~60분(개인정보 안전성 확보조치 기준, EMR 인증 해설서), 근무조마다 병동 선택(TeleTracking). 실제 인증 수단은 흉내만(01 조사 4.2).</div>
+
+<div class="cap">③ 원무 작업 화면 (촘촘한 목록 + 상세 패널)</div>
+<div class="frame">
+  <div class="band ops"><span>운영 화면 · 원무 · 김○○ (낮 근무) · 11월 5일 08:15</span><span><span class="btn" style="padding:1px 8px">사용자 전환</span> &nbsp;합성 데이터 · 실제 환자 아님</span></div>
+  <div class="top" style="height:40px;font-size:13px"><b>오늘 할 일 14</b><span class="tag">마감 지남 3</span><span class="tag">승인 요청 2</span><span class="tag">연락 4</span><span class="tag">이전 근무에서 넘어옴 5</span>
+    <span class="r">병동 <span class="btn">전체 ▾</span> 검색 <span class="box" style="width:160px;height:24px;padding:0"></span></span></div>
+  <div style="display:grid;grid-template-columns:1fr 430px;height:calc(100% - 70px)">
+    <div style="border-right:1px solid #999;overflow:hidden">
+      <table>
+        <tr><th>마감</th><th>종류</th><th>환자(등록번호)</th><th>병상</th><th>다음 할 일</th><th>근거</th><th>상태</th></tr>
+        <tr class="late"><td>어제 20:00</td><td>승인</td><td>임○윤 74 남 (P0032)</td><td>71-03-3</td><td>재연락 승인</td><td>안내 19:00 · 앞 환자 퇴실 전</td><td>넘어옴</td></tr>
+        <tr class="late sel"><td>10:15 지남</td><td>확인 필요</td><td>임○솔 76 남 (P0018)</td><td>-</td><td>병상 없음 · 대기/다른 병동</td><td>조건 맞는 병상 없음</td><td>올라감</td></tr>
+        <tr class="late"><td>10:15 지남</td><td>확인 필요</td><td>조○윤 40 여 (P0007)</td><td>-</td><td>1인실 희망 · 차액 동의</td><td>1인실 없음</td><td>올라감</td></tr>
+        <tr><td>09:00</td><td>연락</td><td>윤○봄 32 여 (P0051)</td><td>72-04-1</td><td>입원 안내 연락</td><td>추천 14:00</td><td>대기</td></tr>
+        <tr><td>09:00</td><td>연락</td><td>김○결 82 남 (P0032)</td><td>71-03-4</td><td>입원 안내 연락</td><td>추천 13:30</td><td>대기</td></tr>
+        <tr><td>10:00</td><td>감염관리 대기</td><td>임○도 75 여 (P0043)</td><td>71-04-4</td><td>(감염관리실 결정 대기)</td><td>늦은 격리 · 공기주의</td><td>대기</td></tr>
+        <tr><td>12:00</td><td>되돌리기 가능</td><td>장○나 66 남 (P0011)</td><td>72-03-3</td><td>에이전트 확정 · 08:30까지</td><td>차순위 72-03-1</td><td>확정</td></tr>
+        <tr><td colspan="7" style="color:#777">… 한 화면에 14줄까지(줄당 한 환자), 위/아래 키로 이동, Enter로 상세</td></tr>
+      </table>
+    </div>
+    <div style="padding:14px;font-size:13px;line-height:1.6">
+      <div style="font-size:16px;font-weight:800">임○솔 76 남 · P0018</div>
+      <div>일반외과 · 입원 예정 오늘 · 격리 없음</div>
+      <div class="box" style="margin-top:10px"><b>상황</b><br>조건에 맞는 빈 병상이 없어 에이전트가 사람에게 넘겼습니다(10:15 마감 지남, 원무 책임자에게 올라감).<br><b>할 수 있는 일</b><br>대기 유지 · 다른 병동 검토 · 오늘 퇴원으로 빌 병상 보기</div>
+      <div style="margin-top:10px"><span class="btn p">처리 기록</span> <span class="btn">경과 보기</span></div>
+      <div class="lbl" style="margin-top:12px">처리 결과(필수)</div><div class="box ph" style="height:30px;padding:0"></div>
+      <div class="lbl" style="margin-top:12px">경과(최근)</div>
+      <div style="font-size:12px;color:#444">10:15 담당 검토로 보냄(시스템) · 09:40 병상 없음 감지 · 08:00 입원 예약 접수</div>
+    </div>
+  </div>
+</div>
+<div class="note">근거: 역할별 작업 목록·상세·병상 검색 구성(TeleTracking 역할별 안내서), 서울아산 배정 담당이 목록을 차례로 보는 방식, 환자 확인 두 지표(이름+등록번호), 처리 결과 기록 필수(3회차 검토). 카드 대신 줄당 한 환자(3회차 검토 "카드가 크고 길다").</div>
+
+</body></html>

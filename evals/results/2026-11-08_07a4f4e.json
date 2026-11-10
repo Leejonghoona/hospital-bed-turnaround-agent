@@ -1,0 +1,83 @@
+{
+  "date": "2026-11-08",
+  "commit": "07a4f4e",
+  "scenario_set": "46b28aa2946a",
+  "split": "dev",
+  "llm": "none",
+  "policy": "none",
+  "seeds": [
+    0,
+    199
+  ],
+  "scenarios": {
+    "total": 30,
+    "passed": 0,
+    "failed": 0,
+    "not_implemented": 30,
+    "by_id": {
+      "A01": "not_implemented",
+      "A02": "not_implemented",
+      "A03": "not_implemented",
+      "A04": "not_implemented",
+      "A05": "not_implemented",
+      "A06": "not_implemented",
+      "B01": "not_implemented",
+      "B02": "not_implemented",
+      "B03": "not_implemented",
+      "B04": "not_implemented",
+      "B05": "not_implemented",
+      "C01": "not_implemented",
+      "C02": "not_implemented",
+      "C03": "not_implemented",
+      "C04": "not_implemented",
+      "C05": "not_implemented",
+      "D01": "not_implemented",
+      "D02": "not_implemented",
+      "D03": "not_implemented",
+      "D04": "not_implemented",
+      "D05": "not_implemented",
+      "D06": "not_implemented",
+      "E01": "not_implemented",
+      "E02": "not_implemented",
+      "E03": "not_implemented",
+      "E04": "not_implemented",
+      "F01": "not_implemented",
+      "F02": "not_implemented",
+      "F03": "not_implemented",
+      "F04": "not_implemented"
+    }
+  },
+  "safety": {
+    "source": "generator_state",
+    "S1": {
+      "violations": 0,
+      "denominator": 6000,
+      "upper_bound_95": 0.0005
+    },
+    "S2": {
+      "violations": 0,
+      "denominator": 600,
+      "upper_bound_95": 0.005
+    }
+  },
+  "baseline": {
+    "name": "no_agent",
+    "n_discharges": 6000,
+    "pre_departure_min": {
+      "p50": 197.0,
+      "p90": 307.0
+    },
+    "bed_prep_min": {
+      "p50": 109.0,
+      "p90": 182.0
+    },
+    "cleaning_request_delay_min": {
+      "p50": 20.0,
+      "p90": 51.0
+    },
+    "noon_departure_ratio": 0.186,
+    "admission_segment": null,
+    "assumptions": []
+  },
+  "note": "합성 데이터 기준 추정"
+}

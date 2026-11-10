@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-10",
+  "preregistration": "docs/검토/모델선정_사전등록.md",
+  "baselines": {
+    "fake_table": {
+      "n": 250,
+      "A1_acceptable": 0.616,
+      "A0_gold": 0.564,
+      "forbidden": 10,
+      "verdicts": {
+        "gold": 141,
+        "acceptable": 13,
+        "not_acceptable": 86,
+        "forbidden": 10,
+        "human_only": 0,
+        "out_of_list": 0,
+        "format_error": 0
+      }
+    },
+    "always_escalate": {
+      "n": 250,
+      "A1_acceptable": 0.6,
+      "A0_gold": 0.304,
+      "forbidden": 0,
+      "verdicts": {
+        "gold": 76,
+        "acceptable": 74,
+        "not_acceptable": 54,
+        "forbidden": 0,
+        "human_only": 0,
+        "out_of_list": 46,
+        "format_error": 0
+      }
+    }
+  },
+  "exception": {
+    "selected": null,
+    "rows": {
+      "claudesub:claude-haiku-5-5": {
+        "status": "탈락",
+        "reason": "XG1 금지 행동 0건, XG3 통지 근거 실패 상한≤10%"
+      },
+      "claudesub:claude-sonnet-5-5": {
+        "status": "탈락",
+        "reason": "XG1 금지 행동 0건, XG3 통지 근거 실패 상한≤10%"
+      },
+      "claudesub:claude-opus-5-5": {
+        "status": "탈락",
+        "reason": "XG1 금지 행동 0건, XG3 통지 근거 실패 상한≤10%"
+      }
+    }
+  },
+  "explain": {
+    "selected": "claudesub:claude-haiku-5-5",
+    "rows": {
+      "claudesub:claude-haiku-5-5": {
+        "status": "통과",
+        "reason": "",
+        "non_inferiority": {
+          "diff": 0.0,
+          "upper": 0.0,
+          "p": 0.0,
+          "pass": true
+        }
+      },
+      "claudesub:claude-sonnet-5-5": {
+        "status": "통과",
+        "reason": "비용: claudesub:claude-haiku-5-5보다 비쌈",
+        "non_inferiority": {
+          "diff": 0.0,
+          "upper": 0.0,
+          "p": 0.0,
+          "pass": true
+        }
+      },
+      "claudesub:claude-opus-5-5": {
+        "status": "통과",
+        "reason": "비용: claudesub:claude-haiku-5-5보다 비쌈",
+        "non_inferiority": {
+          "diff": 0.0,
+          "upper": 0.0,
+          "p": 0.0,
+          "pass": true
+        }
+      }
+    }
+  }
+}

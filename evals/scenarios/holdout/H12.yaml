@@ -1,0 +1,48 @@
+id: H12
+category: saga
+title: 급변 전동, 원래 병상 잡아 두기
+tags:
+- transfer_out
+- bed_hold
+design_ref: 'SAG-10(MA-15): 잡아 둔 병상은 배정 후보·확정·직접 수정에서 막고, 걸린 사전 매칭은 풀고 다시 찾는다'
+situation: P1은 전날 W72-R04-B2(D1의 병상)에 사전 매칭돼 있었다. D1이 02:00에 상태 악화로 중환자실로 급히 옮겼고 병원은 원래
+  병상을 잡아 두었다. W72-R04-B1이 비어 있다. 08:00에 계획 에이전트가 돈다.
+fixture:
+  seed: 10042
+  split: holdout
+  events: 실행기 고정 데이터
+gold:
+  must_actions:
+  - type: release_prematch
+    case: P1
+    bed: W72-R04-B2
+    params:
+      reason: bed_on_hold
+  - type: propose_match
+    case: P1
+    bed: W72-R04-B1
+    level: proposal
+    after: release_prematch
+  must_not:
+  - type: propose_match
+    case: P1
+    bed: W72-R04-B2
+  - type: send_cleaning_request
+    case: D1
+    note: 잡아 둔 동안 병상은 비지 않는다
+  - type: request_registration_check
+    case: D1
+  - type: create_human_task
+    case: D1
+    params:
+      kind: rx_missing
+metrics:
+- S1
+- I2
+measured_from_stage: 7
+autonomy_stage: 1
+status: draft
+provenance:
+  author: claude-draft
+  reviewed_by: 미검토 (MVP 뒤 사용자 검토)
+  rule_source: 'docs/검토/병동사망_급변전동_조사.md 2절(잡아 두는 공개 규정 없음: 기본 바로 빔, hold는 설계 가정)'

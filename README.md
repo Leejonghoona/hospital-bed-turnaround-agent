@@ -1,13 +1,109 @@
-# 병실관리AI
+# WardFlow
 
 퇴원 확정부터 다음 환자 입실까지 병상이 비어 있는 시간을 줄이는 병원 운영 에이전트 데모입니다. 가상 병원 데이터로만 동작합니다.
 
-- 설계 문서: `docs/병상턴어라운드_설계.html` (브라우저로 열기), 텍스트판 `docs/병상턴어라운드_설계.md`
+## 바로 실행
+
+```bash
+docker build -t wardflow . && docker run -p 8000:8000 -v wardflow-data:/data wardflow
+```
+
+브라우저에서 http://localhost:8000 을 엽니다. 첫 화면에서 두 가지를 고릅니다.
+
+- **시연 화면**: 대표 사례 3개(평범한 배정, 안내 시각 지연 재연락, 늦은 격리를 시스템이 막음)를 단계별로 봅니다. 로그인하지 않습니다.
+- **운영 화면**: 역할 계정으로 직접 일합니다. 데모 계정을 고르면 바로 로그인됩니다(직접 입력할 때 비밀번호 demo1234).
+  - 원무팀(김하늘): 할 일, 배정 기록, 병상 직접 지정, 되돌리기
+  - 병동 책임간호사(박서연 71병동, 최유진 72병동): 입실 예정, 준비 완료, 원무에 의견, 병상 현황
+  - 감염관리실(이준호): 늦은 격리 병상 결정, 종말소독 대기
+  - 의료정보팀 관리자(정예린): 오늘 요약, 접속기록(위변조 확인), 감사 경과
+
+도커 없이 실행하려면 다음 순서로 합니다.
+
+```bash
+pip install -e ".[api]" && (cd web && npm ci && npm run build) && uvicorn turnaround.api.app:app
+```
+
+- 화면 과업 시험: `python scripts/ui_tasks.py`
+- 전체 시험: `python -m pytest -q`
+- 기본은 API 키 없이 도는 결정적 가짜 LLM입니다. 시연용 병원은 병동 4개 176병상이고, 측정은 병동 2개 24병상 병원으로 합니다.
+- 운영 모드(`TURNAROUND_MODE=production`)에서는 데모 로그인이 닫힙니다.
+
+## 엔드픽처
+
+> **퇴원부터 다음 입원까지, 사람은 책임질 순간에만 개입한다.**
+> **그리고 어느 병원이든, 데이터만 넣으면 그 병원에 맞게 스스로 세팅된다.**
+
+| | 1단계: 한 병원에서 증명 | 2단계: 어느 병원이든 |
+|---|---|---|
+| 무엇을 | 퇴원→입원 사이클 전체를 에이전트화 | 병원 데이터를 넣으면 그 병원용 설정(데이터 연결, 규칙, 소요시간)을 AI가 자동으로 만듦 |
+| 사람은 | 환자 연락, 안전 예외, 시스템이 "확인 필요"로 올린 판단만 (공식 확정은 에이전트가 하고 사람은 통보받아 시한 안에 되돌림) | 질문에 답하고, 시험 운영 검사를 본 뒤 설정판을 한 번 승인 |
+| 증명하는 숫자 | 사람 손 없이 확정한 비율, 실행 상태 안전 위반 0건, 수속→입실 대기 | 처음 보는 형식의 가상 병원이 질문 → 시험 운영 검사 → 승인 → 운영까지 가는가, 질문 수 |
+
+- 설계 문서: `docs/병상턴어라운드_설계.html` (브라우저로 열기)
 - 공유 링크: https://claude.ai/artifact/5x2WpmAxeuuBjvNe5gJmky
 - 작업 지침: `CLAUDE.md`
 
 ## 구조 요약
 이벤트 저장소 → 사례 워크플로(사가) → 계획 에이전트와 도구 → 실행 게이트웨이 → 부서 화면 공유, 병동 회신, 병상관리 검토, 환경 청소 요청
 
-## 상태
-설계 완료, 구현 시작 전.
+## 상태 (2026-11-09, 모든 수치는 합성 데이터 기준 추정)
+1단계 데모 완성. 사이클 전체(퇴실 전 → 병상 준비 → 입실), 예외 판단(가짜 LLM 결정표 기본, 실제 모델은 선택), 실행 게이트웨이, 온보딩(1단계 안에서 구현), 역할별 화면이 동작한다.
+- 실행 상태 안전(시스템이 실제로 낸 기록을 검사): 현실 가동률 50시드 S1 배정 기준 0/113, S2 종말소독(병실 단위) 0/13, S3 입실 가능 조건 0/168, S4 이중 점유 0/89. S4 수정 때 보지 않은 홀드아웃 시드 50~99에서도 0/111, 0/14, 0/167, 0/86. 결과 파일 `evals/results/final/`(재현 지문 포함)
+- 수속 → 입실 평균 대기 90.1분 → 78.4분(−13%, 같은 날 짝 비교 48시드, 차이 95% 구간 −16.8~−7.0분, 나빠진 시드 0). S4 수정 때 보지 않은 홀드아웃 시드 50~99에서도 −12.7%. 효과 크기를 0.5~1.5배로 바꿔도 −12~−14%로, 대부분 "퇴실 즉시 청소 요청"에서 나온다. **생성기의 지연 크기와 행동 효과는 설계 가정**이고 현직자 검증 전이다. 12시 이전 퇴실 효과는 현실 가동률에서 거의 없다(+2건/138)
+- 사람 손 없이 확정한 비율 72.4%(확정 203건 중 147건. 입원 304건 대비로는 48%)(시드 최저 50%, 20시드)
+- 온보딩: 처음 보는 형식(emr_f) 병원이 질문 → 시험 운영 검사 → 승인 → 운영까지 간다. 단 질문 105개를 정답으로 답하는 사람 모형 기준이고, 실제 EMR 표준 입력(HL7 ADT·FHIR Encounter)은 아직 없다
+- 명시된 한계: 로그인·신원 인증이 없다(승인자 ID와 권한자 명단은 입력값·설정, 설계 가정). 외부 모델 전송 전 가리기는 규칙 기반이라 우회될 수 있어, 병원 데이터는 기본으로 외부 모델에 보내지 않는다(`external_llm: deny`). 서명 키가 없으면 개발용 키로 서명하고 운영 모드에서는 거부한다. 실제 EMR 표준 입력(HL7 ADT·FHIR Encounter)과 현직자 검증은 아직 없다
+- 회귀 시나리오 30/30(옛 판 라벨, 작업자 작성), 홀드아웃 2회차 10/10(블라인드 한계는 `docs/RESULTS.md`)
+- 다중 전문가 페르소나 검토와 반영 기록: `docs/검토/단계검수/최고점루프_1회차.md`, `최고점루프_2회차.md`, `최고점루프_3회차.md`(AI 페르소나 검토, 실제 현직자 검토 아님)
+- 데모 가이드: `docs/가이드/데모_가이드.md`, 화면: `docs/screens/`, 모델 선택 근거: `docs/모델_성능점검표.md`, 결정 기록: `docs/DECISIONS.md`
+
+## 실행
+```bash
+pip install -e '.[dev,ui]'
+pytest
+python -m turnaround.sim --seed 42 --out data/synthetic_seed42.json
+python -m turnaround.evaluation.board --seeds 0-199 --write   # 점수판 기록
+pytest -m slow                                                  # 긴 검사 (안전 스윕 1000, 경계 전수, 퍼징, 뮤턴트 등)
+streamlit run src/turnaround/ui/app.py                          # 화면 (pip install -e '.[ui]')
+python -m turnaround.evaluation.model_check --models fake,rule   # 모델 점검 (실제 모델은 아래 환경 변수)
+```
+실제 모델: `TURNAROUND_LLM=openai|anthropic|local`, `TURNAROUND_LLM_MODEL=<모델 ID 또는 GGUF 경로>`, 외부 API는 `TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only`와 키가 있어야 붙는다.
+
+## MCP로 연결하기
+
+WardFlow의 조회 도구를 MCP(Model Context Protocol) 서버로 엽니다. 합성 시연 병원만 쓰고, 상태를 바꾸는 도구는 없습니다(확정과 배정은 실행 게이트웨이가 사람 확인 등급을 거쳐서만 합니다).
+
+```bash
+pip install -e ".[api,mcp]"
+python -m turnaround.mcp_server   # stdio. 첫 호출 때 시연 병원을 만든다(약 6초)
+```
+
+도구: `admissions_today`(오늘 입원, 사례 ID), `bed_board`(환자별 병상 현황판), `gateway_precheck`(게이트웨이 사전 검사, 기록 없음), `case_timeline`(환자 경과), `blocked_decisions`(게이트웨이가 막은 판단), `autonomy_table`(자율 범위). 환자 이름은 화면처럼 가립니다.
+
+Claude Desktop(`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "wardflow": {
+      "command": "python",
+      "args": ["-m", "turnaround.mcp_server"],
+      "cwd": "/path/to/WardFlow"
+    }
+  }
+}
+```
+
+Claude Code: `claude mcp add wardflow -- python -m turnaround.mcp_server`
+
+## 에이전트 추적
+
+LLM 호출, 계획·예외 판단, 게이트웨이 판정을 OpenTelemetry span으로 남깁니다. 기본은 꺼져 있습니다.
+
+```bash
+pip install -e ".[trace]"
+TURNAROUND_TRACE=1 TURNAROUND_TRACE_FILE=traces.jsonl uvicorn turnaround.api.app:app   # JSONL 파일로
+python scripts/trace_report.py   # 시연 병원 하루를 추적해 evals/results/final/trace_report.json
+```
+
+`LANGFUSE_PUBLIC_KEY`·`LANGFUSE_SECRET_KEY`(와 `opentelemetry-exporter-otlp-proto-http`)가 있으면 Langfuse로도 보냅니다.

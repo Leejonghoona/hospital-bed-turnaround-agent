@@ -1,0 +1,4 @@
+{"pairs": 48, "missing_seeds": ["38", "42"], "mean_on": 78.4, "mean_off": 90.1, "mean_diff_min": -11.7, "ci95_min": [-16.8, -7.0], "rel_pct": -13.0, "improved": 23, "same": 25, "worse": 0}
+{"pairs": 48, "missing_seeds": ["38", "42"], "mean_on": 79.5, "mean_off": 90.1, "mean_diff_min": -10.5, "ci95_min": [-15.3, -6.3], "rel_pct": -11.7, "improved": 23, "same": 25, "worse": 0}
+{"pairs": 48, "missing_seeds": ["38", "42"], "mean_on": 77.5, "mean_off": 90.1, "mean_diff_min": -12.6, "ci95_min": [-18.2, -7.4], "rel_pct": -13.9, "improved": 23, "same": 25, "worse": 0}
+{"pairs": 45, "missing_seeds": ["56", "59", "66", "73", "76"], "mean_on": 72.9, "mean_off": 83.5, "mean_diff_min": -10.6, "ci95_min": [-18.3, -4.8], "rel_pct": -12.7, "improved": 19, "same": 26, "worse": 0}

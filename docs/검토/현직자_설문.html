@@ -1,0 +1,283 @@
+<title>병상 흐름 현장 질문지</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 한 열 설문지. 병동 인계장처럼 문항 번호를 왼쪽 여백에 두고, 직무 표시는 작은 꼬리표 */
+:root {
+  --bg: #f4f6f6; --paper: #ffffff; --ink: #1b2528; --muted: #5d6b6f; --line: #d6dddf;
+  --accent: #17656f; --accent-soft: #e2f0f1; --warn: #9a5b00; --ok: #2f6b3a;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121819; --paper: #1a2224; --ink: #e6eced; --muted: #9eabae; --line: #2f3a3d;
+  --accent: #5fb8c2; --accent-soft: #1f3336; --warn: #e0a24a; --ok: #7cc48a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121819; --paper: #1a2224; --ink: #e6eced; --muted: #9eabae; --line: #2f3a3d;
+  --accent: #5fb8c2; --accent-soft: #1f3336; --warn: #e0a24a; --ok: #7cc48a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; }
+header h1 { font-size: 1.6rem; line-height: 1.3; margin: 0 0 8px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+.notice { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; }
+.notice ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.notice strong { color: var(--ink); }
+.section-title { margin: 12px 0 0; font-size: .8rem; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+.q { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; }
+.q legend, .q .q-head { display: flex; gap: 10px; align-items: baseline; font-weight: 700; padding: 0; }
+.qno { color: var(--accent); font-variant-numeric: tabular-nums; min-width: 2.2em; }
+.tag { font-size: .72rem; font-weight: 500; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.hint { color: var(--muted); font-size: .92rem; margin: -4px 0 0; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.sub { display: grid; gap: 8px; }
+.sub-label { font-weight: 500; font-size: .95rem; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt { position: relative; }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt span { display: inline-block; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; background: var(--paper); font-size: .95rem; }
+.opt input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 500; }
+.opt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea, input[type=text] { width: 100%; box-sizing: border-box; font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+textarea { min-height: 96px; resize: vertical; }
+textarea:focus-visible, input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.other { margin-top: 4px; }
+.bar { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--line);
+  padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.progress { color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: inherit; border-radius: 8px; padding: 10px 16px; cursor: pointer; border: 1px solid var(--accent); }
+.primary { background: var(--accent); color: var(--paper); font-weight: 700; }
+.secondary { background: transparent; color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+.status { font-size: .92rem; min-height: 1.4em; }
+.status.ok { color: var(--ok); } .status.warn { color: var(--warn); }
+#copyArea { width: 100%; min-height: 180px; }
+footer { color: var(--muted); font-size: .85rem; }
+@media (prefers-reduced-motion: no-preference) { .opt span { transition: background .12s, border-color .12s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>병상 흐름 현장 질문지</h1>
+    <p>퇴원부터 다음 환자 입원까지 병상이 비고 준비되는 흐름을 돕는 AI를 개인 프로젝트로 만들고 있어요. 가상 데이터로만 만드는데, 현장 방식과 동떨어지지 않게 실제로 일하시는 방식을 여쭤보고 싶어요.</p>
+  </header>
+
+  <div class="notice">
+    <strong>먼저 부탁드릴 것</strong>
+    <ul>
+      <li><strong>환자 이름, 호실, 등록번호, 병원 이름은 적지 말아 주세요.</strong> 예시가 필요하면 숫자나 이름을 바꿔서 써 주세요.</li>
+      <li>일하시는 병원·병동 기준으로만 답해 주세요. "모름"도 좋은 답이에요.</li>
+      <li>필수(1~11)만 해 주셔도 큰 도움이 되고 15분 정도 걸려요. 여유 있으면 선택 문항도 부탁드려요.</li>
+      <li>[간호] [원무] 표시는 그 직무에서 답하기 쉬운 문항이에요. 모르는 쪽은 건너뛰셔도 돼요.</li>
+    </ul>
+  </div>
+
+  <form id="form" novalidate></form>
+
+  <div class="q" id="donePanel" hidden>
+    <div class="q-head">답변 보내기</div>
+    <p class="hint" id="doneHint"></p>
+    <textarea id="copyArea" readonly aria-label="복사할 답변"></textarea>
+    <div class="btns"><button type="button" class="secondary" id="copyBtn">답변 복사</button></div>
+  </div>
+
+  <div class="bar">
+    <span class="progress" id="progress">필수 0 / 11 답함</span>
+    <div class="btns">
+      <button type="button" class="secondary" id="previewBtn">답변 모아 보기</button>
+      <button type="button" class="primary" id="submitBtn">제출</button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </div>
+
+  <footer>입력 중인 답은 이 기기에만 임시 저장돼요. 제출하거나 복사해서 보내 주셔야 전달돼요.</footer>
+</div>
+
+<script>
+const Q = [
+  { id: "q0", no: "0", title: "답해 주시는 분", tag: "공통", section: "맥락", subs: [
+    { id: "role", label: "(가) 직무", type: "one", opts: ["병동 간호사", "병동 책임·수간호사", "원무 입원(병상 배정)", "원무 수납·퇴원", "기타"], other: "기타" },
+    { id: "size", label: "(나) 병원 규모", type: "one", opts: ["상급종합병원", "종합병원", "병원·요양병원", "말하기 곤란"] },
+    { id: "ward", label: "(다) 부서·병동 종류", type: "one", opts: ["내과계", "외과계", "혼합", "기타"], other: "기타" },
+    { id: "prev", label: "(라) 다른 병원에서 일해 본 적", type: "one", opts: ["있음", "없음"], hint: "있으면, 아래 답 중 전 병원과 달랐던 것에 \"(전 병원 다름)\"이라고 적어 주세요." } ] },
+  { id: "q1", no: "1", title: "병상 배정은 누가 하나요?", tag: "공통", section: "필수", required: true,
+    hint: "다음 입원 환자에게 \"몇 호 몇 번 침대\"를 정하는 사람이요.", subs: [
+    { id: "day", label: "평일 낮", type: "one", opts: ["원무 입원 담당", "간호부 병상관리 담당", "병동 수·책임간호사", "응급실 원무·수납", "간호부 당직 감독", "그 시간엔 배정 안 하고 다음 날로", "모름"] },
+    { id: "night", label: "밤·주말·공휴일", type: "one", opts: ["원무 입원 담당", "간호부 병상관리 담당", "병동 수·책임간호사", "응급실 원무·수납", "간호부 당직 감독", "그 시간엔 배정 안 하고 다음 날로", "모름"] } ] },
+  { id: "q2", no: "2", title: "가장 최근에 보신 퇴원 한 건을 떠올려 주세요.", tag: "공통", section: "필수", required: true,
+    hint: "환자가 병실을 나간 뒤부터 다음 환자가 그 침대에 들어오기까지 무슨 일이 어떤 순서로 있었나요? 누가 누구에게 무엇으로(전화, 전산, 메신저, 직접) 알렸는지 3~5줄로. 원무이시면 \"퇴원 수납부터 다음 환자 병실 안내까지\"로 생각해 주세요.",
+    subs: [{ id: "story", type: "text" }] },
+  { id: "q3", no: "3", title: "전산에서 그 침대가 \"빈 병상\"으로 바뀌는 건 언제인가요?", tag: "간호", section: "필수", required: true, hint: "가장 가까운 것 하나.", subs: [
+    { id: "a", type: "one", opts: ["퇴원 수납·퇴원 처리가 끝났을 때(환자가 아직 병실에 있어도)", "환자가 실제로 나간 뒤 간호사가 따로 입력할 때", "청소가 끝났을 때", "기타", "모름"], other: "기타" } ] },
+  { id: "q4", no: "4", title: "퇴실 청소는 어떻게 요청하고, 끝난 건 어떻게 아나요?", tag: "간호", section: "필수", required: true, subs: [
+    { id: "req", label: "(가) 요청", type: "one", opts: ["전산 화면", "전화", "메신저·단톡", "청소 담당이 퇴원 명단을 보고 알아서", "기타", "모름"], other: "기타" },
+    { id: "done", label: "(나) 끝난 것", type: "one", opts: ["전산에 완료가 뜬다", "청소 담당이 전화·말로 알려 준다", "메신저", "간호사가 가서 본다", "기타", "모름"], other: "기타" } ] },
+  { id: "q5", no: "5", title: "다음 환자가 올라오기 전에 병동이 \"받겠다\"고 따로 확인해 주는 단계가 있나요?", tag: "공통", section: "필수", required: true, subs: [
+    { id: "a", type: "one", opts: ["있다: 원무(배정 담당)가 병동에 전화하면 병동이 답한다", "있다: 전산에서 병동이 확인을 누른다", "없다: 배정되면 병동은 통보만 받는다", "기타", "모름"], other: "기타" } ] },
+  { id: "q6", no: "6", title: "격리 환자가 퇴실한 병실은 다음 환자를 받기 전에 얼마나 비워 두나요?", tag: "간호", section: "필수", required: true, hint: "접촉·비말·공기 등. 최근 그런 경우를 떠올려 주세요.", subs: [
+    { id: "a", type: "one", opts: ["정해진 시간이 있다", "감염관리실이 그때그때 정해 준다", "따로 기다리지 않고 소독·청소가 끝나면 받는다", "격리 종류에 따라 다르다", "모름"], other: ["정해진 시간이 있다", "격리 종류에 따라 다르다"], otherHint: "시간이나 차이를 적어 주세요 (예: 약 30분, 공기주의는 2시간)" } ] },
+  { id: "q7", no: "7", title: "밤이나 주말에 격리 환자를 받을 병실이 마땅치 않으면 누구에게 묻고 정하나요?", tag: "간호", section: "필수", required: true, subs: [
+    { id: "a", type: "one", opts: ["감염관리실 당직(간호사)", "감염내과 당직 의사", "간호부 당직 감독", "주치의·당직의가 판단", "병동에서 정하고 다음 날 감염관리실에 보고", "그런 경우가 거의 없다", "모름"] } ] },
+  { id: "q8", no: "8", title: "퇴원 환자 보호자가 \"몇 시에 오겠다\"는 걸 처음 알게 되는 건 주로 언제인가요?", tag: "간호", section: "필수", required: true, subs: [
+    { id: "a", type: "one", opts: ["퇴원 전날", "퇴원 당일 아침", "퇴원 당일, 수납 즈음", "따로 묻지 않는다", "모름"] } ] },
+  { id: "q9", no: "9", title: "최근 1~2주 사이 예정보다 늦게 나간 퇴원이 있었다면 무엇 때문이었나요?", tag: "공통", section: "필수", required: true, hint: "해당하는 것 모두. 여러 건이면 가장 최근 건 기준으로요.", subs: [
+    { id: "a", type: "many", opts: ["퇴원약 대기", "퇴원 처방이 늦게 남", "보호자 도착·연락", "퇴원 교육", "퇴원 심사·수납", "진단서 등 서류", "검사 결과 대기", "전원 갈 병원 자리·회신 대기", "이송 차량(사설 구급차 등)", "상태 변화로 퇴원 보류", "목록에 없음", "늦은 퇴원이 없었음", "모름"], other: "목록에 없음" } ] },
+  { id: "q10", no: "10", title: "퇴원 예정(내일 퇴원할 환자)은 주로 언제 전산에 등록되나요?", tag: "간호", section: "필수", required: true, subs: [
+    { id: "when", label: "(가) 등록 시점", type: "one", opts: ["전날 오전", "전날 오후", "전날 저녁·밤", "퇴원 당일 아침", "모름"] },
+    { id: "alert", label: "(나) 등록을 안 하면 전산이 알려 주는 기능", type: "one", opts: ["있다", "없다", "모름"] } ] },
+  { id: "q11", no: "11", title: "다음 입원 환자에게 \"병실이 정해졌다, 몇 시까지 오시라\"는 연락은 누가, 언제 하나요?", tag: "원무", section: "필수", required: true, hint: "간호사분은 아시면만.", subs: [
+    { id: "who", label: "(가) 누가", type: "one", opts: ["원무 입원 담당", "병동", "외래", "문자 자동 발송", "모름"] },
+    { id: "when", label: "(나) 언제", type: "one", opts: ["입원 전날", "입원 당일 오전", "입원 당일 오후", "그때그때 다름", "모름"] } ] },
+  { id: "s1", no: "S1", title: "보호자 도착 예정 시간은 어디에 남기나요?", tag: "간호", section: "선택", hint: "최근 퇴원 한 건 기준으로요.", subs: [
+    { id: "a", type: "one", opts: ["전산에 전용 칸이 있다", "간호기록에 글로 쓴다", "인계장·메모지", "말로만 인계한다", "기타"], other: "기타" } ] },
+  { id: "s2", no: "S2", title: "보호자 도착이나 퇴원 지연을 기록할 때 실제로 쓰는 표현 2~3개", tag: "간호", section: "선택", hint: "이름·호실은 바꿔서, 줄임말도 그대로요. 예시 형식만: \"OO님 보호자 ___ 내원 예정\"", subs: [{ id: "a", type: "text" }] },
+  { id: "s3", no: "S3", title: "퇴원이 늦어진 이유는 기록하나요?", tag: "간호", section: "선택", subs: [
+    { id: "a", type: "one", opts: ["전산 목록에서 고른다", "글로 쓴다", "따로 안 남긴다", "모름"] } ] },
+  { id: "s4", no: "S4", title: "아래 상대와는 주로 무엇으로 연락하나요?", tag: "공통", section: "선택", subs: [
+    { id: "adm", label: "원무과(또는 병동)", type: "one", opts: ["전산", "전화", "메신저", "직접", "모름"] },
+    { id: "pharm", label: "약제부", type: "one", opts: ["전산", "전화", "메신저", "직접", "모름"] },
+    { id: "clean", label: "청소 담당", type: "one", opts: ["전산", "전화", "메신저", "직접", "모름"] },
+    { id: "ipc", label: "감염관리실", type: "one", opts: ["전산", "전화", "메신저", "직접", "모름"] } ] },
+  { id: "s5", no: "S5", title: "최근 퇴원 몇 건을 떠올리면, 데리러 온 사람은 주로 누구였나요?", tag: "간호", section: "선택", subs: [
+    { id: "a", type: "one", opts: ["가족 보호자", "간병인", "요양병원 직원·차량", "환자 혼자", "섞여서 비슷하다"] },
+    { id: "b", label: "간병인이 왔을 때 퇴원 진행(설명, 서명, 수납)이 가족과 달랐던 점", type: "line" } ] },
+  { id: "s6", no: "S6", title: "동료나 원무과와 이야기할 때 환자를 보통 어떻게 부르나요?", tag: "공통", section: "선택", hint: "예: \"몇 호 몇 번\", 이름, 등록번호 등", subs: [{ id: "a", type: "line" }] },
+  { id: "s7", no: "S7", title: "같은 병실 배치", tag: "간호", section: "선택", subs: [
+    { id: "name", label: "(가) 이름이 같은 환자를 같은 병실에 둔 적", type: "one", opts: ["규칙상 안 둔다", "피하지만 표시해 두고 둔 적 있다", "따로 신경 안 쓴다", "모름"] },
+    { id: "sex", label: "(나) 다인실에 성별이 섞이게 배치한 적", type: "one", opts: ["없다", "드물게 있다", "모름"], other: "드물게 있다", otherHint: "이유를 적어 주세요" } ] },
+  { id: "s8", no: "S8", title: "퇴원이 취소되거나 날짜가 바뀌면 병동과 원무는 어떻게 알게 되나요?", tag: "공통", section: "선택", subs: [
+    { id: "a", type: "one", opts: ["전산에서 퇴원 예정이 바뀐 게 보인다", "주치의·병동이 전화로 알려 준다", "둘 다", "모름"] } ] },
+  { id: "s9", no: "S9", title: "퇴원부터 다음 입원까지 중에 시간이 가장 많이 새거나 가장 번거로운 순간은?", tag: "공통", section: "선택", hint: "제가 묻지 않은 것이어도 좋아요.", subs: [{ id: "a", type: "text" }] },
+  { id: "s10", no: "S10", title: "아시면만", tag: "공통", section: "선택", subs: [
+    { id: "weekend", label: "주말 퇴원은 평일과 무엇이 다른가요(퇴원약, 수납 등)?", type: "line" },
+    { id: "clean", label: "퇴실 청소 요청부터 끝날 때까지 보통", type: "one", opts: ["30분 이내", "30분~1시간", "1~2시간", "2시간 넘게", "모름"] } ] },
+];
+
+const KEY = "wardloop-survey-draft";
+const form = document.getElementById("form");
+const state = {};
+try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const el = (tag, attrs = {}, kids = []) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "text") n.textContent = v; else n.setAttribute(k, v); } for (const c of kids) if (c) n.append(c); return n; };
+const otherList = s => s.other ? (Array.isArray(s.other) ? s.other : [s.other]) : [];
+
+function render() {
+  let lastSection = "";
+  for (const q of Q) {
+    if (q.section !== lastSection) { form.append(el("p", { class: "section-title", text: q.section === "필수" ? "필수 문항" : q.section === "선택" ? "선택 문항 (여유 있으면)" : "답하시는 분" })); lastSection = q.section; }
+    const box = el("fieldset", { class: "q", id: "box-" + q.id });
+    box.append(el("legend", {}, [el("span", { class: "qno", text: q.no }), el("span", { text: q.title }), el("span", { class: "tag", text: q.tag })]));
+    if (q.hint) box.append(el("p", { class: "hint", text: q.hint }));
+    for (const s of q.subs) {
+      const key = q.id + "." + s.id;
+      const sub = el("div", { class: "sub" });
+      if (s.label) sub.append(el("div", { class: "sub-label", text: s.label }));
+      if (s.type === "text" || s.type === "line") {
+        const inp = s.type === "text" ? el("textarea", { id: key, "aria-label": s.label || q.title }) : el("input", { type: "text", id: key, "aria-label": s.label || q.title });
+        inp.value = state[key] || "";
+        inp.addEventListener("input", () => { state[key] = inp.value; save(); update(); });
+        sub.append(inp);
+      } else {
+        const opts = el("div", { class: "opts", role: s.type === "one" ? "radiogroup" : "group" });
+        const others = otherList(s);
+        const otherInp = others.length ? el("input", { type: "text", id: key + ".other", class: "other", placeholder: s.otherHint || "내용을 적어 주세요", "aria-label": (s.label || q.title) + " 추가 내용" }) : null;
+        if (otherInp) { otherInp.value = state[key + ".other"] || ""; otherInp.addEventListener("input", () => { state[key + ".other"] = otherInp.value; save(); update(); }); }
+        const cur = () => state[key] || (s.type === "many" ? [] : "");
+        s.opts.forEach((o, i) => {
+          const id = key + "." + i;
+          const input = el("input", { type: s.type === "one" ? "radio" : "checkbox", name: key, id, value: o });
+          const v = cur(); input.checked = s.type === "one" ? v === o : v.includes(o);
+          input.addEventListener("change", () => {
+            if (s.type === "one") state[key] = o; else { const set = new Set(cur()); input.checked ? set.add(o) : set.delete(o); state[key] = s.opts.filter(x => set.has(x)); }
+            if (otherInp) otherInp.hidden = !others.some(x => s.type === "one" ? state[key] === x : (state[key] || []).includes(x));
+            save(); update();
+          });
+          const lab = el("label", { class: "opt", for: id }, [input, el("span", { text: o })]);
+          opts.append(lab);
+        });
+        sub.append(opts);
+        if (otherInp) { otherInp.hidden = !others.some(x => s.type === "one" ? cur() === x : cur().includes(x)); sub.append(otherInp); }
+      }
+      box.append(sub);
+    }
+    form.append(box);
+  }
+}
+
+const answered = q => q.subs.some(s => { const v = state[q.id + "." + s.id]; return Array.isArray(v) ? v.length : (v || "").trim(); });
+function update() {
+  const req = Q.filter(q => q.required);
+  document.getElementById("progress").textContent = `필수 ${req.filter(answered).length} / ${req.length} 답함 · 선택 ${Q.filter(q => q.section === "선택" && answered(q)).length} / ${Q.filter(q => q.section === "선택").length}`;
+}
+
+function asText() {
+  const lines = [];
+  for (const q of Q) {
+    if (!answered(q)) continue;
+    lines.push(`${q.no}. ${q.title}`);
+    for (const s of q.subs) {
+      const key = q.id + "." + s.id; let v = state[key];
+      if (Array.isArray(v)) v = v.join(", ");
+      if (!v || !String(v).trim()) continue;
+      const extra = (state[key + ".other"] || "").trim();
+      lines.push(`  ${s.label ? s.label + ": " : ""}${String(v).trim()}${extra ? " (" + extra + ")" : ""}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function showDone(msg) {
+  document.getElementById("donePanel").hidden = false;
+  document.getElementById("doneHint").textContent = msg;
+  document.getElementById("copyArea").value = asText();
+}
+
+const statusEl = document.getElementById("status");
+const setStatus = (t, cls = "") => { statusEl.textContent = t; statusEl.className = "status " + cls; };
+
+document.getElementById("previewBtn").addEventListener("click", () => {
+  showDone("아래 답변을 복사해서 메시지로 보내 주셔도 돼요.");
+  document.getElementById("donePanel").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const area = document.getElementById("copyArea");
+  try { await navigator.clipboard.writeText(area.value); setStatus("복사했어요. 메시지 창에 붙여 넣어 보내 주세요.", "ok"); }
+  catch (e) { area.focus(); area.select(); setStatus("자동 복사가 안 돼서 답변을 선택해 두었어요. 길게 눌러 복사해 주세요.", "warn"); }
+});
+
+let db = null, me = null;
+(async () => {
+  try {
+    db = await window.claude?.use?.("db");
+    const user = await window.claude?.use?.("user");
+    if (user) me = await user.id();
+  } catch (e) { db = null; }
+})();
+
+document.getElementById("submitBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("submitBtn");
+  const missing = Q.filter(q => q.required && !answered(q)).map(q => q.no);
+  if (missing.length) setStatus(`필수 ${missing.join(", ")}번이 비어 있어요. 모르면 "모름"을 골라 주셔도 돼요. 그래도 제출할 수 있어요.`, "warn");
+  if (!db || !me) {
+    showDone("이 화면에서는 바로 저장이 안 돼요(로그인이나 편집 권한이 없을 때). 아래 답변을 복사해서 메시지로 보내 주세요.");
+    document.getElementById("donePanel").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  btn.disabled = true; setStatus("저장하는 중이에요…");
+  try {
+    await db.doc("responses/" + me).set({ answers: state, text: asText(), submittedAt: new Date().toISOString(), version: "survey-v1" });
+    setStatus("제출했어요. 감사합니다! 고칠 것이 있으면 수정 후 다시 제출하시면 덮어써요.", "ok");
+    showDone("제출이 저장됐어요. 혹시 몰라 복사본도 아래에 두었어요.");
+  } catch (e) {
+    setStatus("저장하지 못했어요. 아래 답변을 복사해서 메시지로 보내 주세요.", "warn");
+    showDone("저장 권한이 없어서 바로 보내지지 않았어요. 아래 답변을 복사해서 메시지로 보내 주세요.");
+  } finally { btn.disabled = false; }
+});
+
+render(); update();
+</script>
