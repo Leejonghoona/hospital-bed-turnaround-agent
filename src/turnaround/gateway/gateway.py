@@ -951,7 +951,7 @@ class Gateway:
                 "gateway.proposal_id": pid, "gateway.actor": "agent" if actor == "agent" else "human",
                 "gateway.attempt": attempt}) as h:
             d = self._commit(pid, approved_version, now, attempt, actor)
-            h.set(**tracing.decision_attrs(d))
+            h.set(**tracing.decision_attrs(d, actor="agent" if actor == "agent" else "human"))
             return d
 
     def _commit(self, pid: str, approved_version: int, now: datetime, attempt: int = 1, actor: str = "원무") -> Decision:

@@ -136,8 +136,8 @@ def traced_llm(fn):
 
 # ---------- 게이트웨이 판정 분류 ----------
 
-def gateway_outcome(decision, action: str | None = None) -> str:
-    """auto(에이전트 확정·자동 실행) | human(사람 확인으로 보냄·사람에게 올림) | blocked(거절) | duplicate | other."""
+def gateway_outcome(decision, action: str | None = None, actor: str | None = None) -> str:
+    """auto(에이전트 확정·자동 실행) | human(사람 확인으로 보냄·사람에게 올림·사람이 확정) | blocked(거절) | duplicate | other."""
     st = decision.status
     if st == "duplicate":
         return "duplicate"
@@ -146,13 +146,14 @@ def gateway_outcome(decision, action: str | None = None) -> str:
     if st.startswith("awaiting"):
         return "human"
     if st in ("committed", "executed"):
-        return "human" if action == "escalate" else "auto"
+        return "human" if action == "escalate" or actor == "human" else "auto"
     return "other"
 
 
-def decision_attrs(decision, action: str | None = None) -> dict:
+def decision_attrs(decision, action: str | None = None, actor: str | None = None) -> dict:
     return {"gateway.status": decision.status, "gateway.stage": decision.stage, "gateway.tier": decision.tier,
-            "gateway.reasons": list(decision.reasons or []), "gateway.outcome": gateway_outcome(decision, action)}
+            "gateway.reasons": list(decision.reasons or []),
+            "gateway.outcome": gateway_outcome(decision, action, actor)}
 
 
 # ---------- 켜고 끄기 ----------
@@ -298,12 +299,22 @@ def summarize(spans: list[dict], top: int = 8) -> dict:
     n = len(decisions)
     counts: dict[str, int] = {}
     reasons: dict[str, int] = {}
+    human_reasons: dict[str, int] = {}
+    per_case: dict[str, set] = {}
     for s in decisions:
         o = s["attrs"].get("gateway.outcome", "other")
         counts[o] = counts.get(o, 0) + 1
-        if o == "blocked":
-            for r in s["attrs"].get("gateway.reasons", []) or ["?"]:
-                reasons[r] = reasons.get(r, 0) + 1
+        bucket = reasons if o == "blocked" else human_reasons if o == "human" else None
+        if bucket is not None:
+            for r in s["attrs"].get("gateway.reasons", []) or ([s["attrs"].get("gateway.action")] if o == "human" else ["?"]):
+                r = r or s["attrs"].get("gateway.tier") or "?"
+                bucket[r] = bucket.get(r, 0) + 1
+        if s["name"] == "gateway.submit" and s["attrs"].get("case_id"):
+            per_case.setdefault(s["attrs"]["case_id"], set()).add(o)
+    # 사례마다 한 번: 에이전트가 끝내 확정했는가(자동), 사람에게 갔는가, 막히기만 했는가
+    case_final = {"auto": 0, "human": 0, "blocked": 0}
+    for outs in per_case.values():
+        case_final["auto" if "auto" in outs else "human" if "human" in outs else "blocked"] += 1
 
     def part(group):
         c: dict[str, int] = {}
@@ -332,6 +343,8 @@ def summarize(spans: list[dict], top: int = 8) -> dict:
         "outcome_share": {k: round(v / n, 4) for k, v in sorted(counts.items())} if n else {},
         "proposals": part(subs), "actions": part(acts),
         "top_block_reasons": sorted(reasons.items(), key=lambda x: (-x[1], x[0]))[:top],
+        "top_human_reasons": sorted(human_reasons.items(), key=lambda x: (-x[1], x[0]))[:top],
+        "proposal_cases": {"n": len(per_case), **case_final},
         "llm_calls_by_task": dict(sorted(by_task.items())), "llm_calls": len(llm),
         "latency_ms": {k: {"n": len(v), "p50": _pct(v, 0.5), "p95": _pct(v, 0.95)} for k, v in sorted(lat.items())},
     }

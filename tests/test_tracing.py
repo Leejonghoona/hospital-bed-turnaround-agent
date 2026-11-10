@@ -117,6 +117,8 @@ def test_gateway_outcome_classes():
     assert tracing.gateway_outcome(Decision("executed", "action", "post_report"), action="notify_ward") == "auto"
     assert tracing.gateway_outcome(Decision("awaiting_approval", "action", "human")) == "human"
     assert tracing.gateway_outcome(Decision("duplicate", "proposal")) == "duplicate"
+    assert tracing.gateway_outcome(Decision("committed", "commit"), actor="human") == "human"
+    assert tracing.gateway_outcome(Decision("committed", "commit"), actor="agent") == "auto"
 
 
 def test_demo_day_emits_agent_and_gateway_spans():
@@ -136,6 +138,8 @@ def test_demo_day_emits_agent_and_gateway_spans():
     summary = tracing.summarize(rec.spans)
     assert summary["agent_decisions"] == len(subs) + summary["actions"]["n"]
     assert abs(sum(summary["outcome_share"].values()) - 1.0) < 1e-3
+    pc = summary["proposal_cases"]
+    assert pc["n"] == len({s["attrs"]["case_id"] for s in subs}) == pc["auto"] + pc["human"] + pc["blocked"]
 
 
 def test_jsonl_file_export(tmp_path):
