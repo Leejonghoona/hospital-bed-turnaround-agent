@@ -1,0 +1,77 @@
+"""측정 결과(evals/results/)에서 화면에 보일 요약을 뽑아 config/results_summary.yaml에 쓴다.
+
+배포 이미지에는 evals/results/가 없어서 화면은 이 요약을 읽는다(DECISIONS 2026-11-10).
+시험(tests/test_results_summary.py)이 요약과 원본이 같은지 확인한다.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+FINAL = ROOT / "evals" / "results" / "final"
+OUT = ROOT / "config" / "results_summary.yaml"
+
+
+def _load(name: str) -> dict:
+    return json.loads((FINAL / name).read_text(encoding="utf-8"))
+
+
+def _mean(xs: list[float]) -> float:
+    return sum(xs) / len(xs)
+
+
+def _safety(d: dict) -> dict:
+    s = d["safety"]
+    return {"violations": sum(s[k] for k in ("S1", "S2", "S3", "S4")), "checks": sum(s[k + "_n"] for k in ("S1", "S2", "S3", "S4"))}
+
+
+def summarize() -> dict:
+    m1_all = _load("m1.json")
+    m1 = m1_all["field_default"]
+    a, b = m1_all["seeds"]
+    off, on, hold = _load("cycle_50_off.json"), _load("cycle_50_on.json"), _load("cycle_holdout_50_99_on.json")
+    w_off, w_on = _mean(off["entry_wait_mean_by_seed"]), _mean(on["entry_wait_mean_by_seed"])
+    curves = []
+    for seed in (0, 1, 2):
+        d = _load(f"m3_seed{seed}.json")
+        weeks = []
+        for i in range(0, len(d["curve"]), 10):
+            chunk = d["curve"][i:i + 10]
+            c = sum(x["committed"] for x in chunk)
+            weeks.append({"days": f"{chunk[0]['day']}~{chunk[-1]['day']}일", "ratio": round(sum(x["no_touch"] for x in chunk) / c, 3) if c else 0.0})
+        promoted = {}
+        for x in d["curve"]:
+            for u in x["auto_units"]:
+                promoted.setdefault(u, x["day"])
+        curves.append({"seed": seed, "periods": weeks, "promoted_day": promoted,
+                       "safety_violations": sum(x["S1"] + x["S2"] for x in d["curve"])})
+    sel = json.loads(sorted((ROOT / "evals" / "results" / "model_select").glob("*.json"))[-1].read_text(encoding="utf-8"))
+    scen = {k: len(list((ROOT / "evals" / "scenarios" / k).glob("*.yaml"))) for k in ("dev", "holdout")}
+    return {
+        "note": "합성 데이터 기준 추정",
+        "no_touch": {"ratio": m1["no_touch_ratio"], "committed": m1["committed"], "no_touch": m1["no_touch_committed"],
+                     "seed_min": m1["per_seed_min"], "seeds": f"{a}~{b}"},
+        "entry_wait": {"seeds": len(on["entry_wait_mean_by_seed"]), "off_min": round(w_off, 1), "on_min": round(w_on, 1),
+                       "change": round((w_on - w_off) / w_off, 3)},
+        "safety": {"seeds": "0~49", **_safety(on), "holdout_seeds": "50~99", "holdout": _safety(hold)},
+        "autonomy": {"days": 60, "curves": curves},
+        "models": {"candidates": len(sel["exception"]["rows"]),
+                   "exception_selected": sel["exception"]["selected"] is not None,
+                   "explain_selected": sel["explain"]["selected"] is not None, "date": sel["date"]},
+        "regression": scen,
+    }
+
+
+def main() -> int:
+    OUT.write_text("# scripts/summarize_results.py가 만든 파일. 손으로 고치지 않는다.\n"
+                   + yaml.safe_dump(summarize(), allow_unicode=True, sort_keys=False), encoding="utf-8")
+    print(OUT)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -15,6 +15,13 @@ accounts:
   ward: null
   salt: adm-seo
   password_hash: cec9fa14e34f58016d84031868a556c2fb9a668d03a78e4bb6cb89dfdeb2872f
+- user_id: lead-han
+  name: 한지우
+  role: bed_lead
+  role_label: 원무팀
+  ward: null
+  salt: lead-han
+  password_hash: 2a8c9398cc182df9ebf9350ec28230881c5f32aaf8138c13f1ec1de77ddeec22
 - user_id: ward71-park
   name: 박서연
   role: ward

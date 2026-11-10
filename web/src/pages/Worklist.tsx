@@ -7,7 +7,6 @@ import { AssignmentLog } from './AssignmentLog'
 import { BedPicker } from './BedPicker'
 import { UndoForm } from '../parts/Undo'
 import { TodayAdmissions } from './TodayAdmissions'
-import { Coach } from '../parts/Coach'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 수속 안내 시각 선택지: 15분 단위 (브라우저 언어와 상관없이 24시간제로 보이게 select로 둔다)
@@ -221,7 +220,6 @@ export function Worklist({ user, onLogout, onSwitch, tour }: { user: User; onLog
         </main>}
       </div>
       {picker && <BedPicker caseId={picker} onClose={() => setPicker(null)} onDone={m => { setPicker(null); setToast(m); setRev(x => x + 1) }} />}
-      {tour && <Coach onExit={onLogout} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   )

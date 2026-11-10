@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[3]
 ACCOUNTS = ROOT / "config" / "accounts.yaml"
 MAX_FAIL = 5  # 로그인 실패 허용 횟수 (설계 가정, 개인정보 안전성 확보조치 기준: 일정 횟수 실패 시 접근 제한)
 
-ROLE_SCREEN = {"bed_manager": "admission", "ward": "ward", "ipc": "ipc", "id_oncall": "ipc", "admin": "manager"}
+ROLE_SCREEN = {"bed_manager": "admission", "bed_lead": "ops", "ward": "ward", "ipc": "ipc", "id_oncall": "ipc", "admin": "manager"}
 
 
 _BUILD_LOCK = threading.Lock()
@@ -45,6 +45,7 @@ class Session:
     last_seen: float = field(default_factory=_time.monotonic)
     locked: bool = False
     tour_state: object = None  # 시연 세션이면 따로 만든 합성 병원
+    tour_onboarding: object = None  # 시연 세션의 새 병원 설정판(운영 화면과 따로)
 
 
 @dataclass
@@ -54,6 +55,7 @@ class Store:
     fails: dict[str, int] = field(default_factory=dict)
     access_log: object = None  # AccessLog (파일, 추가만)
     state: object = None  # 합성 병원 하루 재생 (요청이 처음 올 때 만든다)
+    onboarding: object = None  # 표본 새 병원 설정판 (AI 운영 화면이 처음 열 때 만든다)
 
     def demo(self, s=None):
         """이 세션이 쓰는 합성 병원. 시연(따라 해 보기) 세션은 따로 만든 병원을 써서 운영 화면 데이터와 섞이지 않는다."""
@@ -119,6 +121,11 @@ def _public(a: dict) -> dict:
 def _check(a: dict, pw: str) -> bool:
     h = hashlib.pbkdf2_hmac("sha256", pw.encode(), a["salt"].encode(), 120000).hex()
     return hmac.compare_digest(h, a["password_hash"])
+
+
+class AutonomyIn(BaseModel):
+    to: str
+    memo: str = ""
 
 
 class LoginIn(BaseModel):
@@ -261,6 +268,19 @@ def create_app() -> FastAPI:
             store.sessions.pop(t, None)
         s.shift = "office"
         return {**out, "tour": True}
+
+    @app.post("/api/tour/as/{uid}")
+    def tour_as(uid: str, s: Session = Depends(session)):
+        """시연 안내가 다른 팀 화면(감염관리실, 의료정보팀)을 보여 줄 때 쓴다. 시연 세션만, 같은 시연용 합성 병원을 그대로 쓴다."""
+        if s.tour_state is None:
+            raise HTTPException(403, "시연에서만 다른 팀 화면으로 바꿀 수 있습니다")
+        a = store.accounts.get(uid)
+        if a is None:
+            raise HTTPException(404, "없는 계정입니다")
+        s.user, s.ward = _public(a), a.get("ward")
+        s.shift = "day" if a["role"] == "ward" else "office"
+        store.log(s, "시연 화면 바꿈", detail=a["role_label"])
+        return {"user": s.user, "screen": ROLE_SCREEN.get(a["role"], "admission")}
 
     @app.post("/api/accounts/{uid}/unlock")
     def unlock_account(uid: str, s: Session = Depends(session)):
@@ -641,6 +661,96 @@ def create_app() -> FastAPI:
     def admin_only(s: Session) -> None:
         if s.user["role"] != "admin":
             raise HTTPException(403, "관리자만 볼 수 있습니다")
+
+    def _flow_summary(s: Session, st) -> dict:
+        from turnaround.ui import views
+        m = views.manager_view(st)
+        hl = m["human_load"]
+        load = {"입원 사례": hl.get("admission_cases"), "확정": hl.get("committed"),
+                "사람 손을 안 거친 확정": hl.get("no_touch_committed"),
+                "사례당 사람 판단": hl.get("judgement_per_case"), "자동 확정 비율": hl.get("fully_automatic_ratio")}
+        return {"flow": m["flow"], "safety": m["safety"], "load": load, "unassigned": m["unassigned"], "note": "합성 데이터 기준 추정"}
+
+    @app.get("/api/ops/summary")
+    def ops_summary(s: Session = Depends(session)):
+        """원무팀장의 오늘 흐름: 퇴실, 병상 준비, 입실 대기, 배정 못 한 이유. 집계만 보고 환자 상세는 없다."""
+        if s.user["role"] != "bed_lead":
+            raise HTTPException(403, "원무팀장만 볼 수 있습니다")
+        out = _flow_summary(s, store.demo(s))
+        store.log(s, "목록 조회", detail="오늘 흐름")
+        return out
+
+    # ---- AI 운영 (의료정보팀): 에이전트 성과, 막은 판단, 자율 범위, 모델과 평가, 새 병원 설정 ----
+    def _onboarding(s: Session | None = None):
+        from turnaround.api import ai_ops
+        if s is not None and s.tour_state is not None:  # 시연에서 승인해도 운영 설정판에 남지 않게
+            if s.tour_onboarding is None:
+                s.tour_onboarding = ai_ops.build_onboarding()
+            return s.tour_onboarding
+        with _BUILD_LOCK:
+            if store.onboarding is None:
+                store.onboarding = ai_ops.build_onboarding()
+            return store.onboarding
+
+    @app.get("/api/differentiators")
+    def differentiators():
+        """시연 첫 화면의 차별점 표. 숫자는 측정 요약(합성 데이터 기준 추정)과 표본 새 병원 설정판에서 읽는다."""
+        from turnaround.api import ai_ops
+        return ai_ops.differentiators(ai_ops.onboarding_out(_onboarding()))
+
+    @app.get("/api/admin/ai-ops")
+    def ai_ops_home(s: Session = Depends(session)):
+        from turnaround.api import ai_ops
+        from turnaround.ui import views
+        admin_only(s)
+        st = store.demo(s)
+        f = _flow_summary(s, st)
+        r = ai_ops.results()
+        blocked = views.blocked_decisions(st, limit=50)
+        reasons: dict[str, int] = {}
+        for b in blocked:
+            for x in (b["reason"] or "기타").split(", "):
+                reasons[x] = reasons.get(x, 0) + 1
+        store.log(s, "목록 조회", detail="AI 운영")
+        return {
+            "today": {"committed": f["load"]["확정"], "no_touch": f["load"]["사람 손을 안 거친 확정"],
+                      "admissions": f["load"]["입원 사례"],
+                      "safety": sum(int(x["위반"] or 0) for x in f["safety"]), "safety_rows": f["safety"]},
+            "measured": {k: r[k] for k in ("no_touch", "entry_wait", "safety", "autonomy")}, "note": r["note"],
+            "blocked": blocked[::-1], "blocked_reasons": sorted(reasons.items(), key=lambda x: -x[1]),
+            "autonomy": ai_ops.autonomy(st), "autonomy_rule": ai_ops.rule_text(st),
+            "model": ai_ops.model_info(), "onboarding": ai_ops.onboarding_out(_onboarding(s)),
+        }
+
+    @app.post("/api/admin/autonomy/{unit}")
+    def set_autonomy(unit: str, body: AutonomyIn, s: Session = Depends(session)):
+        from turnaround.api import ai_ops
+        admin_only(s)
+        if body.to not in ("auto", "human"):
+            raise HTTPException(422, "to는 auto 또는 human입니다")
+        st = store.demo(s)
+        try:
+            ai_ops.set_autonomy(st, unit, body.to)
+        except ValueError as e:
+            store.log(s, "자율 범위 변경 거부", detail=f"{unit} {body.to}")
+            raise HTTPException(409, str(e))
+        name = ai_ops.UNIT_KO.get(unit, unit)
+        store.log(s, "자율 범위 변경", detail=f"{name} → {'에이전트' if body.to == 'auto' else '사람 확인'} {body.memo}".strip())
+        return {"ok": True, "autonomy": ai_ops.autonomy(st),
+                "message": f"{name}: {'이제 에이전트가 확정합니다' if body.to == 'auto' else '이제 사람이 확인합니다'}"}
+
+    @app.post("/api/admin/onboarding/approve")
+    def onboarding_approve(s: Session = Depends(session)):
+        from turnaround.agent.onboarding_flow import OnboardingError
+        from turnaround.api import ai_ops
+        admin_only(s)
+        ob = _onboarding(s)
+        try:
+            ob["pkg"] = ob["pkg"].approve(by_role="medical_informatics", user_id=s.user["user_id"], acknowledge_profile_questions=True)
+        except OnboardingError as e:
+            raise HTTPException(409, str(e))
+        store.log(s, "새 병원 설정 승인", detail=ob["pkg"].hospital)
+        return ai_ops.onboarding_out(ob)
 
     @app.get("/api/admin/summary")
     def admin_summary(s: Session = Depends(session)):

@@ -48,6 +48,24 @@ export type IpcHome = {
   decline_reasons: string[]
 }
 export type AdminSummary = { flow: Record<string, string>; load: Record<string, number>; safety: Record<string, any>[]; locked: { user_id: string; name: string; fails: number }[]; note: string }
+export type AutonomyRow = { unit: string; name: string; what: string; mode: 'auto' | 'human'; mode_ko: string; evidence: string; lower95: number; human_n: number; recommendation: 'promote' | 'demote' | 'hold'; recommendation_ko: string; locked: boolean }
+export type Onboarding = { hospital: string; tables: number; mapped: number; by_stage: Record<string, number>; asked: number; code_master: number
+  proof: { passed: boolean; order: number; safety: number; commits: number; events: number; beds: number }
+  approvals: { role: string; name: string; done: boolean; who: string | null }[]; status: string; version: string }
+export type AiOps = {
+  today: { committed: number; no_touch: number; admissions: number; safety: number; safety_rows: Record<string, any>[] }
+  measured: { no_touch: { ratio: number; committed: number; no_touch: number; seed_min: number; seeds: string }
+    entry_wait: { seeds: number; off_min: number; on_min: number; change: number }
+    safety: { seeds: string; violations: number; checks: number; holdout_seeds: string; holdout: { violations: number; checks: number } }
+    autonomy: { days: number; curves: { seed: number; periods: { days: string; ratio: number }[]; promoted_day: Record<string, number>; safety_violations: number }[] } }
+  note: string
+  blocked: { time: string; case: string; case_id: string; action: string; reason: string }[]; blocked_reasons: [string, number][]
+  autonomy: AutonomyRow[]; autonomy_rule: string
+  model: { using: string; external: boolean; guard: string; roles: { job: string; who: string; why: string }[]; checks: { name: string; value: string; sub: string }[]; note: string }
+  onboarding: Onboarding
+}
+export type OpsSummary = Omit<AdminSummary, 'locked'> & { unassigned: Record<string, number> }
+export type Diff = { key: string; title: string; what: string; value: string; value_sub: string; where: string; here?: boolean }
 export type LogRow = { real_at: string; sim_at: string; user_id: string; name: string; ip: string; case: string | null; action: string; detail: string; hash: string }
 export type CaseTrail = { case: string; patient: string; status: string; bed: string; trail: { time: string; what: string; detail: string }[] }
 
@@ -89,6 +107,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   demoAccounts: () => call<User[]>('/api/demo-accounts'),
   login: (user_id: string, password: string) => call<{ token: string; user: User; screen: string }>('/api/login', { method: 'POST', body: JSON.stringify({ user_id, password }) }),
+  tourAs: (uid: string) => call<{ user: User; screen: string }>(`/api/tour/as/${encodeURIComponent(uid)}`, { method: 'POST' }),
   tourLogin: () => call<{ token: string; user: User; tour: boolean }>('/api/tour/login', { method: 'POST' }),
   demoLogin: (user_id: string) => call<{ token: string; user: User; screen: string }>('/api/demo-login', { method: 'POST', body: JSON.stringify({ user_id }) }),
   me: () => call<{ user: User; ward: string | null; shift: string | null; now: string; screen: string }>('/api/me'),
@@ -107,6 +126,11 @@ export const api = {
   ipcDecide: (id: string, verb: 'approve' | 'decline', reason: string, memo: string) =>
     call<{ status: string }>(`/api/ipc/approvals/${encodeURIComponent(id)}/${verb}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
   adminSummary: () => call<AdminSummary>('/api/admin/summary'),
+  aiOps: () => call<AiOps>('/api/admin/ai-ops'),
+  setAutonomy: (unit: string, to: 'auto' | 'human') => call<{ autonomy: AutonomyRow[]; message: string }>(`/api/admin/autonomy/${encodeURIComponent(unit)}`, { method: 'POST', body: JSON.stringify({ to }) }),
+  approveOnboarding: () => call<Onboarding>('/api/admin/onboarding/approve', { method: 'POST' }),
+  differentiators: () => call<{ rows: Diff[]; note: string }>('/api/differentiators'),
+  opsSummary: () => call<OpsSummary>('/api/ops/summary'),
   accessLog: () => call<{ rows: LogRow[] }>('/api/access-log'),
   verifyLog: () => call<{ ok: boolean }>('/api/access-log/verify'),
   adminCase: (c: string) => call<CaseTrail>(`/api/admin/case/${encodeURIComponent(c)}`),

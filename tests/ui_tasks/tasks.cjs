@@ -27,20 +27,37 @@ const TASKS = {
     const coach = page.getByRole('dialog', { name: '시연 안내' })
     await coach.waitFor({ timeout: 60000 })
     await page.locator('tr.row').first().waitFor()
-    const step = (t) => coach.getByRole('heading', { name: t }).waitFor({ timeout: 10000 })
+    const step = (t) => coach.getByRole('heading', { name: t }).waitFor({ timeout: 15000 })
+    await page.locator('.stat.coach-pulse').waitFor({ timeout: 10000 }).catch(() => {})
+    c.push({ name: '차별점 번호와 짚는 곳이 보인다', ok: /차별점 1\/7/.test(await coach.locator('.coach-d').textContent() || '') && (await page.locator('.stat.coach-pulse').count()) === 1 })
     await coach.getByRole('button', { name: '다음' }).click()
-    await step('평범한 입원은 에이전트가 처리')
+    await step('평범한 입원은 배지가 없다')
     await page.locator('tr.row.coach-pulse').click()
     await step('사람은 환자 연락만')
     await page.getByRole('button', { name: '연락함으로 기록' }).click()
-    await step('판단이 필요한 일은 배지로')
+    await step('판단이 필요한 일만 배지로')
     await page.locator('tr.row.coach-pulse').click()
-    await step('승인해도 시스템이 다시 확인')
+    await step('승인해도 실행 직전에 다시 검사')
     await page.locator('aside.detail .issue', { hasText: '재연락' }).first().getByRole('button', { name: '승인' }).click()
     await step('확정 근거는 배정 기록에')
     await page.getByRole('button', { name: '배정 기록' }).click()
-    await coach.getByRole('heading', { name: '끝' }).waitFor({ timeout: 10000 }).catch(() => {})
-    c.push({ name: '시연을 끝까지 해 본다', ok: await coach.getByRole('heading', { name: '끝' }).isVisible() })
+    await step('확정 뒤에 격리 오더가 났다')
+    await page.locator('tr.row.coach-pulse').waitFor({ timeout: 30000 })
+    c.push({ name: '감염관리실 화면에서 늦은 격리 환자를 짚는다', ok: /병상 결정/.test(await page.locator('tr.row.coach-pulse').textContent() || '') })
+    await coach.getByRole('button', { name: '다음' }).click()
+    await step('사람이 병상을 정한다')
+    c.push({ name: '감염관리실 화면에서 늦은 격리 결정을 짚는다', ok: (await page.locator('.issue.coach-pulse').count()) === 1 })
+    for (const t of ['퇴실 즉시 청소 요청, 빈 병상이 일찍 생긴다', '맡기는 범위는 기록이 정한다', '새 병원은 데이터로 세팅', '모델은 바꿔 끼우고 시험으로 고른다']) {
+      await coach.getByRole('button', { name: '다음' }).click()
+      await step(t)
+      await page.locator('.coach-pulse').first().waitFor({ timeout: 30000 }).catch(() => {})
+    }
+    c.push({ name: 'AI 운영 화면에서 차별점을 짚는다', ok: (await page.locator('.coach-pulse').count()) === 1 && await page.getByRole('heading', { name: 'AI 운영' }).isVisible() })
+    await coach.getByRole('button', { name: '다음' }).click()
+    const ov = page.getByRole('dialog', { name: 'WardFlow가 다른 점' })
+    await ov.locator('table.diff tbody tr').first().waitFor({ timeout: 15000 }).catch(() => {})
+    const vals = await ov.locator('table.diff b.v').allTextContents()
+    c.push({ name: '마지막에 차별점을 숫자와 함께 한눈에 정리한다', ok: vals.length === 7 && vals.includes('72.4%') && vals.includes('0건'), detail: vals.join(' | ') })
     return c
   },
   async F3(page) {
@@ -194,9 +211,24 @@ const TASKS = {
     return [{ name: '종말소독이 끝나지 않은 병실을 찾는다', ok: n > 0 && await page.getByText(/종말소독 대기:/).isVisible(), detail: `${n}개` }]
   },
   async M1(page) {
-    await enterOps(page, '정예린')
+    await enterOps(page, '한지우')
     await page.getByRole('heading', { name: '안전 검사' }).waitFor()
-    return [{ name: '오늘 흐름과 안전 검사 결과를 본다', ok: await page.getByRole('heading', { name: '흐름', exact: true }).isVisible() && (await page.locator('.card tbody tr').count()) >= 4 }]
+    return [{ name: '원무팀장이 오늘 흐름과 안전 검사 결과를 본다', ok: await page.getByRole('heading', { name: '퇴실에서 입실까지' }).isVisible() && (await page.locator('.card tbody tr').count()) >= 4 }]
+  },
+  async M3(page) {
+    await enterOps(page, '정예린')
+    await page.locator('.kpi').first().waitFor({ timeout: 30000 })
+    const c = []
+    const kpis = await page.locator('.kpi b').allTextContents()
+    c.push({ name: '에이전트 성과(측정값)를 본다', ok: kpis.join(' ').includes('72.4%'), detail: kpis.join(' | ') })
+    for (const h of ['자율 범위', '막은 판단', '모델과 평가', '새 병원 설정']) c.push({ name: `${h} 구역이 있다`, ok: await page.getByRole('heading', { name: h }).first().isVisible() })
+    await page.getByRole('button', { name: '사람 확인으로' }).first().click()
+    await page.locator('.toast').waitFor({ timeout: 5000 }).catch(() => {})
+    c.push({ name: '에이전트가 맡은 유형을 사람 확인으로 되돌린다', ok: /이제 사람이 확인합니다/.test(await page.locator('.toast').textContent().catch(() => '') || '') })
+    await page.getByRole('button', { name: '의료정보팀으로 승인' }).click()
+    await page.getByText('승인 1명 남음').first().waitFor({ timeout: 5000 }).catch(() => {})
+    c.push({ name: '새 병원 설정판을 의료정보팀으로 승인한다', ok: await page.getByText('승인 1명 남음').first().isVisible() })
+    return c
   },
   async A4(page) {
     await enterOps(page, '정예린')

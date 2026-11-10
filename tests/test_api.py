@@ -448,3 +448,68 @@ def test_concurrent_requests_do_not_break_event_store(client):
     with ThreadPoolExecutor(max_workers=8) as ex:
         codes = list(ex.map(lambda p: client.get(p, headers=h).status_code, paths))
     assert set(codes) == {200}, codes
+
+
+def test_ai_ops_admin_only_and_contents(client):
+    assert client.get("/api/admin/ai-ops", headers=_login(client, "adm-kim")).status_code == 403
+    h = _login(client, "admin-jung")
+    d = client.get("/api/admin/ai-ops", headers=h).json()
+    assert d["note"] == "합성 데이터 기준 추정"
+    assert d["measured"]["no_touch"]["ratio"] == 0.724 and d["measured"]["entry_wait"]["change"] == -0.13
+    assert d["today"]["safety"] == 0
+    assert d["autonomy"] and all(r["mode"] in ("auto", "human") for r in d["autonomy"])
+    assert d["model"]["using"].startswith("결정적 규칙")
+    ob = d["onboarding"]
+    assert ob["proof"]["passed"] and [a["done"] for a in ob["approvals"]] == [False, False]
+
+
+def test_ai_ops_autonomy_change_and_lock(client):
+    h = _login(client, "admin-jung")
+    rows = client.get("/api/admin/ai-ops", headers=h).json()["autonomy"]
+    auto = next(r for r in rows if r["mode"] == "auto")
+    r = client.post(f"/api/admin/autonomy/{auto['unit']}", json={"to": "human"}, headers=h)
+    assert r.status_code == 200
+    assert next(x for x in r.json()["autonomy"] if x["unit"] == auto["unit"])["mode"] == "human"
+    locked = next(r for r in rows if r["locked"])
+    assert client.post(f"/api/admin/autonomy/{locked['unit']}", json={"to": "auto"}, headers=h).status_code == 409
+    client.post(f"/api/admin/autonomy/{auto['unit']}", json={"to": "auto"}, headers=h)
+    log = client.get("/api/access-log", headers=h).json()["rows"]
+    assert any(x["action"] == "자율 범위 변경" for x in log) and any(x["action"] == "자율 범위 변경 거부" for x in log)
+
+
+def test_onboarding_approval_by_informatics(client):
+    h = _login(client, "admin-jung")
+    ob = client.post("/api/admin/onboarding/approve", headers=h).json()
+    assert ob["approvals"][0]["done"] and not ob["approvals"][1]["done"] and ob["status"] == "승인 1명 남음"
+
+
+def test_bed_lead_sees_flow_not_patients(client):
+    h = _login(client, "lead-han")
+    me = client.get("/api/me", headers=h).json()
+    assert me["screen"] == "ops" and me["user"]["role_label"] == "원무팀"
+    d = client.get("/api/ops/summary", headers=h).json()
+    assert "flow" in d and d["note"] == "합성 데이터 기준 추정"
+    assert client.get("/api/worklist", headers=h).status_code == 403
+    assert client.get("/api/admin/ai-ops", headers=h).status_code == 403
+
+
+def test_differentiators_numbers_from_summary(client):
+    d = client.get("/api/differentiators").json()
+    assert d["note"] == "합성 데이터 기준 추정"
+    v = {r["key"]: r["value"] for r in d["rows"]}
+    assert v["floor"] == "72.4%" and v["A"] == "−13%" and v["G1"] == "0건"
+
+
+def test_tour_can_switch_team_screen_only_in_tour(client):
+    admin = _login(client, "admin-jung")
+    assert client.post("/api/tour/as/ipc-lee", headers=_login(client, "adm-kim")).status_code == 403
+    before = client.get("/api/admin/ai-ops", headers=admin).json()["onboarding"]["approvals"]
+    t = client.post("/api/tour/login").json()["token"]
+    h = {"Authorization": f"Bearer {t}"}
+    r = client.post("/api/tour/as/admin-jung", headers=h).json()
+    assert r["user"]["role"] == "admin" and r["screen"] == "manager"
+    tour_ob = client.get("/api/admin/ai-ops", headers=h).json()["onboarding"]
+    assert [a["done"] for a in tour_ob["approvals"]] == [False, False]  # 시연은 자기 설정판을 따로 쓴다
+    assert client.post("/api/admin/onboarding/approve", headers=h).json()["approvals"][0]["done"]
+    # 시연에서 한 승인은 운영 설정판에 남지 않는다
+    assert client.get("/api/admin/ai-ops", headers=admin).json()["onboarding"]["approvals"] == before
