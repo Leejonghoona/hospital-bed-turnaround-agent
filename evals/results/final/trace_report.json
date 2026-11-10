@@ -1,0 +1,251 @@
+{
+ "note": "합성 데이터 기준 추정. 가짜 LLM(결정적)이라 LLM 지연은 실제 모델 지연이 아니다.",
+ "setup": {
+  "hospital": "시연용 합성 병원(build_hospital 설정, 시드 2, 3일째)",
+  "replay": "전날 16:00 ~ 23:45",
+  "llm": "fake",
+  "spans": 536,
+  "wall_s": 8.44
+ },
+ "agent_decisions": 207,
+ "outcome_counts": {
+  "auto": 52,
+  "blocked": 4,
+  "human": 151
+ },
+ "outcome_share": {
+  "auto": 0.2512,
+  "blocked": 0.0193,
+  "human": 0.7295
+ },
+ "proposals": {
+  "n": 154,
+  "by_outcome": {
+   "auto": 22,
+   "human": 132
+  }
+ },
+ "actions": {
+  "n": 53,
+  "by_outcome": {
+   "auto": 30,
+   "blocked": 4,
+   "human": 19
+  }
+ },
+ "top_block_reasons": [
+  [
+   "not_ready_before_deadline",
+   3
+  ],
+  [
+   "wait_after_attempt",
+   1
+  ]
+ ],
+ "top_human_reasons": [
+  [
+   "no_bed",
+   115
+  ],
+  [
+   "single_room_preference",
+   46
+  ],
+  [
+   "isolation",
+   27
+  ],
+  [
+   "escalate",
+   13
+  ],
+  [
+   "isolation_discharge_bed",
+   9
+  ],
+  [
+   "grade_upgrade",
+   4
+  ],
+  [
+   "request_recontact",
+   4
+  ],
+  [
+   "icu_stepdown",
+   2
+  ]
+ ],
+ "proposal_cases": {
+  "n": 31,
+  "auto": 22,
+  "human": 9,
+  "blocked": 0
+ },
+ "llm_calls_by_task": {
+  "choose_exception_action": {
+   "calls": 49,
+   "errors": 0,
+   "external_blocked": 0,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "role": "brain"
+  },
+  "explain_choice": {
+   "calls": 39,
+   "errors": 0,
+   "external_blocked": 0,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "role": "planner"
+  }
+ },
+ "llm_calls": 88,
+ "latency_ms": {
+  "agent.brain.choose": {
+   "n": 49,
+   "p50": 5.303,
+   "p95": 117.961
+  },
+  "agent.plan": {
+   "n": 154,
+   "p50": 0.045,
+   "p95": 0.275
+  },
+  "gateway.commit": {
+   "n": 38,
+   "p50": 3.791,
+   "p95": 12.229
+  },
+  "gateway.submit": {
+   "n": 154,
+   "p50": 1.716,
+   "p95": 10.591
+  },
+  "gateway.submit_action": {
+   "n": 53,
+   "p50": 6.551,
+   "p95": 29.522
+  },
+  "llm.call": {
+   "n": 88,
+   "p50": 0.07,
+   "p95": 0.107
+  }
+ },
+ "commits_by_actor": {
+  "agent": {
+   "auto": 22
+  },
+  "human": {
+   "human": 8,
+   "blocked": 8
+  }
+ },
+ "case_example": {
+  "case": "SYN-A005",
+  "spans": [
+   {
+    "i": 0,
+    "parent": null,
+    "name": "agent.plan",
+    "at_ms": 0.0,
+    "duration_ms": 0.214,
+    "attrs": {
+     "case_id": "SYN-A005",
+     "agent.mode": "explain",
+     "agent.bed_id": "W61-R13-B4",
+     "agent.candidates": 3
+    }
+   },
+   {
+    "i": 1,
+    "parent": 0,
+    "name": "llm.call",
+    "at_ms": 0.118,
+    "duration_ms": 0.063,
+    "attrs": {
+     "llm.task": "explain_choice",
+     "llm.role": "planner",
+     "llm.model": "fake",
+     "llm.external_blocked": false,
+     "llm.input_tokens": 0,
+     "llm.output_tokens": 0
+    }
+   },
+   {
+    "i": 2,
+    "parent": null,
+    "name": "gateway.submit",
+    "at_ms": 0.28,
+    "duration_ms": 3.678,
+    "attrs": {
+     "case_id": "SYN-A005",
+     "gateway.status": "committed",
+     "gateway.tier": "auto",
+     "gateway.outcome": "auto",
+     "gateway.reasons": []
+    }
+   },
+   {
+    "i": 3,
+    "parent": 2,
+    "name": "gateway.commit",
+    "at_ms": 2.789,
+    "duration_ms": 1.113,
+    "attrs": {
+     "case_id": "SYN-A005",
+     "gateway.status": "committed",
+     "gateway.outcome": "auto",
+     "gateway.reasons": [],
+     "gateway.actor": "agent"
+    }
+   },
+   {
+    "i": 4,
+    "parent": null,
+    "name": "agent.brain.choose",
+    "at_ms": 596.605,
+    "duration_ms": 6.734,
+    "attrs": {
+     "case_id": "SYN-A005",
+     "agent.mode": "fake",
+     "agent.trigger": "call_up_stalled",
+     "agent.action": "remind_ward"
+    }
+   },
+   {
+    "i": 5,
+    "parent": 4,
+    "name": "llm.call",
+    "at_ms": 603.249,
+    "duration_ms": 0.058,
+    "attrs": {
+     "llm.task": "choose_exception_action",
+     "llm.role": "brain",
+     "llm.model": "fake",
+     "llm.external_blocked": false,
+     "llm.input_tokens": 0,
+     "llm.output_tokens": 0
+    }
+   },
+   {
+    "i": 6,
+    "parent": null,
+    "name": "gateway.submit_action",
+    "at_ms": 603.365,
+    "duration_ms": 8.457,
+    "attrs": {
+     "case_id": "SYN-A005",
+     "agent.mode": "fake",
+     "gateway.status": "executed",
+     "gateway.tier": "auto",
+     "gateway.outcome": "auto",
+     "gateway.reasons": [],
+     "gateway.action": "remind_ward"
+    }
+   }
+  ]
+ }
+}

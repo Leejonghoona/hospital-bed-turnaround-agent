@@ -807,3 +807,27 @@
   - 중앙값은 15분으로 그대로다.
   - 청소 시작 대기 47분은 인력 배정 범위 밖이라 남는다.
 - 옵션을 끈 측정(33.7분에서 22.9분)과 첫 지표(−13%)는 RESULTS에 그대로 둔다.
+
+## 2026-11-10 MCP 서버(읽기 전용)와 에이전트 추적(OpenTelemetry)
+
+- **무엇.** 두 가지를 더한다. 설계 문서의 기능이 아니라 바깥 도구와 연결하고 수치를 보고하기 위한 운영 층이다. 판단과 실행 경로는 바꾸지 않는다.
+- **MCP 서버(`python -m turnaround.mcp_server`, stdio).**
+  - MCP 클라이언트(Claude Desktop, Claude Code 등)가 WardFlow의 조회 도구를 부른다. 시연용 합성 병원(`build_hospital()`, 11:45)을 첫 호출 때 한 번 만든다(약 6초).
+  - 도구 6개: 환자 한 명의 병상 현황판, 게이트웨이 사전 검사(기록 없는 검사), 환자 경과, 오늘 입원 요약, 게이트웨이가 막은 판단, 자율 범위 표.
+  - **읽기 전용이 기본이다.** 확정, 직접 배정, 승인 같은 상태를 바꾸는 도구는 두지 않는다. 이유:
+    - 실행은 결정적 코드인 실행 게이트웨이 한 곳만 한다(CLAUDE.md 2항). 게이트웨이는 두 번 재확인, SHACL, 확인 등급, 멱등 키, 감사 로그를 거친다. MCP 클라이언트가 확정을 부르면 이 경로 밖에서 "사람 확인" 등급을 건너뛸 수 있다.
+    - 사람 확인 등급(병동 확인, 담당 검토)은 화면에서 로그인한 역할이 한다. MCP 클라이언트에는 그런 역할 인증이 없다.
+    - 사전 검사는 `override_precheck`를 그대로 부른다. 이벤트를 남기지 않는다(시험으로 확인).
+  - **합성 데이터만 낸다.** 서버는 생성기의 합성 병원만 만든다. 병원 데이터를 읽는 입력이 없다. 그래도 환자 이름은 화면처럼 가린다(이○태). 원무 화면의 등록번호(합성)는 MCP 응답에서 뺀다.
+  - SDK는 공식 `mcp` 파이썬 SDK다. 1.x(`FastMCP`)와 2.x(`MCPServer`)를 모두 받는다. 선택 의존성 `[mcp]`.
+- **에이전트 추적(`turnaround.tracing`).**
+  - OpenTelemetry API/SDK로 span을 남긴다. 기본은 꺼짐이다. `TURNAROUND_TRACE=1`(파일 `TURNAROUND_TRACE_FILE`, 기본 `traces.jsonl`)이나 `tracing.capture()` 문맥에서만 켠다. 꺼져 있으면 OpenTelemetry를 불러오지도 않고 전역 불 값 하나만 본다. 그래서 기존 측정값과 시험 결과는 그대로다.
+  - span 종류:
+    - `llm.call`: 모든 LLM 호출(가짜 LLM, 외부 모델, 원내 모델). 작업, 역할(작업으로 정함), 모델 이름, 지연, 입출력 토큰(공급사가 줄 때), 외부 전송 차단 여부, 오류 종류.
+    - `agent.plan`: 계획 에이전트의 병상 선택(모드 explain/select/rule/fallback, 후보 수, 고른 병상).
+    - `agent.brain.choose`: 예외 판단 머리의 행동 선택(촉발 사건, 행동, 모드).
+    - `gateway.submit`, `gateway.submit_action`, `gateway.commit`: 게이트웨이 판정. 결과를 `auto`(에이전트 확정·자동 실행), `human`(사람 확인으로 보냄, 사람에게 올림), `blocked`(거절), `duplicate`로 나누고 사유를 남긴다.
+  - 사례 ID는 span 속성으로 남기고, 환자 이름과 자유 서술은 남기지 않는다(LLM 입력 원문은 남기지 않음).
+  - Langfuse 연결: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`가 있고 `opentelemetry-exporter-otlp`가 설치돼 있을 때만 Langfuse의 OTLP 수신 주소로도 보낸다. 시험에서는 네트워크를 쓰지 않는다(설정 계산만 시험).
+  - 보고 스크립트 `scripts/trace_report.py`는 시연용 병원 하루를 추적을 켜고 돌려 `evals/results/final/trace_report.json`을 쓴다. 수치는 합성 데이터 기준 추정이다.
+- **설계 가정.** "자동/사람/막음" 분류는 게이트웨이 판정 상태에서 기계적으로 나눈 것이다(`committed`·`executed` 중 사람에게 올림이 아닌 것 = 자동, `awaiting_*`·사람에게 올림 = 사람, `rejected` = 막음).
