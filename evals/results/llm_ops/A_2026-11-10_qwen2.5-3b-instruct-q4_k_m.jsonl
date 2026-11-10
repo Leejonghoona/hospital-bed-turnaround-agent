@@ -1,1 +1,2 @@
 {"id": "XV3-001", "action": "propose_surveillance_hold", "status": "ok", "valid": true, "error": null, "latency_s": 16.932, "in_tok": 597, "out_tok": 91, "finish": ["stop"]}
+{"id": "XV3-002", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "latency_s": 12.446, "in_tok": 609, "out_tok": 83, "finish": ["stop"]}
