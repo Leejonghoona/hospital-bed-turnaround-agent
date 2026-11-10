@@ -55,6 +55,12 @@ export type TourStep = {
   title: string; caption: string; look: string[]; now: string | null; changed: { time: string; actor: string; patient: string; what: string; detail: string }[]
 }
 
+export type Admission = {
+  case: string; patient: string; patient_id: string; age: number | null; sex: string; department: string; checkin: string; checkin_note: string
+  bed: string; bed_state: string; by: string; contact: string; stage: string; issues: { id: string; label: string; late: boolean; due: string }[]; rows: Row[]
+}
+export type Admissions = { now: string; rows: Admission[]; summary: { total: number; committed: number; by_agent: number; contacted: number; arrived: number; issues: number; discharges_today: number; free_beds: number } }
+
 const KEY = 'wardflow.token'
 export const token = {
   get: () => { try { return sessionStorage.getItem(KEY) } catch { return null } },
@@ -105,6 +111,7 @@ export const api = {
   tourChapters: () => call<{ chapters: { id: string; title: string; summary: string; steps: number }[] }>('/api/tour'),
   tourStart: (chapter: string) => call<TourStep>('/api/tour/start', { method: 'POST', body: JSON.stringify({ chapter }) }),
   tourNext: (run: string) => call<TourStep>(`/api/tour/${encodeURIComponent(run)}/next`, { method: 'POST' }),
+  admissions: () => call<Admissions>('/api/admissions'),
   worklist: () => call<Worklist>('/api/worklist'),
   beds: (c: string) => call<Board>(`/api/beds?case=${encodeURIComponent(c)}`),
   assign: (c: string, bed: string, reason: string, memo: string) => call('/api/assign', { method: 'POST', body: JSON.stringify({ case: c, bed, reason, memo }) }),

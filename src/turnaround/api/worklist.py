@@ -328,3 +328,73 @@ def assignments(st, accounts: dict | None = None, day: str | None = None) -> dic
                      "state": state})
     rows.sort(key=lambda r: r["at"], reverse=True)
     return {"now": st.now.isoformat(timespec="minutes"), "day": want.isoformat(), "days": days, "rows": rows}
+
+
+def admissions_today(st, accounts: dict | None = None) -> dict:
+    """원무 첫 화면 '오늘 입원' (UX 재설계 10): 오늘 들어올 환자 전부를 한 표로. 평소 상태(병상, 배정, 연락, 입실)는 칸으로,
+    예외는 그 환자 행의 배지(issues)로 둔다. 확인할 것이 있는 행이 위, 입실 끝난 행이 아래."""
+    from turnaround.saga import fold
+    ev = st.store.read()
+    s = fold(ev)
+    people = views._people(ev)
+    now = st.now
+    work = admission_rows(st)["rows"]
+    by_case: dict[str, list[dict]] = {}
+    for r in work:
+        by_case.setdefault(r["case"], []).append(r)
+    states = {b["bed"]: b["state_ko"] for b in views.bed_states(st)}
+    cancelled = {e.case_id for e in ev if e.type is EventType.ADMISSION_CANCELLED and e.observed_at <= now}
+    manual = {e.case_id: e.payload for e in ev if e.type is EventType.MANUAL_OVERRIDE_APPLIED}
+    req = {e.case_id: e.payload for e in ev if e.type is EventType.ADMISSION_REQUESTED and e.observed_at <= now}
+    rows = []
+    for case, p in req.items():
+        when = datetime.fromisoformat(p["requested_at"]) if p.get("requested_at") else None
+        m = s.matches.get(case)
+        arrived = bool(m and EventType.PATIENT_ARRIVED in m.facts)
+        today = when is not None and when.date() == now.date()
+        if not (today or case in by_case or (m is not None and m.active and not arrived)):
+            continue
+        if case in cancelled:
+            stage = "취소"
+        elif arrived:
+            stage = "입실 완료"
+        elif m is not None and EventType.PATIENT_CALL_UP in m.facts:
+            stage = "호출됨"
+        elif m is not None and m.active and EventType.MATCH_COMMITTED in m.facts:
+            stage = "입실 대기"
+        else:
+            stage = "병상 대기"
+        bed = m.bed_id if m is not None and m.active else None
+        if bed and m is not None and EventType.MATCH_COMMITTED in m.facts:
+            commit = next((e for e in reversed(ev) if e.type is EventType.MATCH_COMMITTED and e.case_id == case), None)
+            mo = manual.get(case)
+            by = "에이전트" if commit and commit.payload.get("committed_by") == "agent" else \
+                (accounts or {}).get(str((mo or {}).get("actor")), {}).get("name", "원무")
+        else:
+            by = "배정 전"
+        promised = s.contact_promise.get(case)
+        tries = sum(1 for n in notes(ev, case) if n["tag"] == "contact_no_answer")
+        contact = (f"안내함, {datetime.fromisoformat(promised):%H:%M} 수속" if promised else
+                   f"연락 안 됨 {tries}회" if tries else "안내 전" if bed else "—")
+        mine = by_case.get(case, [])
+        issues = [r for r in mine if r["kind"] not in ("contact", "confirmed")]
+        rows.append({"case": case, **_person(people, case), "department": p.get("department") or "",
+                     "checkin": f"{datetime.fromisoformat(promised):%H:%M}" if promised else (f"{when:%H:%M}" if when else ""),
+                     "checkin_note": "안내한 시각" if promised else "예약",
+                     "bed": _bed(bed), "bed_state": states.get(bed, "") if bed else "", "by": by,
+                     "contact": contact, "stage": stage,
+                     "issues": [{"id": r["id"], "label": r["kind_label"], "late": r["late"], "due": r["due"]} for r in issues],
+                     "rows": mine})
+    rank = {"병상 대기": 1, "입실 대기": 2, "호출됨": 3, "입실 완료": 5, "취소": 6}
+    rows.sort(key=lambda r: (0 if r["issues"] else 1, not any(i["late"] for i in r["issues"]),
+                             rank.get(r["stage"], 4), r["checkin"] or "99"))
+    sm = {"total": sum(r["stage"] != "취소" for r in rows),
+          "committed": sum(r["by"] not in ("배정 전",) for r in rows),
+          "by_agent": sum(r["by"] == "에이전트" for r in rows),
+          "contacted": sum(r["contact"].startswith("안내함") for r in rows),
+          "arrived": sum(r["stage"] == "입실 완료" for r in rows),
+          "issues": sum(bool(r["issues"]) for r in rows),
+          "discharges_today": sum(1 for d in s.discharges.values() if EventType.DISCHARGE_CANCELLED not in d.facts
+                                  and (d.seen(EventType.PATIENT_DEPARTED) or now).date() == now.date()),
+          "free_beds": sum(1 for v in states.values() if v in ("빈 병상", "입실 가능"))}
+    return {"now": now.isoformat(timespec="minutes"), "summary": sm, "rows": rows}

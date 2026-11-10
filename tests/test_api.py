@@ -410,3 +410,15 @@ def test_tour_three_chapters_step_through(client):
         r = client.post(f"/api/tour/{r['run']}/next").json()
     assert "거부" in r["caption"] or "막" in r["caption"]
     assert any("거절" in x["what"] for x in r["changed"])
+
+
+def test_admissions_today_is_everyday_list_with_issue_badges(client):
+    h = _login(client)
+    d = client.get("/api/admissions", headers=h).json()
+    rows, sm = d["rows"], d["summary"]
+    assert sm["total"] >= 20 and sm["by_agent"] > 0  # 평소 일(자동 확정 포함)이 다 보인다
+    assert {"checkin", "patient", "bed", "bed_state", "by", "contact", "stage", "issues"} <= set(rows[0])
+    with_issue = [r for r in rows if r["issues"]]
+    assert with_issue and rows[: len(with_issue)] == with_issue  # 확인할 것이 있는 행이 위
+    assert any(not r["issues"] for r in rows)  # 예외 없는 평소 행이 대부분
+    assert client.get("/api/admissions", headers=_login(client, "ward71-park")).status_code == 403

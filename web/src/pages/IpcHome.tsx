@@ -4,68 +4,79 @@ import { Shell, useToast } from '../parts/Shell'
 
 // 감염관리실 화면: 흐름 docs/화면재설계/flows/감염관리실_이준호.md (출근 → 병상 결정 → 입원 예정 격리 확인 → 접촉자 → 종말소독 → 현황 → 인계)
 export function IpcHome({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
-  const [page, setPage] = useState('today')
+  const [page, setPage] = useState('patients')
   const [d, setD] = useState<IH | null>(null)
+  const [f, setF] = useState('all')
   const [pick, setPick] = useState<string | null>(null)
   const [now, setNow] = useState<string | undefined>()
   const [toast, setToast] = useToast()
-  const load = useCallback(() => api.ipc().then(x => { setD(x); setPick(p => p && x.decisions.some(a => a.exception_id === p) ? p : x.decisions[0]?.exception_id ?? null) }), [])
+  const load = useCallback(() => api.ipc().then(x => {
+    setD(x)
+    const first = x.isolated.find(p => x.decisions.some(dd => dd.case === p.case)) ?? x.isolated[0]
+    setPick(p => p && x.isolated.some(i => i.case === p) ? p : first?.case ?? null)
+  }), [])
   useEffect(() => { load(); api.me().then(m => setNow(m.now)).catch(() => {}) }, [load])
-  const cur = d?.decisions.find(a => a.exception_id === pick) ?? null
   const s = d?.summary
+  const dec = (c: string) => d?.decisions.find(x => x.case === c)
+  const badges = (p: IH['isolated'][number]) => {
+    const out: { t: string; late?: boolean }[] = []
+    const x = dec(p.case)
+    if (x) out.push({ t: `병상 결정, 마감 ${x.deadline}`, late: true })
+    if (p.status === '입원 예정' && !p.checked) out.push({ t: '배정 확인 전' })
+    return out
+  }
+  const rows = (d?.isolated ?? []).map(p => ({ ...p, b: badges(p) }))
+    .filter(p => f === 'all' || p.status === f).sort((a, b) => b.b.length - a.b.length)
+  const cur = rows.find(p => p.case === pick) ?? null
+  const count = (k: string) => (d?.isolated ?? []).filter(p => k === 'all' || p.status === k).length
   return (
-    <Shell user={user} nav={[['today', '오늘 할 일'], ['board', '격리 병상'], ['patients', '격리 환자']]} page={page} onPage={setPage} now={now} onLogout={onLogout} onSwitch={onSwitch}>
+    <Shell user={user} nav={[['patients', '격리 환자'], ['board', '격리 병상'], ['night', '밤사이·인계']]} page={page} onPage={setPage} now={now} onLogout={onLogout} onSwitch={onSwitch}>
       <main className="main">
-        {s && (
-          <div className="kpis">
-            <button className="kpi" onClick={() => setPage('today')}><span>병상 결정 대기</span><b className={s.decisions ? 'red' : ''}>{s.decisions}</b><em>{s.first_deadline ? `가장 이른 마감 ${s.first_deadline}` : '없음'}</em></button>
-            <button className="kpi" onClick={() => setPage('patients')}><span>격리 환자</span><b>{s.isolated}</b><em>오늘 입원 예정 {s.incoming}</em></button>
-            <button className="kpi" onClick={() => setPage('board')}><span>빈 격리 병상</span><b>{s.free_np + s.free_single}</b><em>음압 {s.free_np}, 1인실 {s.free_single}</em></button>
-            <button className="kpi" onClick={() => setPage('today')}><span>종말소독 대기</span><b className={s.terminal ? 'amber' : ''}>{s.terminal}</b><em>끝나야 다시 배정</em></button>
+        <div className="ph"><h1>{{ patients: '격리 환자', board: '격리 병상', night: '밤사이·인계' }[page]}</h1></div>
+        {s && <p className="sumline">격리 환자 <b>{s.isolated}</b>명(오늘 입원 예정 {s.incoming})<span className="sep" />빈 격리 병상 <b>{s.free_np + s.free_single}</b>개(음압 {s.free_np}, 1인실 {s.free_single})<span className="sep" />종말소독 대기 <b>{s.terminal}</b>개
+          {s.decisions > 0 && <><span className="sep" /><span className="hl">병상 결정 {s.decisions}건, 마감 {s.first_deadline}</span></>}</p>}
+        {page === 'patients' && d && (<>
+          <div className="tabs" role="tablist">{(['all', '병상 대기', '입원 예정', '재원', '퇴원 진행'] as const).map(k => (
+            <button key={k} role="tab" aria-selected={f === k} className={'tab' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{k === 'all' ? '전체' : k} <span className="n">{count(k)}</span></button>))}</div>
+          <div className="work">
+            <section className="grid"><div className="tbody">
+              {rows.length === 0 ? <div className="empty">해당하는 격리 환자가 없습니다</div> : (
+                <table>
+                  <colgroup><col style={{ width: 92 }} /><col style={{ width: 140 }} /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: 120 }} /><col /></colgroup>
+                  <thead><tr><th>상태</th><th>환자</th><th>균</th><th>주의</th><th>병상</th><th>확인 필요</th></tr></thead>
+                  <tbody>{rows.map(p => (
+                    <tr key={p.case} className={'row' + (p.case === pick ? ' pick' : '')} onClick={() => setPick(p.case)} tabIndex={0}>
+                      <td><span className="tag t-gray">{p.status}</span></td>
+                      <td className="pt"><b>{p.patient}</b><span className="id">{p.age}세 {p.sex}</span></td>
+                      <td>{p.organism}</td><td className="sub">{p.precautions}</td>
+                      <td>{p.bed ? <span className="bedst"><b className="mono">{p.bed}</b><small>{p.room}</small></span> : <span className="sub">—</span>}</td>
+                      <td>{p.b.map(x => <span key={x.t} className={'badge' + (x.late ? ' late' : '')}>{x.t}</span>)}</td>
+                    </tr>))}</tbody>
+                </table>)}
+            </div></section>
+            <aside className="detail" aria-label="상세">
+              {!cur ? <div className="empty">왼쪽에서 환자를 고르세요</div> : (<>
+                <div className="dh"><div className="top"><span className="nm">{cur.patient}</span><span className="id">{cur.age}세 {cur.sex}</span></div>
+                  <dl className="facts two"><dt>상태</dt><dd>{cur.status}</dd><dt>균</dt><dd>{cur.organism}</dd>
+                    <dt>주의</dt><dd>{cur.precautions}</dd><dt>병상</dt><dd>{cur.bed ? `${cur.bed} ${cur.room}` : '배정 전'}</dd></dl></div>
+                <div className="db">
+                  {dec(cur.case) && <div className="issue"><div className="lab">늦은 격리 병상 결정<span className="badge late">마감 {dec(cur.case)!.deadline}</span></div>
+                    <Decide key={cur.case} a={dec(cur.case)!} free={d.free} reasons={d.decline_reasons} onDone={m => { setToast(m); load() }} /></div>}
+                  {cur.status === '입원 예정' && (
+                    <div className="issue routine"><div className="lab">배정 병상 확인</div>
+                      <p className="sit">에이전트가 규칙대로 {cur.room || '병상'}에 배정했습니다. 문제가 없으면 확인을 남깁니다.</p>
+                      {cur.checked ? <span className="tag t-green">확인함</span> : <button className="btn p" onClick={() => api.ipcCheck(cur.case).then(() => { setToast(`${cur.patient} 배정을 확인했습니다`); load() })}>배정 확인</button>}
+                    </div>)}
+                  {!dec(cur.case) && cur.status !== '입원 예정' && <p className="note">처리할 것이 없습니다. 격리 해제는 주치의나 감염관리실 오더로 EMR에서 합니다.</p>}
+                </div>
+              </>)}
+            </aside>
           </div>
-        )}
-        {page === 'today' && d && (
-          <div className="ipc-today">
-            <section className="card span2">
-              <h3>늦은 격리 병상 결정 <span className="cnt">{d.decisions.length}</span></h3>
-              {d.decisions.length === 0 ? <p className="note">결정할 건이 없습니다</p> : (
-                <div className="dec">
-                  <table className="sel"><thead><tr><th>마감</th><th>환자</th><th>지금 병상</th><th>균</th></tr></thead>
-                    <tbody>{d.decisions.map(a => (
-                      <tr key={a.exception_id} className={'row' + (a.exception_id === pick ? ' pick' : '')} onClick={() => setPick(a.exception_id)}>
-                        <td className="due">{a.deadline}</td><td className="pt"><b>{a.patient}</b></td><td>{a.bed} {a.room}</td><td className="sub">{a.organism} {a.precautions}</td></tr>))}</tbody></table>
-                  {cur && <Decide key={cur.exception_id} a={cur} free={d.free} reasons={d.decline_reasons} onDone={m => { setToast(m); load() }} />}
-                </div>)}
-            </section>
-            <section className="card">
-              <h3>오늘 들어올 격리 환자 <span className="cnt">{d.isolated.filter(x => x.status === '입원 예정').length}</span></h3>
-              <table><thead><tr><th>환자</th><th>균</th><th>배정 병상</th><th></th></tr></thead>
-                <tbody>{d.isolated.filter(x => x.status === '입원 예정').map(x => (
-                  <tr key={x.case}><td><b>{x.patient}</b> <span className="sub">{x.age}세 {x.sex}</span></td><td>{x.organism} {x.precautions}</td><td>{x.bed} {x.room}</td>
-                    <td className="r">{x.checked ? <span className="tag t-green">확인함</span> : <button className="btn sm" onClick={() => api.ipcCheck(x.case).then(() => { setToast(`${x.patient} 배정을 확인했습니다`); load() })}>확인</button>}</td></tr>))}</tbody></table>
-            </section>
-            <section className="card">
-              <h3>종말소독 대기 <span className="cnt">{d.terminal.length}</span></h3>
-              {d.terminal.length === 0 ? <p className="note">없습니다</p> : (
-                <table><thead><tr><th>병상</th><th>퇴실</th><th>경과</th><th>진행</th></tr></thead>
-                  <tbody>{d.terminal.map(t => <tr key={t.bed}><td>{t.ward} {t.bed}</td><td>{t.departed}</td><td>{t.elapsed}</td><td><span className="tag t-amber">{t.progress}</span></td></tr>)}</tbody></table>)}
-            </section>
-            <section className="card">
-              <h3>동실 접촉자 <span className="cnt">{d.contacts.length}</span></h3>
-              {d.contacts.length === 0 ? <p className="note">입실 뒤 격리 오더가 난 다인실이 없습니다</p> : d.contacts.map((c, i) => (
-                <p key={i}>{c.time} {c.index} 병실 동실자 {c.count}명: {c.beds.join(', ')}</p>))}
-            </section>
-            <section className="card">
-              <h3>밤사이 기록</h3>
-              {d.night.length === 0 ? <p className="note">밤사이 격리 오더와 당직 결정이 없습니다</p> : (
-                <div className="tl">{d.night.map((n, i) => <Fragment key={i}><span className="t">{n.time}</span><span className="w">{n.what}, {n.detail}</span></Fragment>)}</div>)}
-              <Handover items={d.handover} onDone={m => { setToast(m); load() }} />
-            </section>
-          </div>
-        )}
+        </>)}
         {page === 'board' && d && (
           <section className="pk-board ward-board">
             <div className="legend"><span><i className="ok" />빈 병상</span><span><i className="ipc" />격리 환자</span><span><i className="reason" />소독 대기</span><span><i className="no" />사용 중</span></div>
+            {d.terminal.length > 0 && <p className="note">종말소독 대기: {d.terminal.map(t => `${t.ward} ${t.bed}(퇴실 ${t.departed}, ${t.elapsed} 지남, ${t.progress})`).join(' / ')}</p>}
             {d.board.map(w => (
               <div key={w.ward} className="wd"><h3>{w.ward}</h3>
                 <div className="rooms">{w.rooms.map(r => (
@@ -74,11 +85,16 @@ export function IpcHome({ user, onLogout, onSwitch }: { user: User; onLogout: ()
               </div>))}
           </section>
         )}
-        {page === 'patients' && d && (
-          <section className="grid log"><div className="tbody"><table>
-            <thead><tr><th>상태</th><th>환자</th><th>균</th><th>주의</th><th>병상</th><th>병실</th></tr></thead>
-            <tbody>{d.isolated.map(x => <tr key={x.case} className="row"><td><span className="tag t-gray">{x.status}</span></td><td><b>{x.patient}</b> <span className="sub">{x.age}세 {x.sex}</span></td>
-              <td>{x.organism}</td><td>{x.precautions}</td><td className="mono">{x.bed || '—'}</td><td>{x.room}</td></tr>)}</tbody></table></div></section>
+        {page === 'night' && d && (
+          <div className="two-col">
+            <section className="card"><h3>밤사이 기록</h3>
+              {d.night.length === 0 ? <p className="note">밤사이 격리 오더와 당직 결정이 없습니다</p> : (
+                <div className="tl">{d.night.map((n, i) => <Fragment key={i}><span className="t">{n.time}</span><span className="w">{n.what}, {n.detail}</span></Fragment>)}</div>)}
+              <h3>동실 접촉자</h3>
+              {d.contacts.length === 0 ? <p className="note">입실 뒤 격리 오더가 난 다인실이 없습니다</p> : d.contacts.map((c, i) => <p key={i}>{c.time} {c.index} 병실 동실자 {c.count}명: {c.beds.join(', ')}</p>)}
+            </section>
+            <section className="card"><Handover items={d.handover} onDone={m => { setToast(m); load() }} /></section>
+          </div>
         )}
       </main>
       {toast && <div className="toast" role="status">{toast}</div>}

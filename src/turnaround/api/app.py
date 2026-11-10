@@ -281,6 +281,14 @@ def create_app() -> FastAPI:
         store.log(s, "목록 조회", detail="오늘 할 일")
         return out
 
+    @app.get("/api/admissions")
+    def admissions(s: Session = Depends(session)):
+        from turnaround.api.worklist import admissions_today
+        admission_only(s)
+        out = admissions_today(store.demo(), store.accounts)
+        store.log(s, "목록 조회", detail="오늘 입원")
+        return out
+
     @app.get("/api/patients/{case}")
     def patient(case: str, s: Session = Depends(session)):
         from turnaround.api.worklist import patient_detail

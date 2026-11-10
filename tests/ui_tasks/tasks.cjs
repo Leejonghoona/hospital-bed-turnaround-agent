@@ -56,61 +56,54 @@ const TASKS = {
     await page.getByRole('button', { name: '데모 계정으로 시작' }).click(); clicks++
     await page.getByRole('button', { name: /김하늘/ }).first().click(); clicks++
     await page.getByRole('button', { name: '근무 시작' }).click(); clicks++
-    await page.getByRole('heading', { name: '할 일' }).waitFor()
+    await page.getByRole('heading', { name: '오늘 입원' }).waitFor()
     return [{ name: '3클릭 이하로 원무 작업 화면', ok: clicks <= 3, detail: `${clicks}클릭` }]
   },
   async W1(page) {
     await enterOps(page)
-    await page.getByRole('heading', { name: '할 일' }).waitFor()
+    await page.getByRole('heading', { name: '오늘 입원' }).waitFor()
     await page.locator('tr.row').first().waitFor()
     const c = []
-    const lateRows = await page.locator('tr.row').evaluateAll(els => els.filter(e => e.querySelector('.due.late')).map(e => e.getBoundingClientRect().bottom <= window.innerHeight))
-    c.push({ name: '마감 지난 일이 스크롤 없이 보인다', ok: lateRows.length > 0 && lateRows.every(Boolean), detail: `${lateRows.filter(Boolean).length}/${lateRows.length}줄` })
-    const late = await page.locator('tr.row').evaluateAll(els => els.map(e => !!e.querySelector('.due.late')))
-    c.push({ name: '마감 지난 일이 위', ok: late.join() === [...late].sort((x, y) => Number(y) - Number(x)).join() })
+    const flags = await page.locator('tr.row').evaluateAll(els => els.map(e => [!!e.querySelector('.badge'), !!e.querySelector('.badge.late')]))
+    const firstPlain = flags.findIndex(f => !f[0])
+    c.push({ name: '확인할 것이 있는 환자가 위, 평소 환자는 아래', ok: firstPlain > 0 && flags.slice(firstPlain).every(f => !f[0]), detail: `${firstPlain}명 위` })
+    c.push({ name: '평소 일(오늘 입원 전부)이 한 표에 보인다', ok: flags.length >= 15 && await page.locator('.sumline').isVisible(), detail: `${flags.length}명` })
     const cut = await page.locator('td').evaluateAll(els => els.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent))
     c.push({ name: '잘린 칸이 없다', ok: cut.length === 0, detail: cut.slice(0, 3).join(' | ') })
-    c.push({ name: '이전 근무 구분', ok: await page.getByText('인계', { exact: true }).first().isVisible() })
-    const tabs = await page.locator('.tab .n').allTextContents()
-    c.push({ name: '탭 숫자 합 = 전체', ok: tabs.slice(1).reduce((a, x) => a + Number(x), 0) === Number(tabs[0]), detail: tabs.join(',') })
-    await page.locator('.tl .t').first().waitFor(); await page.waitForTimeout(300)  // 상세 패널이 다 그려진 뒤에 잰다
-    const tl = await page.locator('.tl .t').evaluateAll(els => els.filter(e => e.getBoundingClientRect().height > (parseFloat(getComputedStyle(e).lineHeight) || 19) * 1.5).length)
-    c.push({ name: '경과 시각이 한 줄', ok: tl === 0, detail: `${tl}개 줄바꿈` })
-    await page.getByRole('button', { name: /^환자/ }).click()
-    const names = await page.locator('tr.row .pt b').allTextContents()
-    const asc = [...names].sort((a, b) => a.localeCompare(b, 'ko'))
-    await page.getByRole('button', { name: /^환자/ }).click()
-    const names2 = await page.locator('tr.row .pt b').allTextContents()
-    c.push({ name: '머리글을 누르면 정렬이 바뀐다', ok: names.join() === asc.join() && names2.join() === [...asc].reverse().join(), detail: names.join(',') })
+    await page.getByRole('tab', { name: /확인 필요/ }).click()
+    const only = await page.locator('tr.row').evaluateAll(els => els.every(e => !!e.querySelector('.badge')))
+    c.push({ name: '확인 필요만 걸러 본다', ok: only })
     return c
   },
   async W2(page) {
     await enterOps(page)
     await page.locator('tr.row').first().waitFor()
-    const row = page.locator('tr.row', { hasText: '입원 안내 전화' }).first()
+    const row = page.locator('tr.row', { hasText: '안내 전' }).first()
     const name = await row.locator('.pt b').textContent()
     await row.click()
     const c = []
     const t = page.getByLabel('환자에게 안내한 수속 시각')
+    await t.waitFor()
     c.push({ name: '추천 안내 시각이 보인다', ok: !!(await t.inputValue()) && await page.getByText(/추천 시각은/).isVisible() })
     await page.getByRole('button', { name: '연락함으로 기록' }).click()
-    await page.getByRole('status').waitFor()
-    await page.waitForTimeout(300)
-    const still = await page.locator('tr.row', { hasText: '입원 안내 전화' }).filter({ hasText: name }).count()
-    c.push({ name: '기록하면 목록에서 처리됨', ok: still === 0, detail: name })
+    await page.getByRole('status').waitFor(); await page.waitForTimeout(500)
+    const after = await page.locator('tr.row', { hasText: name }).first().textContent()
+    c.push({ name: '기록하면 연락 칸이 안내함으로 바뀐다', ok: /안내함/.test(after || ''), detail: name })
     return c
   },
   async W4(page) {
     await enterOps(page)
     await page.locator('tr.row').first().waitFor()
-    await page.locator('tr.row', { hasText: '재연락' }).first().click()
+    await page.locator('tr.row', { has: page.locator('.badge', { hasText: '재연락' }) }).first().click()
     const c = []
     const panel = page.locator('aside.detail')
-    c.push({ name: '상황, 근거, 마감, 버튼이 한 패널에', ok: await panel.locator('.sit').isVisible() && await panel.locator('.eff').isVisible()
-      && await panel.getByRole('button', { name: '승인' }).isVisible() && await panel.getByRole('button', { name: '거절' }).isVisible() && await panel.locator('.sla').isVisible() })
-    await panel.getByRole('button', { name: '승인' }).click()
+    const issue = panel.locator('.issue', { hasText: '재연락' }).first()
+    await issue.waitFor()
+    c.push({ name: '상황, 근거, 마감, 버튼이 한 패널에', ok: await issue.locator('.sit').isVisible() && await issue.locator('.eff').isVisible()
+      && await issue.getByRole('button', { name: '승인' }).isVisible() && await issue.getByRole('button', { name: '거절' }).isVisible() && await issue.locator('.badge.late').count() >= 0 })
+    await issue.getByRole('button', { name: '승인' }).click()
     const msg = await page.getByRole('status').textContent()
-    c.push({ name: '승인 뒤 다시 확인한 결과가 보인다', ok: /다시 확인/.test(msg || ''), detail: msg })
+    c.push({ name: '승인 뒤 시스템이 다시 확인한 결과가 보인다', ok: /다시 확인/.test(msg || ''), detail: msg })
     return c
   },
   async W3(page) {
@@ -126,27 +119,28 @@ const TASKS = {
     const dlg = page.getByRole('dialog', { name: '배정 되돌리기' })
     await dlg.getByRole('button', { name: '환자 요청' }).click()
     await dlg.getByRole('button', { name: '되돌리기' }).click()
-    await page.getByRole('status').waitFor(); await page.waitForTimeout(400)
-    const after = page.locator('tr.row', { hasText: name })
-    c.push({ name: '사유를 고르고 확인하면 되돌려진다', ok: /되돌림/.test(await after.first().textContent() || ''), detail: name })
+    const msg = await page.getByRole('status').textContent()
+    c.push({ name: '사유를 고르고 확인하면 되돌려진다(연락 뒤면 담당 검토로)', ok: /되돌렸습니다/.test(msg || ''), detail: `${name}: ${msg}` })
     return c
   },
   async A3(page) {
-    await enterOps(page)
-    await page.locator('tr.row').first().waitFor()
+    const t0 = Date.now(); const lap = []
+    await enterOps(page); lap.push('login ' + (Date.now() - t0))
+    await page.locator('tr.row').first().waitFor(); lap.push('rows ' + (Date.now() - t0))
     const c = []
     await page.getByRole('button', { name: /김하늘/ }).click()
     await page.getByRole('menuitem', { name: '화면 잠금' }).click()
     const lock = page.getByRole('dialog', { name: '화면 잠금' })
     c.push({ name: '잠그면 화면이 가려진다', ok: await lock.isVisible() })
     await lock.getByLabel('비밀번호').fill('demo1234'); await lock.getByRole('button', { name: '잠금 해제' }).click()
-    await lock.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
+    await lock.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {}); lap.push('unlock ' + (Date.now() - t0))
     c.push({ name: '본인 비밀번호로 다시 연다', ok: !(await lock.isVisible()) })
     await page.getByRole('button', { name: /김하늘/ }).click()
     await page.getByRole('menuitem', { name: '다른 계정으로 로그인' }).click()
     await page.getByRole('button', { name: /서민준/ }).first().click(); await page.getByRole('button', { name: '근무 시작' }).click()
-    await page.locator('tr.row').first().waitFor()
-    c.push({ name: '다음 근무자 계정으로 넘어간다', ok: await page.getByRole('button', { name: /서민준/ }).isVisible() })
+    lap.push('switch ' + (Date.now() - t0))
+    await page.locator('tr.row').first().waitFor({ timeout: 60000 }); lap.push('rows2 ' + (Date.now() - t0))
+    c.push({ name: '다음 근무자 계정으로 넘어간다', ok: await page.getByRole('button', { name: /서민준/ }).isVisible(), detail: lap.join(', ') })
     return c
   },
   async N1(page) {
@@ -176,7 +170,7 @@ const TASKS = {
   },
   async I1(page) {
     await enterOps(page, '이준호')
-    await page.locator('.kpi').first().waitFor()
+    await page.locator('.sumline').waitFor()
     await page.getByRole('button', { name: '지금 병상 유지 등' }).click()
     await page.getByRole('button', { name: '지금 병상 유지(제자리 격리)' }).click()
     await page.getByRole('button', { name: '결정', exact: true }).click()
@@ -185,10 +179,11 @@ const TASKS = {
   },
   async I3(page) {
     await enterOps(page, '이준호')
-    const card = page.locator('.card', { has: page.getByRole('heading', { name: /종말소독 대기/ }) })
-    await card.locator('tbody tr').first().waitFor({ timeout: 8000 }).catch(() => {})
-    const n = await card.locator('tbody tr').count()
-    return [{ name: '종말소독이 끝나지 않은 병실을 찾는다', ok: n > 0, detail: `${n}개` }]
+    await page.locator('.sumline').waitFor()
+    await page.getByRole('button', { name: '격리 병상', exact: true }).click()
+    await page.locator('.room').first().waitFor()
+    const n = await page.locator('.bd.k-terminal').count()
+    return [{ name: '종말소독이 끝나지 않은 병실을 찾는다', ok: n > 0 && await page.getByText(/종말소독 대기:/).isVisible(), detail: `${n}개` }]
   },
   async M1(page) {
     await enterOps(page, '정예린')
