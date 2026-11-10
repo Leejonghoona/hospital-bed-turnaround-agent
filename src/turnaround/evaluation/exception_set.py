@@ -521,7 +521,41 @@ def build() -> list[dict]:
     return out
 
 
+# ---------- v3: 같은 생성기(E1~E10), 새 시드 (docs/검토/LLM운영_시험설계.md 2.1) ----------
+
+SEED_V3 = 202611101
+OUT_V3 = ROOT / "evals" / "model_eval" / "exception_decisions_v3.jsonl"
+# v2.1 트리거 비율(E1 56 … E10 23, 합 250)을 300으로 늘린 값
+V3_COUNTS = {"E1": 67, "E2": 37, "E3": 32, "E4": 23, "E5": 25, "E6": 23, "E7": 19, "E8": 23, "E9": 23, "E10": 28}
+
+
+def build_v3() -> list[dict]:
+    """생성 문항만 300개. v2.1과 입력이 같은 문항은 뺀다. ID 접두어 XV3-."""
+    old = OUT.read_text(encoding="utf-8").splitlines()
+    seen = {json.dumps(json.loads(x)["input"], sort_keys=True) for x in old if x.strip()}
+    rng = random.Random(SEED_V3)
+    out = []
+    for fn, _ in GEN:
+        code = "E" + fn.__name__.split("_e")[1]
+        made = 0
+        while made < V3_COUNTS[code]:
+            it = fn(rng)
+            key = json.dumps(it["input"], sort_keys=True)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(it)
+            made += 1
+    return [{"id": f"XV3-{i:03d}", **it} for i, it in enumerate(out, 1)]
+
+
 def main() -> None:
+    import sys
+    if "--v3" in sys.argv:
+        items = build_v3()
+        OUT_V3.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in items) + "\n", encoding="utf-8")
+        print(f"{len(items)} items -> {OUT_V3.relative_to(ROOT)}")
+        return
     items = build()
     OUT.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in items) + "\n", encoding="utf-8")
     print(f"{len(items)} items -> {OUT.relative_to(ROOT)}")

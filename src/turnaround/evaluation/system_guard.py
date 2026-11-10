@@ -15,8 +15,9 @@ from turnaround.gateway.guards import situational_block
 SET = Path(__file__).resolve().parents[3] / "evals" / "model_eval" / "exception_decisions_v2_1.jsonl"
 
 
-def load_items() -> list[dict]:
-    return [json.loads(line) for line in SET.read_text(encoding="utf-8").splitlines() if line.strip()]
+def load_items(path: str | Path | None = None) -> list[dict]:
+    """기본은 v2.1. 다른 세트(v3 등)는 경로로 준다."""
+    return [json.loads(line) for line in Path(path or SET).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def executed_action(item: dict, action: str | None) -> tuple[str, str | None]:

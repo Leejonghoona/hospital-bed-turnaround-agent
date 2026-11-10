@@ -59,7 +59,8 @@ def resident_census(h, seed: int) -> dict:
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
                policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None,
                reviewer=None, past_admissions: bool = True, mapped=None, occupancy: str = "sparse",
-               live_from: time | None = None, backlog_days: int | None = None) -> DemoState:
+               live_from: time | None = None, backlog_days: int | None = None,
+               exception_llm=None, shadow: bool = False) -> DemoState:
     """reactive(ReactiveEffects)를 주면 에이전트 행동이 그 뒤 퇴원 시각을 바꾸는 반응형 재생 (로드맵 07 M2)."""
     h = generate(seed=seed, config=config)
     if mapped is not None:  # 병원 내보내기를 매핑한 결과(병상 구조·사건)로 재생 (로드맵 07 M6)
@@ -93,7 +94,7 @@ def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir
     policy = policy or load_policy()  # 기본은 현장 프로필 (5단계 기본값 전환)
     gw = Gateway(store, h.rooms, h.beds, policy, census=census)
     saga = SagaRunner(store, SagaPolicy.from_policy(policy, h.rooms, h.beds))
-    agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM(), mode=mode)
+    agent = PlanningAgent(gw, h.wards, llm=llm or FakeLLM(), mode=mode, exception_llm=exception_llm, shadow=shadow)
     work = WorklistRunner(store, load_operations())
     base = datetime.combine(h.config.base_date + timedelta(days=day), time())
     end = datetime.combine(base.date(), until)

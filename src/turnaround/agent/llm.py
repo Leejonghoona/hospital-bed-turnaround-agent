@@ -418,6 +418,8 @@ class OpenAILLM(_HttpLLM):
         u = res.get("usage") or {}
         self.usage.input_tokens += u.get("prompt_tokens", 0)
         self.usage.output_tokens += u.get("completion_tokens", 0)
+        fr = str(res["choices"][0].get("finish_reason"))
+        self.finish[fr] = self.finish.get(fr, 0) + 1
         return _first_json(res["choices"][0]["message"]["content"] or "")
 
 
@@ -454,6 +456,8 @@ class LocalLLM:
     usage: Usage = field(default_factory=Usage)
     n_ctx: int = 4096
     n_threads: int | None = None
+    max_tokens: int = 256
+    finish: dict = field(default_factory=dict)  # finish_reason별 건수 (dry-run 점검용)
     _llm: object = None
 
     def __post_init__(self):
@@ -468,7 +472,7 @@ class LocalLLM:
         try:
             res = self._llm.create_chat_completion(
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                response_format={"type": "json_object"}, temperature=0.0, max_tokens=256)
+                response_format={"type": "json_object"}, temperature=0.0, max_tokens=self.max_tokens)
         except Exception as e:  # noqa: BLE001  모델 런타임 오류는 모두 장애로 본다
             raise LLMError(f"로컬 모델 오류: {e}") from e
         self.usage.latency_s += time.monotonic() - t0
@@ -476,6 +480,8 @@ class LocalLLM:
         u = res.get("usage") or {}
         self.usage.input_tokens += u.get("prompt_tokens", 0)
         self.usage.output_tokens += u.get("completion_tokens", 0)
+        fr = str(res["choices"][0].get("finish_reason"))
+        self.finish[fr] = self.finish.get(fr, 0) + 1
         return _first_json(res["choices"][0]["message"]["content"] or "")
 
 
@@ -539,6 +545,21 @@ class ClaudeSubLLM:
         return _first_json(res.result or "")
 
 
+def llm_threads(env=None) -> int | None:
+    """원내 모델 스레드 수 (`TURNAROUND_LLM_THREADS`). 없으면 None = llama.cpp가 코어 수로 정한다."""
+    v = (os.environ if env is None else env).get("TURNAROUND_LLM_THREADS")
+    return int(v) if v else None
+
+
+def llm_from_spec(spec: str, env=None) -> LLM:
+    """측정 스크립트용: "fake" 또는 "local:<모델 경로>". 외부 모델은 이 경로로 만들지 않는다."""
+    if spec in ("", "fake", "rule"):
+        return FakeLLM()
+    if spec.startswith("local:"):
+        return LocalLLM(model_path=spec.split(":", 1)[1], n_threads=llm_threads(env))
+    raise LLMError(f"측정 스크립트는 fake와 local만 받는다: {spec}")
+
+
 def get_llm(env: dict | None = None, data_class: str = "hospital", policy=None) -> LLM:
     """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM.
     외부 모델은 `GuardedLLM`으로 감싸 돌려준다(data_class 기본 병원 데이터, fail-closed)."""
@@ -551,8 +572,8 @@ def _make_llm(env) -> LLM:
     kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
     if kind == "fake" or not model:
         return FakeLLM()
-    if kind == "local":
-        return LocalLLM(model_path=model)  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
+    if kind == "local":  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
+        return LocalLLM(model_path=model, n_threads=llm_threads(env))
     if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":
         raise LLMError("외부 LLM은 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 쓴다")
     if kind == "claudesub":  # 구독 경유도 데이터가 국외 서버로 간다: 합성 데이터 확인 필요

@@ -45,11 +45,16 @@ class PlanRecord:
 
 class PlanningAgent:
     def __init__(self, gateway: Gateway, wards, llm: LLM | None = None, mode: str = "explain",
-                 score_overrides: dict[str, float] | None = None, top_k: int = 5, data_class: str | None = None):
+                 score_overrides: dict[str, float] | None = None, top_k: int = 5, data_class: str | None = None,
+                 exception_llm: LLM | None = None, shadow: bool = False):
         self.gw = gateway
         self.tools = PlanningTools(gateway, wards, score_overrides)
         # 외부 모델은 데이터 분류 관문으로 감싼다(기본 병원 데이터, 2026-11-09 개인정보·IT 2회차)
         self.llm = bind_data_class(llm, data_class)
+        # 역할별 모델: 예외 판단 머리는 설명과 다른 모델을 쓸 수 있다. 없으면 설명 모델과 같다
+        self.exception_llm = bind_data_class(exception_llm, data_class) if exception_llm is not None else self.llm
+        self.shadow = shadow  # 예외 판단 그림자 모드: 모델 제안은 기록만, 실행은 규칙표
+        self.shadow_log: list[dict] = []
         self.mode, self.top_k = ("select" if mode == "agent" else mode), top_k
         self.records: list[PlanRecord] = []
 
@@ -149,7 +154,8 @@ class PlanningAgent:
             out += self._rematch(now)
         if self.gw.policy.brain.enabled:  # 예외 판단 머리 (U8 확장). 꺼져 있으면 지금 동작 그대로
             from .brain import ExceptionBrain
-            out += ExceptionBrain(self.gw, self.llm, wards=self.tools.wards.values()).step(now)
+            out += ExceptionBrain(self.gw, self.exception_llm, wards=self.tools.wards.values(),
+                                  shadow=self.shadow, shadow_log=self.shadow_log).step(now)
         return out
 
     def _rematch(self, now: datetime) -> list[Decision]:
