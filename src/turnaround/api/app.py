@@ -579,7 +579,7 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     # ---- 감염관리실 (P4): 늦은 격리 병상 결정, 종말소독 대기, 격리 오더 ----
-    IPC_DECLINE = ("지금 병상 유지(제자리 격리)", "원무가 직접 처리", "다른 병동과 협의 중", "기타")
+    IPC_DECLINE = ("지금 병상 유지(제자리 격리)", "원무팀이 직접 처리", "다른 병동과 협의 중", "기타")
 
     def ipc_only(s: Session) -> None:
         if s.user["role"] not in ("ipc", "id_oncall"):

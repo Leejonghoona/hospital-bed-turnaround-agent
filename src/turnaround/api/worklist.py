@@ -148,7 +148,7 @@ def admission_rows(st) -> dict:
             reason = f"{need} 없음" if hint in ("오늘 비는 병상 없음", "후보 병상 없음") else f"{need}, {hint}"
             req = pp.get("requested_at")
             more = {"choices": NO_BED_CHOICES,
-                    "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무에 넘겼습니다."
+                    "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무팀에 넘겼습니다."
                                  + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
                     "effect": "환자에게 어떻게 안내했는지 고르세요."}
         elif x["raw_kind"] == "ward_opinion":
@@ -158,7 +158,7 @@ def admission_rows(st) -> dict:
             more = {"choices": [{"label": "배정 유지", "desc": "병동에 그대로 간다고 회신"},
                                 {"label": "병상 바꿈", "desc": "병상 변경으로 다시 지정함"},
                                 {"label": "기타", "desc": "메모에 내용 적기"}],
-                    "situation": f"병동에서 이 배정에 의견을 보냈습니다({why}). 배정은 그대로이고 원무가 유지하거나 바꿉니다."}
+                    "situation": f"병동에서 이 배정에 의견을 보냈습니다({why}). 배정은 그대로이고 원무팀이 유지하거나 바꿉니다."}
         elif x["raw_kind"] == "fee_consent" and (people.get(x["case"]) or {}).get("precautions"):
             continue  # 격리 목적 1인실은 상급병실 비용 대상이 아니다(요양급여 기준 별표 2 단서). 동의 작업을 보이지 않는다
         elif x["raw_kind"] == "fee_consent":
@@ -256,7 +256,7 @@ def _web_rows(ev, case: str, accounts: dict | None) -> list[dict]:
     for e in ev:
         if e.case_id != case or ":web:" not in e.event_id:
             continue
-        who = (accounts or {}).get(str(e.payload.get("by")), {}).get("name", "원무")
+        who = (accounts or {}).get(str(e.payload.get("by")), {}).get("name", "원무팀")
         if e.type is EventType.HUMAN_TASK_DONE:
             out.append({"time": e.observed_at.strftime("%H:%M"), "who": who, "what": f"{who} 처리", "detail": e.payload.get("result", "")})
         elif e.type is EventType.PATIENT_CONTACTED:
@@ -317,7 +317,7 @@ def assignments(st, accounts: dict | None = None, day: str | None = None) -> dic
             state = "되돌림"
         mo = manual.get(str(e.payload.get("proposal_id")))
         actor = str((mo or {}).get("actor") or e.payload.get("actor") or "")
-        by = "에이전트" if e.payload.get("committed_by") == "agent" else (accounts or {}).get(actor, {}).get("name", "원무")
+        by = "에이전트" if e.payload.get("committed_by") == "agent" else (accounts or {}).get(actor, {}).get("name", "원무팀")
         if mo:
             from turnaround.api.beds import REASON_CODES
         rows.append({"at": e.observed_at.isoformat(timespec="minutes"), "time": e.observed_at.strftime("%H:%M"), "case": e.case_id,
@@ -369,7 +369,7 @@ def admissions_today(st, accounts: dict | None = None) -> dict:
             commit = next((e for e in reversed(ev) if e.type is EventType.MATCH_COMMITTED and e.case_id == case), None)
             mo = manual.get(case)
             by = "에이전트" if commit and commit.payload.get("committed_by") == "agent" else \
-                (accounts or {}).get(str((mo or {}).get("actor")), {}).get("name", "원무")
+                (accounts or {}).get(str((mo or {}).get("actor")), {}).get("name", "원무팀")
         else:
             by = "배정 전"
         promised = s.contact_promise.get(case)

@@ -15,7 +15,7 @@ from turnaround.ui.scenes import SCENES, SceneRun
 CHAPTERS = [
     {"id": "day", "title": "평범한 배정", "summary": "에이전트가 조건에 맞는 병상을 확정하고 원무와 병동에 알립니다. 사람은 환자 연락과 병동 준비만 합니다.",
      "scene": "day", "first": 0, "last": 2},
-    {"id": "delay", "title": "안내 시각 지연 재연락", "summary": "안내한 입실 시각을 지키기 어려우면 에이전트가 재연락을 제안하고, 원무가 승인합니다.",
+    {"id": "delay", "title": "안내 시각 지연 재연락", "summary": "안내한 입실 시각을 지키기 어려우면 에이전트가 재연락을 제안하고, 원무팀이 승인합니다.",
      "scene": "exception", "first": 0, "last": 1},
     {"id": "iso", "title": "늦은 격리를 시스템이 막음", "summary": "확정 뒤 격리 오더가 오면 병상 결정은 감염관리실로 가고, 에이전트가 스스로 병상을 바꾸려 하면 게이트웨이가 막습니다.",
      "scene": "exception", "first": 2, "last": 3},

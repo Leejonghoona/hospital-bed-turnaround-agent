@@ -13,7 +13,7 @@ const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 수속 안내 시각 선택지: 15분 단위 (브라우저 언어와 상관없이 24시간제로 보이게 select로 둔다)
 // 입원 수속 창구 운영 시간 안에서만 고른다(강남세브란스 "오후 5시 30분 이후에는 응급실원무 창구"). 09:00~17:30
 const SLOTS = Array.from({ length: 35 }, (_, i) => `${String(9 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`)
-const DECLINE = ['원무가 직접 처리', '환자 사정으로 보류', '병동과 통화로 해결', '기타']
+const DECLINE = ['원무팀이 직접 처리', '환자 사정으로 보류', '병동과 통화로 해결', '기타']
 
 function clock(d: Date) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -109,7 +109,7 @@ export function Action({ r, onDone }: { r: Row; onDone: (msg: string) => void })
     {err && <div className="err">{err}</div>}
     <div className="btns">
       <button className="btn" onClick={() => setDeclining(false)}>취소</button>
-      <button className="btn p" disabled={busy || !reason || !memoOk} onClick={() => run(async () => { await api.approval(r.id, 'decline', reason!, memo); return `거절했습니다. 실행하지 않고 원무가 맡습니다` })}>거절 확정</button>
+      <button className="btn p" disabled={busy || !reason || !memoOk} onClick={() => run(async () => { await api.approval(r.id, 'decline', reason!, memo); return `거절했습니다. 실행하지 않고 원무팀이 맡습니다` })}>거절 확정</button>
     </div>
   </>) : (<>
     {err && <div className="err">{err}</div>}

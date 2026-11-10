@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, type Admission, type Admissions, type Patient } from '../api'
 import { Action } from './Worklist'
+import { Stats } from '../parts/Stats'
 
 // 원무 첫 화면 '오늘 입원'(UX 재설계 10): 오늘 들어올 환자 전부. 평소 상태는 칸으로, 예외는 그 행의 배지로. 처리는 옆 패널.
 const STAGE_TONE: Record<string, string> = { '입실 완료': 't-green', '호출됨': 't-blue', '취소': 't-gray' }
@@ -29,10 +30,13 @@ export function TodayAdmissions({ q, onPicker, onToast, reload }: { q: string; o
   const done = (m: string) => { onToast(m); load() }
   return (<>
     <div className="ph"><h1>오늘 입원</h1></div>
-    {s && <p className="sumline">
-      오늘 입원 <b>{s.total}</b>명, 병상 확정 <b>{s.committed}</b>명(에이전트 {s.by_agent}, 원무 {s.committed - s.by_agent}), 입원 안내 <b>{s.contacted}</b>명, 입실 <b>{s.arrived}</b>명
-      <span className="sep" />오늘 퇴원 {s.discharges_today}명, 지금 빈 병상 {s.free_beds}개
-    </p>}
+    {s && <Stats items={[
+      { label: '오늘 입원', value: s.total, sub: `입실 ${s.arrived}명` },
+      { label: '병상 확정', value: s.committed, sub: `에이전트 ${s.by_agent}, 원무팀 ${s.committed - s.by_agent}` },
+      { label: '입원 안내', value: s.contacted, sub: `안내 전 ${count('contact')}명` },
+      { label: '확인 필요', value: s.issues, tone: s.issues ? 'red' : undefined, sub: '배지가 붙은 환자' },
+      { label: '오늘 퇴원', value: s.discharges_today, sub: `지금 빈 병상 ${s.free_beds}개` },
+    ]} />}
     <div className="tabs" role="tablist">{FILTERS.map(([k, l]) => (
       <button key={k} role="tab" aria-selected={f === k} className={'tab' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{l} <span className={'n' + (k === 'issue' && count('issue') ? ' red' : '')}>{count(k)}</span></button>))}
     </div>
@@ -43,7 +47,7 @@ export function TodayAdmissions({ q, onPicker, onToast, reload }: { q: string; o
             <colgroup><col style={{ width: 84 }} /><col style={{ width: 132 }} /><col style={{ width: 104 }} /><col style={{ width: 120 }} /><col style={{ width: 82 }} /><col style={{ width: 150 }} /><col style={{ width: 84 }} /><col /></colgroup>
             <thead><tr><th>수속</th><th>환자</th><th>진료과</th><th>병상</th><th>배정</th><th>연락</th><th>상태</th><th>확인 필요</th></tr></thead>
             <tbody>{rows.map(r => (
-              <tr key={r.case} className={'row' + (r.case === pick ? ' pick' : '') + (r.stage === '입실 완료' ? ' quiet' : '')} onClick={() => setPick(r.case)} tabIndex={0}>
+              <tr key={r.case} data-case={r.case} className={'row' + (r.case === pick ? ' pick' : '') + (r.stage === '입실 완료' ? ' quiet' : '')} onClick={() => setPick(r.case)} tabIndex={0}>
                 <td className="due">{r.checkin}<small>{r.checkin_note}</small></td>
                 <td className="pt"><b>{r.patient}</b><span className="id">{r.age}세 {r.sex}</span></td>
                 <td className="sub">{r.department}</td>

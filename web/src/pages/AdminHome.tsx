@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { api, type AdminSummary, type CaseTrail, type LogRow, type User } from '../api'
 import { Shell, useToast } from '../parts/Shell'
+import { Stats } from '../parts/Stats'
 
 // 관리자(의료정보팀) 화면(P4): 흐름과 안전 요약, 접속기록(위변조 확인), 감사용 판단 경과(이름 가림), 잠긴 계정.
 export function AdminHome({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
@@ -22,8 +23,12 @@ export function AdminHome({ user, onLogout, onSwitch }: { user: User; onLogout: 
       <main className="main">
         <div className="ph"><h1>{{ summary: '오늘 흐름', log: '접속기록', trail: '감사 경과' }[page]}</h1>
           {page === 'log' && ok !== null && <span className={'tag ' + (ok ? 't-green' : 't-red')}>{ok ? '기록 연결 확인됨' : '기록 위변조 의심'}</span>}</div>
-        {page === 'summary' && sum && <p className="sumline">입원 사례 <b>{sum.load['입원 사례']}</b>건, 확정 <b>{sum.load['확정']}</b>건 중 사람 손 없이 <b>{sum.load['사람 손을 안 거친 확정']}</b>건
-          <span className="sep" />안전 위반 <b>{sum.safety.reduce((a, x) => a + Number(x['위반'] || 0), 0)}</b>건<span className="sep" />잠긴 계정 <b>{sum.locked.length}</b>개</p>}
+        {page === 'summary' && sum && <Stats items={[
+          { label: '입원 사례', value: sum.load['입원 사례'] },
+          { label: '사람 손 없이 확정', value: sum.load['사람 손을 안 거친 확정'], sub: `확정 ${sum.load['확정']}건 중` },
+          { label: '안전 위반', value: sum.safety.reduce((a, x) => a + Number(x['위반'] || 0), 0), sub: '격리, 소독, 청소, 이중 점유' },
+          { label: '잠긴 계정', value: sum.locked.length },
+        ]} />}
         {page === 'summary' && sum && (
           <div className="two-col">
             <section className="card"><h3>흐름</h3><dl className="kv">{Object.entries(sum.flow).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl>

@@ -30,11 +30,11 @@ const TASKS = {
     const step = (t) => coach.getByRole('heading', { name: t }).waitFor({ timeout: 10000 })
     await coach.getByRole('button', { name: '다음' }).click()
     await step('평범한 입원은 에이전트가 처리')
-    await page.locator('tr.row').filter({ hasNot: page.locator('.badge') }).filter({ hasText: '안내 전' }).first().click()
+    await page.locator('tr.row.coach-pulse').click()
     await step('사람은 환자 연락만')
     await page.getByRole('button', { name: '연락함으로 기록' }).click()
     await step('판단이 필요한 일은 배지로')
-    await page.locator('tr.row', { has: page.locator('.badge', { hasText: '재연락' }) }).first().click()
+    await page.locator('tr.row.coach-pulse').click()
     await step('승인해도 시스템이 다시 확인')
     await page.locator('aside.detail .issue', { hasText: '재연락' }).first().getByRole('button', { name: '승인' }).click()
     await step('확정 근거는 배정 기록에')
@@ -57,9 +57,9 @@ const TASKS = {
     await page.getByRole('button', { name: '시연 시작' }).click()
     const coach = page.getByRole('dialog', { name: '시연 안내' })
     await coach.waitFor({ timeout: 60000 })
-    await page.locator('.coach-target').first().waitFor({ timeout: 5000 }).catch(() => {})
+    await page.locator('.coach-pulse').first().waitFor({ timeout: 5000 }).catch(() => {})
     return [{ name: '시연은 실제 원무 화면 위에서 한다', ok: await page.getByRole('heading', { name: '오늘 입원', exact: true }).isVisible() },
-      { name: '시연 중임이 화면에 보이고, 짚는 곳이 강조된다', ok: await coach.locator('.mode-tag').isVisible() && (await page.locator('.coach-target').count()) === 1 }]
+      { name: '시연 중임이 화면에 보이고, 짚는 곳이 강조된다', ok: await coach.locator('.mode-tag').isVisible() && (await page.locator('.coach-pulse').count()) === 1 }]
   },
   async F2(page) {
     let clicks = 0
@@ -78,7 +78,7 @@ const TASKS = {
     const flags = await page.locator('tr.row').evaluateAll(els => els.map(e => [!!e.querySelector('.badge'), !!e.querySelector('.badge.late')]))
     const firstPlain = flags.findIndex(f => !f[0])
     c.push({ name: '확인할 것이 있는 환자가 위, 평소 환자는 아래', ok: firstPlain > 0 && flags.slice(firstPlain).every(f => !f[0]), detail: `${firstPlain}명 위` })
-    c.push({ name: '평소 일(오늘 입원 전부)이 한 표에 보인다', ok: flags.length >= 15 && await page.locator('.sumline').isVisible(), detail: `${flags.length}명` })
+    c.push({ name: '평소 일(오늘 입원 전부)이 한 표에 보인다', ok: flags.length >= 15 && await page.locator('.stats').isVisible(), detail: `${flags.length}명` })
     const cut = await page.locator('td').evaluateAll(els => els.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent))
     c.push({ name: '잘린 칸이 없다', ok: cut.length === 0, detail: cut.slice(0, 3).join(' | ') })
     await page.getByRole('tab', { name: /확인 필요/ }).click()
@@ -164,11 +164,11 @@ const TASKS = {
   async N3(page) {
     await enterOps(page, '박서연')
     await page.locator('.ward-side tr.row').first().click()
-    await page.getByRole('button', { name: '원무에 의견 보내기' }).click()
+    await page.getByRole('button', { name: '원무팀에 의견 보내기' }).click()
     await page.getByRole('button', { name: '간호 인력 부족' }).click()
     await page.getByRole('button', { name: '의견 보내기', exact: true }).click()
     const msg = await page.getByRole('status').textContent()
-    return [{ name: '의견을 내면 원무에 알리고 배정은 그대로', ok: /원무에 의견/.test(msg || ''), detail: msg }]
+    return [{ name: '의견을 내면 원무에 알리고 배정은 그대로', ok: /원무팀에 의견/.test(msg || ''), detail: msg }]
   },
   async N4(page) {
     await enterOps(page, '박서연')
@@ -178,7 +178,7 @@ const TASKS = {
   },
   async I1(page) {
     await enterOps(page, '이준호')
-    await page.locator('.sumline').waitFor()
+    await page.locator('.stats').waitFor()
     await page.getByRole('button', { name: '지금 병상 유지 등' }).click()
     await page.getByRole('button', { name: '지금 병상 유지(제자리 격리)' }).click()
     await page.getByRole('button', { name: '결정', exact: true }).click()
@@ -187,7 +187,7 @@ const TASKS = {
   },
   async I3(page) {
     await enterOps(page, '이준호')
-    await page.locator('.sumline').waitFor()
+    await page.locator('.stats').waitFor()
     await page.getByRole('button', { name: '격리 병상', exact: true }).click()
     await page.locator('.room').first().waitFor()
     const n = await page.locator('.bd.k-terminal').count()
@@ -196,7 +196,7 @@ const TASKS = {
   async M1(page) {
     await enterOps(page, '정예린')
     await page.getByRole('heading', { name: '안전 검사' }).waitFor()
-    return [{ name: '오늘 흐름과 안전 검사 결과를 본다', ok: await page.getByRole('heading', { name: '흐름' }).isVisible() && (await page.locator('.card tbody tr').count()) >= 4 }]
+    return [{ name: '오늘 흐름과 안전 검사 결과를 본다', ok: await page.getByRole('heading', { name: '흐름', exact: true }).isVisible() && (await page.locator('.card tbody tr').count()) >= 4 }]
   },
   async A4(page) {
     await enterOps(page, '정예린')

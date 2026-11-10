@@ -11,21 +11,21 @@ accounts:
 - user_id: adm-seo
   name: 서민준
   role: bed_manager
-  role_label: 원무팀 응급실 창구
+  role_label: 원무팀
   ward: null
   salt: adm-seo
   password_hash: cec9fa14e34f58016d84031868a556c2fb9a668d03a78e4bb6cb89dfdeb2872f
 - user_id: ward71-park
   name: 박서연
   role: ward
-  role_label: 71병동 책임간호사
+  role_label: 71병동
   ward: W71
   salt: ward71-park
   password_hash: 0f31c44d64dde6d66db674c705834bba38f1b72b3c62da141c242e9bdfe78af7
 - user_id: ward72-choi
   name: 최유진
   role: ward
-  role_label: 72병동 책임간호사
+  role_label: 72병동
   ward: W72
   salt: ward72-choi
   password_hash: 6860e0669a9de977dd936f3206942c2bdacbae14da7ff5478d1e7bd547b19dff
@@ -39,14 +39,14 @@ accounts:
 - user_id: dr-kang
   name: 강도윤
   role: id_oncall
-  role_label: 감염내과 당직
+  role_label: 감염내과
   ward: null
   salt: dr-kang
   password_hash: f36df9002b0bb409e14518b603dd49e89e168bf007e0ac65a0f65a62ec3bc92b
 - user_id: admin-jung
   name: 정예린
   role: admin
-  role_label: 의료정보팀 관리자
+  role_label: 의료정보팀
   ward: null
   salt: admin-jung
   password_hash: 3a14178944e9cbdba32337ecb238415736504a4ab7716238f98502c29120f244

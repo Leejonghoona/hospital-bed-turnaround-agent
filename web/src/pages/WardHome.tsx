@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type User, type WardBoard, type WardDischarge, type WardIncoming, type WardRow } from '../api'
 import { Shell, useToast } from '../parts/Shell'
+import { Stats } from '../parts/Stats'
 
 const STEP_TONE: Record<string, string> = { '준비 전': 't-amber', '준비 완료': 't-green', '호출됨': 't-blue' }
 
@@ -26,8 +27,12 @@ export function WardHome({ user, onLogout, onSwitch }: { user: User; onLogout: (
     <Shell user={user} nav={[['today', '우리 병동']]} page="today" onPage={() => {}} now={now} onLogout={onLogout} onSwitch={onSwitch}>
       <main className="main">
         <div className="ph"><h1>{inc?.ward ?? '우리 병동'}</h1></div>
-        <p className="sumline">오늘 퇴원 <b>{dis.length}</b>명(퇴실 {dis.filter(d => d.departed).length})<span className="sep" />오늘 입실 예정 <b>{inc?.rows.length ?? 0}</b>명(준비 완료 {inc?.rows.filter(r => r.step !== '준비 전').length ?? 0})
-          <span className="sep" />빈 병상·입실 가능 <b>{n(['empty', 'ready'])}</b><span className="sep" />청소 대기·청소 중 <b>{n(['dirty', 'cleaning'])}</b></p>
+        <Stats items={[
+          { label: '오늘 퇴원', value: dis.length, sub: `퇴실 ${dis.filter(d => d.departed).length}명` },
+          { label: '오늘 입실 예정', value: inc?.rows.length ?? 0, sub: `준비 완료 ${inc?.rows.filter(r => r.step !== '준비 전').length ?? 0}명` },
+          { label: '빈 병상, 입실 가능', value: n(['empty', 'ready']) },
+          { label: '청소 대기, 청소 중', value: n(['dirty', 'cleaning']) },
+        ]} />
         <div className="ward-grid">
           <section className="pk-board ward-board">
             <div className="legend"><span><i className="ok" />빈 병상, 입실 가능</span><span><i className="reason" />청소 대기, 청소 중</span><span><i className="ipc" />퇴원 진행</span><span><i className="no" />재원 중</span><span className="in-mark">▲ 오늘 입실 예정</span></div>
@@ -88,25 +93,25 @@ function WardDetail({ r, reasons, onDone }: { r: WardRow; reasons: string[]; onD
     <div className="db">
       <div className="lab">준비할 것</div>
       <div className="chips">{r.prep.map(p => <span key={p} className="tag t-gray">{p}</span>)}</div>
-      {r.hold && <><div className="lab">호출 보류</div><p className="sit">{r.hold}. 원무가 확인하고 있습니다.</p></>}
+      {r.hold && <><div className="lab">호출 보류</div><p className="sit">{r.hold}. 원무팀이 확인하고 있습니다.</p></>}
       {r.front_detail && <><div className="lab">앞 환자 진행</div><p className="sit">{r.front_detail}</p></>}
       {err && <div className="err">{err}</div>}
       {!op ? (
         <div className="btns">
-          <button className="btn" onClick={() => setOp(true)}>원무에 의견 보내기</button>
+          <button className="btn" onClick={() => setOp(true)}>원무팀에 의견 보내기</button>
           <button className="btn p" disabled={r.step !== '준비 전'} onClick={() => run(() => api.wardPrep(r.case), `${r.patient} 병상 준비 완료를 알렸습니다`)}>
             {r.step === '준비 전' ? '준비 완료' : '준비 완료됨'}</button>
         </div>
       ) : (<>
         <div className="lab">의견 사유</div>
-        <div className="note">배정은 그대로 두고 원무에 알립니다. 원무가 유지하거나 병상을 바꿉니다.</div>
+        <div className="note">배정은 그대로 두고 원무팀에 알립니다. 원무팀이 유지하거나 병상을 바꿉니다.</div>
         <div className="seg col">{reasons.map(x => <button key={x} className={reason === x ? 'on' : ''} onClick={() => setReason(x)}>{x}</button>)}</div>
         <div className="field"><label htmlFor="wm">메모 {reason === '기타' ? <em className="req">필수</em> : <span className="opt">선택</span>}</label>
-          <textarea id="wm" rows={2} maxLength={500} value={memo} onChange={e => setMemo(e.target.value)} placeholder="원무가 알아야 할 내용" /></div>
+          <textarea id="wm" rows={2} maxLength={500} value={memo} onChange={e => setMemo(e.target.value)} placeholder="원무팀이 알아야 할 내용" /></div>
         <div className="btns">
           <button className="btn" onClick={() => setOp(false)}>취소</button>
           <button className="btn p" disabled={!reason || (reason === '기타' && !memo.trim())}
-            onClick={() => run(() => api.wardOpinion(r.case, reason!, memo), '원무에 의견을 보냈습니다')}>의견 보내기</button>
+            onClick={() => run(() => api.wardOpinion(r.case, reason!, memo), '원무팀에 의견을 보냈습니다')}>의견 보내기</button>
         </div>
       </>)}
     </div>

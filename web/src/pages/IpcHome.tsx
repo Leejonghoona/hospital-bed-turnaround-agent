@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type IpcHome as IH, type User } from '../api'
 import { Shell, useToast } from '../parts/Shell'
+import { Stats } from '../parts/Stats'
 
 // 감염관리실 화면: 흐름 docs/화면재설계/flows/감염관리실_이준호.md (출근 → 병상 결정 → 입원 예정 격리 확인 → 접촉자 → 종말소독 → 현황 → 인계)
 export function IpcHome({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
@@ -33,8 +34,12 @@ export function IpcHome({ user, onLogout, onSwitch }: { user: User; onLogout: ()
     <Shell user={user} nav={[['patients', '격리 환자'], ['board', '격리 병상'], ['night', '밤사이·인계']]} page={page} onPage={setPage} now={now} onLogout={onLogout} onSwitch={onSwitch}>
       <main className="main">
         <div className="ph"><h1>{{ patients: '격리 환자', board: '격리 병상', night: '밤사이·인계' }[page]}</h1></div>
-        {s && <p className="sumline">격리 환자 <b>{s.isolated}</b>명(오늘 입원 예정 {s.incoming})<span className="sep" />빈 격리 병상 <b>{s.free_np + s.free_single}</b>개(음압 {s.free_np}, 1인실 {s.free_single})<span className="sep" />종말소독 대기 <b>{s.terminal}</b>개
-          {s.decisions > 0 && <><span className="sep" /><span className="hl">병상 결정 {s.decisions}건, 마감 {s.first_deadline}</span></>}</p>}
+        {s && <Stats items={[
+          { label: '격리 환자', value: s.isolated, sub: `오늘 입원 예정 ${s.incoming}` },
+          { label: '빈 격리 병상', value: s.free_np + s.free_single, sub: `음압 ${s.free_np}, 1인실 ${s.free_single}` },
+          { label: '종말소독 대기', value: s.terminal, tone: s.terminal ? 'amber' : undefined, sub: '끝나야 다시 배정' },
+          { label: '병상 결정', value: s.decisions, tone: s.decisions ? 'red' : undefined, sub: s.decisions ? `마감 ${s.first_deadline}` : '없음' },
+        ]} />}
         {page === 'patients' && d && (<>
           <div className="tabs" role="tablist">{(['all', '병상 대기', '입원 예정', '재원', '퇴원 진행'] as const).map(k => (
             <button key={k} role="tab" aria-selected={f === k} className={'tab' + (f === k ? ' on' : '')} onClick={() => setF(k)}>{k === 'all' ? '전체' : k} <span className="n">{count(k)}</span></button>))}</div>
@@ -111,7 +116,7 @@ function Decide({ a, free, reasons, onDone }: { a: IH['decisions'][number]; free
     setErr('')
     try {
       const r = await api.ipcDecide(a.exception_id, verb, reason ?? '', memo)
-      onDone(verb === 'approve' ? (r.status === 'executed' ? '격리 병상을 다시 찾고 병동과 원무에 알립니다' : '다시 확인한 결과 실행하지 않았습니다') : '지금 병상에서 제자리 격리로 정했습니다')
+      onDone(verb === 'approve' ? (r.status === 'executed' ? '격리 병상을 다시 찾고 병동과 원무팀에 알립니다' : '다시 확인한 결과 실행하지 않았습니다') : '지금 병상에서 제자리 격리로 정했습니다')
     } catch (e) { setErr(e instanceof ApiError ? e.message : '처리하지 못했습니다') }
   }
   return (
