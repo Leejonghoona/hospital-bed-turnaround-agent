@@ -1,0 +1,1 @@
+{"id": "XV3-001", "action": "propose_surveillance_hold", "status": "ok", "valid": true, "error": null, "latency_s": 16.932, "in_tok": 597, "out_tok": 91, "finish": ["stop"]}
