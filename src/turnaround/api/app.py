@@ -163,6 +163,11 @@ def create_app() -> FastAPI:
             raise HTTPException(403, "접속기록은 관리자만 볼 수 있습니다")
         return {"rows": list(reversed(store.access_log))}
 
+    # 빌드된 화면(web/dist)이 있으면 같은 주소에서 내준다(한 컨테이너 배포). API 경로 뒤에 둔다.
+    dist = ROOT / "web" / "dist"
+    if dist.exists():
+        from fastapi.staticfiles import StaticFiles
+        app.mount("/", StaticFiles(directory=dist, html=True), name="web")
     return app
 
 

@@ -41,3 +41,10 @@
 - 커밋 메시지는 한국어 한 줄로 무엇을 했는지 쓴다.
 - 진행 상황과 측정 결과는 `docs/RESULTS.md`에 누적한다.
 - 설계와 다르게 구현해야 할 이유가 생기면 코드보다 먼저 `docs/DECISIONS.md`에 이유를 적는다.
+
+## 검사 명령
+- 전체 시험: `python -m pytest -q` (약 4분, 느린 시험은 `-m slow`)
+- API 시험: `python -m pytest tests/test_api.py -q`
+- 화면 빌드: `cd web && npm install && npm run build`
+- 화면 과업 시험(통과/실패): `python scripts/ui_tasks.py [--only F1,W1]` (과업 목록 `docs/화면재설계/tasks.json`)
+- 개발 서버: `uvicorn turnaround.api.app:app --reload` 와 `cd web && npm run dev`
