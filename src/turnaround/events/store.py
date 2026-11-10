@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +45,8 @@ class EventStore:
         self._conn.commit()
         # 추가만 하는 기록이라 한 번 읽은 이벤트는 바뀌지 않는다. 해석한 이벤트를 순번 순서로 기억하고 새 행만 읽는다
         self._cache: list[Event] = []
+        # 웹 API는 여러 요청을 동시에 처리한다. 연결 하나를 여러 스레드가 함께 쓰면 SQLite가 깨지므로 읽기·쓰기를 줄 세운다
+        self._lock = threading.RLock()
 
     def close(self) -> None:
         self._conn.close()
@@ -62,22 +65,24 @@ class EventStore:
 
     def append(self, e: Event) -> int | None:
         """새 순번을 돌려준다. 이미 있는 이벤트 ID면 None."""
-        with self._conn:
+        with self._lock, self._conn:
             return self._insert(e)
 
     def extend(self, events: Iterable[Event]) -> list[int | None]:
-        with self._conn:
+        with self._lock, self._conn:
             return [self._insert(e) for e in events]
 
     def last_seq(self) -> int:
-        return self._conn.execute("SELECT COALESCE(MAX(seq), 0) FROM events").fetchone()[0]
+        with self._lock:
+            return self._conn.execute("SELECT COALESCE(MAX(seq), 0) FROM events").fetchone()[0]
 
     def read(self, case_id: str | None = None, as_of: datetime | None = None,
              after_seq: int | None = None) -> list[Event]:
         """as_of를 주면 그 시각까지 인지된 이벤트만 돌려준다(미래 정보 차단)."""
-        last = self._cache[-1].seq if self._cache else 0
-        self._cache += self._read_db(after_seq=last)
-        out = self._cache
+        with self._lock:
+            last = self._cache[-1].seq if self._cache else 0
+            self._cache += self._read_db(after_seq=last)
+            out = list(self._cache)
         if after_seq is not None:
             out = [e for e in out if e.seq > after_seq]
         if case_id is not None:

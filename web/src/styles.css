@@ -328,3 +328,17 @@ tr.quiet td { color: var(--mute); }
 .issue .lab { display: flex; align-items: center; gap: 8px; }
 .sumline .hl { color: var(--red); font-weight: 700; }
 td.badges { white-space: normal; }
+/* 우리 병동 */
+.ward-grid { display: grid; grid-template-columns: 1fr 440px; gap: 12px; margin-top: 12px; flex: 1; min-height: 0; }
+.ward-grid .ward-board { margin-top: 0; overflow: auto; }
+.ward-side { display: flex; flex-direction: column; gap: 12px; overflow: auto; min-height: 0; }
+.ward-detail { border-top: 1px solid var(--line); padding-top: 10px; }
+.ward-detail .dh { padding: 0; } .ward-detail .db { padding: 10px 0 0; }
+.in-mark { color: var(--brand); font-weight: 800; }
+/* 시연 안내 카드 */
+.coach { position: fixed; right: 24px; bottom: 24px; width: 360px; background: #fff; border: 1px solid var(--brand-line); border-radius: 14px; box-shadow: 0 18px 50px rgba(17,24,39,.22); padding: 16px 18px; z-index: 40; display: flex; flex-direction: column; gap: 8px; }
+.coach h3 { font-size: 16px; font-weight: 800; } .coach p { font-size: 14px; line-height: 1.6; color: var(--sub); }
+.coach-h { display: flex; align-items: center; gap: 8px; } .coach-h .mode-tag { margin-left: 0; } .coach-h .link { font-size: 12.5px; color: var(--mute); } .coach-h .link:first-of-type { margin-left: auto; }
+.coach-a { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.coach-min { position: fixed; right: 24px; bottom: 24px; z-index: 40; background: var(--brand); color: #fff; border-radius: 999px; padding: 10px 16px; font-weight: 700; font-size: 13.5px; }
+.coach-target { outline: 3px solid #F59E0B !important; outline-offset: 3px; border-radius: 8px; transition: outline-color .2s; }

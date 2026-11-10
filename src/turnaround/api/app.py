@@ -31,6 +31,7 @@ ROLE_SCREEN = {"bed_manager": "admission", "ward": "ward", "ipc": "ipc", "id_onc
 
 
 _BUILD_LOCK = threading.Lock()
+MAX_TOURS = 6
 IDLE_SEC = 15 * 60  # 일정 시간 미사용 시 자동 차단 (고시 제6조④, EMR 인증 F004 "10분~60분 이내"). 15분은 설계 가정
 _CLIENT_IP: ContextVar[str] = ContextVar("client_ip", default="")
 
@@ -43,6 +44,7 @@ class Session:
     shift: str | None = None
     last_seen: float = field(default_factory=_time.monotonic)
     locked: bool = False
+    tour_state: object = None  # 시연 세션이면 따로 만든 합성 병원
 
 
 @dataclass
@@ -53,23 +55,15 @@ class Store:
     access_log: object = None  # AccessLog (파일, 추가만)
     state: object = None  # 합성 병원 하루 재생 (요청이 처음 올 때 만든다)
 
-    def demo(self):
+    def demo(self, s=None):
+        """이 세션이 쓰는 합성 병원. 시연(따라 해 보기) 세션은 따로 만든 병원을 써서 운영 화면 데이터와 섞이지 않는다."""
+        own = getattr(s, "tour_state", None)
+        if own is not None:
+            return own
         with _BUILD_LOCK:  # 첫 요청 여러 개가 동시에 오면 한 번만 만든다 (동시에 만들면 공유 캐시가 엉킨다)
-            return self._demo()
-
-    def _demo(self):
-        if self.state is None:
-            from turnaround.gateway import load_policy
-            from turnaround.sim import GeneratorConfig
-            from turnaround.ui.demo import build_demo
-            st = build_demo(seed=2, day=3, until=time(11, 15), via_fhir=False, policy=load_policy(),
-                            config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1, live_from=time(7, 0))
-            _inject_late_isolation(st)  # 감염관리실 화면 시연용: 확정 뒤 격리 오더 1건 (합성)
-            st.advance(st.now.replace(hour=11, minute=45))
-            self.state = st
-            from turnaround.api.shift_model import apply_night_shift
-            apply_night_shift(self.state)  # 이전 근무가 처리한 일 (데모 화면용 사람 응답 모형)
-        return self.state
+            if self.state is None:
+                self.state = build_hospital()
+            return self.state
 
     def log(self, s, action: str, case: str | None = None, detail: str = "") -> None:
         """s: Session 또는 사용자 정보 dict(로그인 실패처럼 세션이 없을 때)."""
@@ -77,6 +71,20 @@ class Store:
         sim = self.state.now.isoformat(timespec="minutes") if self.state is not None else ""
         self.access_log.append(sim_at=sim, user_id=u["user_id"], name=u.get("name", ""), ip=_CLIENT_IP.get(),
                                case=case, action=action, detail=detail)
+
+
+def build_hospital():
+    """시연용 합성 병원 하루(11:45). 운영 화면과 시연 세션이 같은 방법으로 만든다."""
+    from turnaround.api.shift_model import apply_night_shift
+    from turnaround.gateway import load_policy
+    from turnaround.sim import GeneratorConfig
+    from turnaround.ui.demo import build_demo
+    st = build_demo(seed=2, day=3, until=time(11, 15), via_fhir=False, policy=load_policy(),
+                    config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1, live_from=time(7, 0))
+    _inject_late_isolation(st)  # 감염관리실 화면 시연용: 확정 뒤 격리 오더 1건 (합성)
+    st.advance(st.now.replace(hour=11, minute=45))
+    apply_night_shift(st)  # 이전 근무가 처리한 일 (데모 화면용 사람 응답 모형)
+    return st
 
 
 def _inject_late_isolation(st) -> None:
@@ -240,6 +248,20 @@ def create_app() -> FastAPI:
             raise HTTPException(423, LOCKED_MSG)
         return start(a, how="데모 로그인")
 
+    @app.post("/api/tour/login")
+    def tour_login():
+        """시연: 원무 데모 계정으로 바로 들어가되, 이 세션만 쓰는 합성 병원을 새로 만든다(운영 화면 데이터와 따로)."""
+        a = store.accounts["adm-kim"]
+        out = start(a, how="시연 로그인")
+        s = store.sessions[out["token"]]
+        with _BUILD_LOCK:
+            s.tour_state = build_hospital()
+        tours = [t for t, x in store.sessions.items() if x.tour_state is not None]
+        for t in tours[:-MAX_TOURS]:  # 오래된 시연 세션부터 정리
+            store.sessions.pop(t, None)
+        s.shift = "office"
+        return {**out, "tour": True}
+
     @app.post("/api/accounts/{uid}/unlock")
     def unlock_account(uid: str, s: Session = Depends(session)):
         if s.user["role"] != "admin":
@@ -258,7 +280,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/me")
     def me(s: Session = Depends(session)):
-        st = store.demo()
+        st = store.demo(s)
         return {"user": s.user, "ward": s.ward, "shift": s.shift, "now": st.now.isoformat(timespec="minutes"),
                 "screen": ROLE_SCREEN.get(s.user["role"], "admission")}
 
@@ -276,7 +298,7 @@ def create_app() -> FastAPI:
     def worklist(s: Session = Depends(session)):
         from turnaround.api.worklist import admission_rows
         admission_only(s)
-        st = store.demo()
+        st = store.demo(s)
         out = admission_rows(st)
         store.log(s, "목록 조회", detail="오늘 할 일")
         return out
@@ -285,14 +307,14 @@ def create_app() -> FastAPI:
     def admissions(s: Session = Depends(session)):
         from turnaround.api.worklist import admissions_today
         admission_only(s)
-        out = admissions_today(store.demo(), store.accounts)
+        out = admissions_today(store.demo(s), store.accounts)
         store.log(s, "목록 조회", detail="오늘 입원")
         return out
 
     @app.get("/api/patients/{case}")
     def patient(case: str, s: Session = Depends(session)):
         from turnaround.api.worklist import patient_detail
-        st = store.demo()
+        st = store.demo(s)
         d = patient_detail(st, case, store.accounts)
         if d is None:
             raise HTTPException(404, "없는 사례입니다")
@@ -361,7 +383,7 @@ def create_app() -> FastAPI:
         from turnaround.events import EventType
         from turnaround.saga import fold
         admission_only(s)
-        st = store.demo()
+        st = store.demo(s)
         r = row_of(st, f"contact:{case}")
         memo = memo_of(body.memo, body.outcome in ("postpone", "cancel"))
         if body.outcome in ("postpone", "cancel"):
@@ -395,7 +417,7 @@ def create_app() -> FastAPI:
     def task_done(task_id: str, body: ResultIn, s: Session = Depends(session)):
         from turnaround.events import EventType
         admission_only(s)
-        st = store.demo()
+        st = store.demo(s)
         r = row_of(st, task_id)
         if body.result not in [c["label"] for c in r["choices"]]:
             raise HTTPException(422, "처리 내용을 목록에서 골라 주세요")
@@ -409,7 +431,7 @@ def create_app() -> FastAPI:
     @app.post("/api/approvals/{eid}/{verb}")
     def approval(eid: str, verb: str, body: ReasonIn, s: Session = Depends(session)):
         admission_only(s)
-        st = store.demo()
+        st = store.demo(s)
         r = row_of(st, eid)
         if verb == "approve":
             dec = st.gw.approve_action(eid, "bed_manager", st.now, approver_id=s.user["user_id"])
@@ -428,7 +450,7 @@ def create_app() -> FastAPI:
     def beds(case: str, s: Session = Depends(session)):
         from turnaround.api.beds import board
         admission_only(s)
-        out = board(store.demo(), case)
+        out = board(store.demo(s), case)
         if out is None:
             raise HTTPException(404, "없는 사례입니다")
         store.log(s, "병상 현황 조회", case=case)
@@ -438,7 +460,7 @@ def create_app() -> FastAPI:
     def assign(body: AssignIn, s: Session = Depends(session)):
         from turnaround.api.beds import REASON_CODES, refusal_ko
         admission_only(s)
-        st = store.demo()
+        st = store.demo(s)
         if body.reason not in REASON_CODES:
             raise HTTPException(422, "배정 사유를 골라 주세요")
         memo = memo_of(body.memo, body.reason == "other")
@@ -478,7 +500,7 @@ def create_app() -> FastAPI:
         """에이전트 확정 배정을 시한 안에 되돌린다(W3). 연락 전이면 병상을 풀고 다시 찾고, 연락 뒤면 담당 검토와 재연락."""
         from turnaround.api.worklist import assignments
         admission_only(s)
-        st = store.demo()
+        st = store.demo(s)
         if body.reason not in UNDO_REASONS:
             raise HTTPException(422, "되돌리는 사유를 골라 주세요")
         memo = memo_of(body.memo, body.reason == "기타")
@@ -509,7 +531,7 @@ def create_app() -> FastAPI:
     def ward_incoming(s: Session = Depends(session)):
         from turnaround.api.ward import incoming
         w = ward_only(s)
-        out = incoming(store.demo(), w)
+        out = incoming(store.demo(s), w)
         store.log(s, "목록 조회", detail="입실 예정")
         return out
 
@@ -518,13 +540,20 @@ def create_app() -> FastAPI:
         from turnaround.api.ward import board
         w = ward_only(s)
         store.log(s, "목록 조회", detail="병상 현황")
-        return board(store.demo(), w)
+        return board(store.demo(s), w)
+
+    @app.get("/api/ward/discharges")
+    def ward_discharges(s: Session = Depends(session)):
+        from turnaround.api.ward import discharges
+        w = ward_only(s)
+        store.log(s, "목록 조회", detail="퇴원 진행")
+        return discharges(store.demo(s), w)
 
     @app.post("/api/ward/prep/{case}")
     def ward_prep(case: str, s: Session = Depends(session)):
         from turnaround.events import EventType
         ward_only(s)
-        st = store.demo()
+        st = store.demo(s)
         my_ward_case(st, s, case)
         bed = st.gw._assignments(st.store.read()).get(case)
         human(st, case, "ward_prep_done", EventType.WARD_PREP_DONE, bed_id=bed, by=s.user["user_id"])
@@ -537,7 +566,7 @@ def create_app() -> FastAPI:
         from turnaround.api.ward import OPINION_REASONS
         from turnaround.events import EventType
         ward_only(s)
-        st = store.demo()
+        st = store.demo(s)
         my_ward_case(st, s, case)
         if body.reason not in OPINION_REASONS:
             raise HTTPException(422, "의견 사유를 골라 주세요")
@@ -561,7 +590,7 @@ def create_app() -> FastAPI:
         from turnaround.api.ipc import home
         from turnaround.api.worklist import notes
         ipc_only(s)
-        st = store.demo()
+        st = store.demo(s)
         ev = st.store.read()
         out = home(st, lambda case: notes(ev, case, store.accounts))
         handover = [n for n in notes(ev, "IPC-HANDOVER", store.accounts)][-3:]
@@ -572,7 +601,7 @@ def create_app() -> FastAPI:
     def ipc_check(case: str, s: Session = Depends(session)):
         """오늘 들어올 격리 환자의 배정 병상을 감염관리실이 확인했다는 표시."""
         ipc_only(s)
-        st = store.demo()
+        st = store.demo(s)
         note(st, s, case, "감염관리실 배정 확인", tag="ipc_checked")
         store.log(s, "격리 배정 확인", case=case)
         return {"ok": True}
@@ -581,7 +610,7 @@ def create_app() -> FastAPI:
     def ipc_handover(body: ReasonIn, s: Session = Depends(session)):
         """야간 당직에게 넘기는 인계 메모 (자유 서술. 계획 에이전트는 읽지 않는다)."""
         ipc_only(s)
-        st = store.demo()
+        st = store.demo(s)
         text = memo_of(body.memo, True)
         note(st, s, "IPC-HANDOVER", text, tag="handover")
         store.log(s, "감염관리 인계 메모")
@@ -591,7 +620,7 @@ def create_app() -> FastAPI:
     def ipc_decide(eid: str, verb: str, body: ReasonIn, s: Session = Depends(session)):
         """늦은 격리의 병상 결정은 감염관리실(야간·휴일은 감염내과 당직)만 한다. 게이트웨이가 근무 중인 사람인지 다시 확인한다."""
         ipc_only(s)
-        st = store.demo()
+        st = store.demo(s)
         role = s.user["role"]
         if verb == "approve":
             d = st.gw.approve_action(eid, role, st.now, approver_id=s.user["user_id"])
@@ -617,7 +646,7 @@ def create_app() -> FastAPI:
     def admin_summary(s: Session = Depends(session)):
         from turnaround.ui import views
         admin_only(s)
-        st = store.demo()
+        st = store.demo(s)
         m = views.manager_view(st)
         hl = m["human_load"]
         load = {"입원 사례": hl.get("admission_cases"), "확정": hl.get("committed"),
@@ -635,7 +664,7 @@ def create_app() -> FastAPI:
         from turnaround.api.worklist import _timeline
         from turnaround.ui import views
         admin_only(s)
-        st = store.demo()
+        st = store.demo(s)
         t = views.case_timeline(st, case)
         if not t["rows"]:
             raise HTTPException(404, "없는 사례입니다")
@@ -675,7 +704,7 @@ def create_app() -> FastAPI:
             _date.fromisoformat(day) if day else None
         except ValueError:
             raise HTTPException(422, "날짜는 YYYY-MM-DD로 적어 주세요") from None
-        out = assignments(store.demo(), store.accounts, day)
+        out = assignments(store.demo(s), store.accounts, day)
         store.log(s, "목록 조회", detail="배정 기록")
         return out
 

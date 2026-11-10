@@ -30,6 +30,7 @@ export type WardRow = {
   case: string; patient: string; age: number | null; sex: string; bed: string; checkin: string; prep: string[]
   front: string; front_detail: string; step: string; hold: string; notified: string; by: string
 }
+export type WardDischarge = { case: string; patient: string; age: number | null; sex: string; bed: string; step: string; departed: string; flags: string[] }
 export type WardIncoming = { ward: string; rows: WardRow[]; reasons: string[] }
 export type WardBoard = { ward: string; rooms: { id: string; label: string; grade: string; sex: string; beds: { id: string; label: string; state: string; state_ko: string; detail: string }[] }[] }
 
@@ -88,6 +89,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   demoAccounts: () => call<User[]>('/api/demo-accounts'),
   login: (user_id: string, password: string) => call<{ token: string; user: User; screen: string }>('/api/login', { method: 'POST', body: JSON.stringify({ user_id, password }) }),
+  tourLogin: () => call<{ token: string; user: User; tour: boolean }>('/api/tour/login', { method: 'POST' }),
   demoLogin: (user_id: string) => call<{ token: string; user: User; screen: string }>('/api/demo-login', { method: 'POST', body: JSON.stringify({ user_id }) }),
   me: () => call<{ user: User; ward: string | null; shift: string | null; now: string; screen: string }>('/api/me'),
   shift: (ward: string | null, shift: string) => call('/api/shift', { method: 'POST', body: JSON.stringify({ ward, shift }) }),
@@ -95,6 +97,7 @@ export const api = {
   unlock: (password: string) => call('/api/unlock', { method: 'POST', body: JSON.stringify({ password }) }),
   undo: (c: string, reason: string, memo: string) => call<{ status: string }>(`/api/assignments/${encodeURIComponent(c)}/undo`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
   wardIncoming: () => call<WardIncoming>('/api/ward/incoming'),
+  wardDischarges: () => call<{ rows: WardDischarge[] }>('/api/ward/discharges'),
   wardBoard: () => call<WardBoard>('/api/ward/board'),
   wardPrep: (c: string) => call(`/api/ward/prep/${encodeURIComponent(c)}`, { method: 'POST' }),
   wardOpinion: (c: string, reason: string, memo: string) => call(`/api/ward/opinion/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),

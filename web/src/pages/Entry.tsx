@@ -16,7 +16,7 @@ export function Entry({ onDemo, onOps }: { onDemo: () => void; onOps: () => void
         <div className="tile">
           <div className="ic"><Icon name="play" /></div>
           <h3>시연 화면</h3>
-          <div className="d">대표 사례 3개를 단계별로 따라갑니다</div>
+          <div className="d">실제 원무 화면에서 직접 해 봅니다, 2분</div>
           <div className="go"><button className="btn p full" onClick={onDemo}>시연 시작</button></div>
         </div>
         <div className="tile">

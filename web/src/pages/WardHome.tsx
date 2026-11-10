@@ -1,65 +1,67 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError, type User, type WardBoard, type WardIncoming, type WardRow } from '../api'
+import { api, ApiError, type User, type WardBoard, type WardDischarge, type WardIncoming, type WardRow } from '../api'
 import { Shell, useToast } from '../parts/Shell'
 
 const STEP_TONE: Record<string, string> = { '준비 전': 't-amber', '준비 완료': 't-green', '호출됨': 't-blue' }
-const FRONT_TONE: Record<string, string> = { '입실 가능': 't-green', '청소 중': 't-amber', '청소 대기': 't-amber', '퇴원 진행': 't-gray', '빈 병상': 't-green' }
+
 
 // 병동 화면(P3): 우리 병동으로 올 환자와 준비 상태, 병상 현황. 병동은 배정을 직접 풀지 않고 원무에 의견을 보낸다.
 export function WardHome({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
-  const [page, setPage] = useState('incoming')
   const [inc, setInc] = useState<WardIncoming | null>(null)
   const [board, setBoard] = useState<WardBoard | null>(null)
+  const [dis, setDis] = useState<WardDischarge[]>([])
   const [pick, setPick] = useState<string | null>(null)
   const [now, setNow] = useState<string | undefined>()
   const [toast, setToast] = useToast()
-  const load = useCallback(() => api.wardIncoming().then(x => { setInc(x); setPick(p => p && x.rows.some(r => r.case === p) ? p : x.rows[0]?.case ?? null) }), [])
+  const load = useCallback(() => {
+    api.wardIncoming().then(x => { setInc(x); setPick(p => p && x.rows.some(r => r.case === p) ? p : x.rows[0]?.case ?? null) })
+    api.wardBoard().then(setBoard); api.wardDischarges().then(r => setDis(r.rows))
+  }, [])
   useEffect(() => { load(); api.me().then(m => setNow(m.now)).catch(() => {}) }, [load])
-  useEffect(() => { if (page === 'board') api.wardBoard().then(setBoard) }, [page])
   const cur = inc?.rows.find(r => r.case === pick) ?? null
+  const beds = board?.rooms.flatMap(r => r.beds) ?? []
+  const n = (k: string[]) => beds.filter(b => k.includes(b.state)).length
+  const incomingBeds = new Set(inc?.rows.map(r => r.bed) ?? [])
   return (
-    <Shell user={user} nav={[['incoming', '입실 예정'], ['board', '병상 현황']]} page={page} onPage={setPage} now={now} onLogout={onLogout} onSwitch={onSwitch}>
+    <Shell user={user} nav={[['today', '우리 병동']]} page="today" onPage={() => {}} now={now} onLogout={onLogout} onSwitch={onSwitch}>
       <main className="main">
-        <div className="ph"><h1>{page === 'incoming' ? '입실 예정' : '병상 현황'}</h1><span className="meta">{inc?.ward}</span></div>
-        {page === 'incoming' ? (
-          <div className="work">
-            <section className="grid">
-              <div className="tbody">
-                {inc && inc.rows.length === 0 ? <div className="empty">입실 예정 환자가 없습니다</div> : (
-                  <table>
-                    <colgroup><col style={{ width: 96 }} /><col style={{ width: 150 }} /><col style={{ width: 84 }} /><col /><col style={{ width: 150 }} /><col style={{ width: 100 }} /></colgroup>
-                    <thead><tr><th>입실</th><th>환자</th><th>병상</th><th>준비할 것</th><th>앞 환자</th><th>상태</th></tr></thead>
-                    <tbody>{inc?.rows.map(r => (
-                      <tr key={r.case} className={'row' + (r.case === pick ? ' pick' : '')} onClick={() => setPick(r.case)} tabIndex={0}>
-                        <td className="due">{r.checkin}</td>
-                        <td className="pt"><b>{r.patient}</b><span className="id">{r.age}세 {r.sex}</span></td>
-                        <td className="mono">{r.bed}</td>
-                        <td className="sub">{r.prep.join(', ')}</td>
-                        <td><span className={'tag ' + (FRONT_TONE[r.front] ?? 't-gray')}>{r.front || '—'}</span></td>
-                        <td className="st"><span className={'tag ' + (STEP_TONE[r.step] ?? 't-gray')}>{r.step}</span>{r.hold && <small>호출 보류</small>}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                )}
-              </div>
-            </section>
-            <aside className="detail" aria-label="상세">
-              {!cur ? <div className="empty">왼쪽에서 환자를 고르세요</div> : <WardDetail key={cur.case} r={cur} reasons={inc?.reasons ?? []} onDone={m => { setToast(m); load() }} />}
-            </aside>
-          </div>
-        ) : (
+        <div className="ph"><h1>{inc?.ward ?? '우리 병동'}</h1></div>
+        <p className="sumline">오늘 퇴원 <b>{dis.length}</b>명(퇴실 {dis.filter(d => d.departed).length})<span className="sep" />오늘 입실 예정 <b>{inc?.rows.length ?? 0}</b>명(준비 완료 {inc?.rows.filter(r => r.step !== '준비 전').length ?? 0})
+          <span className="sep" />빈 병상·입실 가능 <b>{n(['empty', 'ready'])}</b><span className="sep" />청소 대기·청소 중 <b>{n(['dirty', 'cleaning'])}</b></p>
+        <div className="ward-grid">
           <section className="pk-board ward-board">
-            <div className="legend"><span><i className="ok" />입실 가능, 빈 병상</span><span><i className="reason" />청소 대기, 청소 중</span><span><i className="ipc" />퇴원 진행</span><span><i className="no" />재원 중</span></div>
+            <div className="legend"><span><i className="ok" />빈 병상, 입실 가능</span><span><i className="reason" />청소 대기, 청소 중</span><span><i className="ipc" />퇴원 진행</span><span><i className="no" />재원 중</span><span className="in-mark">▲ 오늘 입실 예정</span></div>
             <div className="rooms">{board?.rooms.map(r => (
               <div key={r.id} className="room">
                 <div className="rh"><b>{r.label}</b><span>{r.grade}{r.sex && ` ${r.sex}`}</span></div>
-                <div className="bs">{r.beds.map(b => (
-                  <div key={b.id} className={'bd st-' + b.state} title={b.detail}><b>{b.label}</b><span>{b.state_ko}</span></div>
-                ))}</div>
-              </div>
-            ))}</div>
+                <div className="bs">{r.beds.map(b => {
+                  const short = `${b.id.split('-')[0].slice(1)}-${b.id.split('-')[1].slice(1)}-${b.id.split('-')[2].slice(1)}`
+                  return <div key={b.id} className={'bd st-' + b.state} title={b.detail}><b>{b.label}{incomingBeds.has(short) && <span className="in-mark"> ▲</span>}</b><span>{b.state_ko}</span></div>
+                })}</div>
+              </div>))}</div>
           </section>
-        )}
+          <div className="ward-side">
+            <section className="card">
+              <h3>오늘 입실 <span className="cnt">{inc?.rows.length ?? 0}</span></h3>
+              {inc && inc.rows.length === 0 ? <p className="note">오늘 입실 예정 환자가 없습니다</p> : (
+                <table className="sel"><thead><tr><th>입실</th><th>환자</th><th>병상</th><th>상태</th></tr></thead>
+                  <tbody>{inc?.rows.map(r => (
+                    <tr key={r.case} className={'row' + (r.case === pick ? ' pick' : '')} onClick={() => setPick(r.case)}>
+                      <td className="due">{r.checkin}</td><td className="pt"><b>{r.patient}</b><span className="id">{r.age}세 {r.sex}</span></td>
+                      <td className="mono">{r.bed}</td>
+                      <td><span className={'tag ' + (STEP_TONE[r.step] ?? 't-gray')}>{r.step}</span>{r.hold && <span className="badge">호출 보류</span>}</td></tr>))}</tbody></table>)}
+              {cur && <div className="ward-detail"><WardDetail key={cur.case} r={cur} reasons={inc?.reasons ?? []} onDone={m => { setToast(m); load() }} /></div>}
+            </section>
+            <section className="card">
+              <h3>퇴원 진행 <span className="cnt">{dis.length}</span></h3>
+              {dis.length === 0 ? <p className="note">오늘 퇴원이 없습니다</p> : (
+                <table><thead><tr><th>병상</th><th>환자</th><th>단계</th><th></th></tr></thead>
+                  <tbody>{dis.map(d => (
+                    <tr key={d.case} className={d.departed ? 'quiet' : ''}><td className="mono">{d.bed}</td><td><b>{d.patient}</b> <span className="sub">{d.age}세 {d.sex}</span></td>
+                      <td>{d.step}{d.departed && ` ${d.departed}`}</td><td>{d.flags.map(f => <span key={f} className="badge">{f}</span>)}</td></tr>))}</tbody></table>)}
+            </section>
+          </div>
+        </div>
       </main>
       {toast && <div className="toast" role="status">{toast}</div>}
     </Shell>

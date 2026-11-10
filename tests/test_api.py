@@ -355,6 +355,8 @@ def test_ward_board_shows_only_my_ward():
     b = c.get("/api/ward/board", headers=w).json()
     assert b["rooms"] and all(bd["id"].startswith("W72-") for r in b["rooms"] for bd in r["beds"])
     assert {"state", "state_ko", "detail"} <= set(b["rooms"][0]["beds"][0])
+    d = c.get("/api/ward/discharges", headers=w).json()["rows"]
+    assert d and all(x["bed"].startswith("72-") for x in d) and {"step", "departed", "flags"} <= set(d[0])
 
 
 # ---- 감염관리실·관리자 화면 (P4) ----
@@ -422,3 +424,27 @@ def test_admissions_today_is_everyday_list_with_issue_badges(client):
     assert with_issue and rows[: len(with_issue)] == with_issue  # 확인할 것이 있는 행이 위
     assert any(not r["issues"] for r in rows)  # 예외 없는 평소 행이 대부분
     assert client.get("/api/admissions", headers=_login(client, "ward71-park")).status_code == 403
+
+
+def test_tour_session_uses_its_own_hospital(client):
+    r = client.post("/api/tour/login").json()
+    t = {"Authorization": f"Bearer {r['token']}"}
+    h = _login(client)
+    ops_before = {x["case"]: x["contact"] for x in client.get("/api/admissions", headers=h).json()["rows"]}
+    row = next(x for x in client.get("/api/admissions", headers=t).json()["rows"]
+               if x["contact"] == "안내 전" and ops_before.get(x["case"]) == "안내 전")
+    c = next(x for x in row["rows"] if x["kind"] == "contact")
+    assert client.post(f"/api/contacts/{row['case']}", json={"outcome": "done", "promised_at": c["suggest_at"]}, headers=t).status_code == 200
+    mine = next(x for x in client.get("/api/admissions", headers=t).json()["rows"] if x["case"] == row["case"])
+    ops = next(x for x in client.get("/api/admissions", headers=h).json()["rows"] if x["case"] == row["case"])
+    assert mine["contact"].startswith("안내함") and ops["contact"] == "안내 전"  # 시연에서 한 일은 운영 화면에 영향 없음
+
+
+def test_concurrent_requests_do_not_break_event_store(client):
+    """화면은 여러 요청을 한꺼번에 보낸다. 같은 합성 병원을 여러 스레드가 동시에 읽어도 깨지지 않아야 한다."""
+    from concurrent.futures import ThreadPoolExecutor
+    h = _login(client)
+    paths = ["/api/admissions", "/api/worklist", "/api/assignments", "/api/me"] * 6
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        codes = list(ex.map(lambda p: client.get(p, headers=h).status_code, paths))
+    assert set(codes) == {200}, codes

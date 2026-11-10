@@ -18,10 +18,12 @@ export function AdminHome({ user, onLogout, onSwitch }: { user: User; onLogout: 
   const rows = log.filter(r => !q || [r.name, r.user_id, r.action, r.case ?? '', r.detail].some(x => x.includes(q)))
   const cases = [...new Set(log.map(r => r.case).filter(Boolean))] as string[]
   return (
-    <Shell user={user} nav={[['summary', '요약'], ['log', '접속기록'], ['trail', '감사 경과']]} page={page} onPage={setPage} now={now} onLogout={onLogout} onSwitch={onSwitch}>
+    <Shell user={user} nav={[['summary', '오늘 흐름'], ['log', '접속기록'], ['trail', '감사 경과']]} page={page} onPage={setPage} now={now} onLogout={onLogout} onSwitch={onSwitch}>
       <main className="main">
-        <div className="ph"><h1>{{ summary: '오늘 요약', log: '접속기록', trail: '감사 경과' }[page]}</h1>
+        <div className="ph"><h1>{{ summary: '오늘 흐름', log: '접속기록', trail: '감사 경과' }[page]}</h1>
           {page === 'log' && ok !== null && <span className={'tag ' + (ok ? 't-green' : 't-red')}>{ok ? '기록 연결 확인됨' : '기록 위변조 의심'}</span>}</div>
+        {page === 'summary' && sum && <p className="sumline">입원 사례 <b>{sum.load['입원 사례']}</b>건, 확정 <b>{sum.load['확정']}</b>건 중 사람 손 없이 <b>{sum.load['사람 손을 안 거친 확정']}</b>건
+          <span className="sep" />안전 위반 <b>{sum.safety.reduce((a, x) => a + Number(x['위반'] || 0), 0)}</b>건<span className="sep" />잠긴 계정 <b>{sum.locked.length}</b>개</p>}
         {page === 'summary' && sum && (
           <div className="two-col">
             <section className="card"><h3>흐름</h3><dl className="kv">{Object.entries(sum.flow).map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{String(v)}</dd></Fragment>)}</dl>

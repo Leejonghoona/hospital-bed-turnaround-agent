@@ -7,6 +7,7 @@ import { AssignmentLog } from './AssignmentLog'
 import { BedPicker } from './BedPicker'
 import { UndoForm } from '../parts/Undo'
 import { TodayAdmissions } from './TodayAdmissions'
+import { Coach } from '../parts/Coach'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 수속 안내 시각 선택지: 15분 단위 (브라우저 언어와 상관없이 24시간제로 보이게 select로 둔다)
@@ -137,7 +138,7 @@ function sortRows(rows: Row[], order: Map<string, number>, key: SortKey, dir: 1 
 }
 
 // 원무 작업 화면: 줄당 한 환자 표 + 오른쪽 상세(사실, 상황, 처리, 경과). 시안 v2 ②.
-export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: () => void; onSwitch: () => void }) {
+export function Worklist({ user, onLogout, onSwitch, tour }: { user: User; onLogout: () => void; onSwitch: () => void; tour?: boolean }) {
   const [wl, setWl] = useState<WL | null>(null)
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
@@ -220,6 +221,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
         </main>}
       </div>
       {picker && <BedPicker caseId={picker} onClose={() => setPicker(null)} onDone={m => { setPicker(null); setToast(m); setRev(x => x + 1) }} />}
+      {tour && <Coach onExit={onLogout} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   )

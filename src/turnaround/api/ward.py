@@ -68,3 +68,36 @@ def board(st, ward: str) -> dict:
                       "sex": SEX.get(r.gender.value if r.gender else "", ""), "beds": beds})
     name = next((w.name for w in st.h.wards if w.id == ward), ward)
     return {"ward": name, "rooms": rooms}
+
+
+DIS_STEPS = [(EventType.PATIENT_DEPARTED, "퇴실"), (EventType.GUARDIAN_ARRIVED, "보호자 도착"), (EventType.BILLING_DONE, "수납 완료"),
+             (EventType.MEDICATION_READY, "퇴원약 도착"), (EventType.ORDER_CONFIRMED, "퇴원 오더"), (EventType.DISCHARGE_DECIDED, "퇴원 결정")]
+
+
+def discharges(st, ward: str) -> dict:
+    """우리 병동 오늘 퇴원 진행(병동 화면 '우리 병동'). 단계는 가장 최근에 일어난 일. 12시가 지나도 퇴실 전이면 표시."""
+    ev = st.store.read()
+    s = fold(ev)
+    people = views._people(ev)
+    ward_of = {b.id: b.ward_id for b in st.h.beds}
+    rows = []
+    for d in s.discharges.values():
+        if ward_of.get(d.bed_id) != ward or EventType.DISCHARGE_CANCELLED in d.facts:
+            continue
+        dep = d.seen(EventType.PATIENT_DEPARTED)
+        if dep is not None and dep.date() != st.now.date():
+            continue
+        if dep is None and not d.facts:
+            continue
+        step = next((label for t, label in DIS_STEPS if t in d.facts), "퇴원 예정")
+        p = people.get(d.id) or {}
+        flags = []
+        if dep is None and st.now.hour >= 12:
+            flags.append("12시 넘음")
+        if dep is not None and d.isolation:
+            flags.append("종말소독")
+        rows.append({"case": d.id, "patient": p.get("name") or "환자", "age": p.get("age"),
+                     "sex": SEX.get(str(p.get("gender") or ""), ""), "bed": _short(d.bed_id), "step": step,
+                     "departed": dep.strftime("%H:%M") if dep else "", "flags": flags})
+    rows.sort(key=lambda r: (r["departed"] != "", r["departed"] or "", r["bed"]))
+    return {"rows": rows}
