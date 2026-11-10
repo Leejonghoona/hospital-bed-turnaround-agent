@@ -149,6 +149,14 @@ def admission_rows(st) -> dict:
                     "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무에 넘겼습니다."
                                  + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
                     "effect": "환자에게 어떻게 안내했는지 고르세요."}
+        elif x["raw_kind"] == "fee_consent":
+            # 상급병실(1인실 등)에 배정되면 차액 동의 서명을 받아야 한다 (게이트웨이가 만드는 작업, LP-22)
+            rt = st.gw.room_by_id[st.gw.room_of[x["bed"]]].room_type.value if x.get("bed") in st.gw.room_of else ""
+            grade = {"single": "1인실", "negative_pressure": "음압 1인실"}.get(rt, "상급병실")
+            label, action, reason = "차액 동의", "동의서 받기", f"{grade} 배정 검토 중, 서명 전"
+            more = {"choices": [{"label": "서명 받음", "desc": "동의서 서명 완료"}, {"label": "동의 안 함", "desc": "기준 병실로 다시 찾아야 함"},
+                                {"label": "기타", "desc": "메모에 내용 적기"}],
+                    "situation": f"{grade} 배정을 검토 중입니다. 기준 병실과의 차액에 대해 환자나 보호자의 동의 서명이 필요합니다."}
         else:
             label, action, reason = "작업", x["kind"], _short(x.get("why") or "")
             more = {"choices": [{"label": "처리함", "desc": "처리를 마쳤습니다"}, {"label": "기타", "desc": "메모에 내용 적기"}],
@@ -251,6 +259,12 @@ BASIS_KO = {"department_ward_match": "진료과 담당 병동", "negative_pressu
             "ready_delay": "앞 환자 퇴실 뒤 준비"}
 
 
+def _runner(ru) -> str:
+    """차순위 병상: 기록에 따라 병상 ID 문자열이거나 {'bed_id': ...} 사전이다."""
+    bed = ru.get("bed_id") if isinstance(ru, dict) else ru
+    return views.bed_ko(bed) if bed else ""
+
+
 def _basis(text: str) -> str:
     keys = re.findall(r"([a-z_]+) [-+]", text or "")
     return ", ".join(BASIS_KO[k] for k in keys if k in BASIS_KO) or "배정 기준 충족"
@@ -294,7 +308,7 @@ def assignments(st, accounts: dict | None = None, day: str | None = None) -> dic
         rows.append({"at": e.observed_at.isoformat(timespec="minutes"), "time": e.observed_at.strftime("%H:%M"), "case": e.case_id,
                      **_person(people, e.case_id), "bed": views.bed_ko(bed), "bed_short": _bed(bed), "by": by,
                      "basis": f"직접 지정, {REASON_CODES.get(mo.get('reason_code'), '사유 없음')}" if mo else _basis(b.get("rationale", "")),
-                     "runner_up": views.bed_ko(b["runner_up"]) if b.get("runner_up") else "",
+                     "runner_up": _runner(b.get("runner_up")),
                      "undo_until": until.strftime("%H:%M") if until else "", "undo_open": bool(until and st.now < until and state == "입실 대기"),
                      "state": state})
     rows.sort(key=lambda r: r["at"], reverse=True)

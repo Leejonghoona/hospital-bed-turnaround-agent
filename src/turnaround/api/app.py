@@ -48,7 +48,7 @@ class Store:
             from turnaround.sim import GeneratorConfig
             from turnaround.ui.demo import build_demo
             self.state = build_demo(seed=2, day=3, until=time(13, 0), via_fhir=False, policy=load_policy(),
-                                    config=GeneratorConfig.realistic(), occupancy="full",
+                                    config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1,
                                     live_from=time(7, 0))
             from turnaround.api.shift_model import apply_night_shift
             apply_night_shift(self.state)  # 이전 근무가 처리한 일 (데모 화면용 사람 응답 모형)

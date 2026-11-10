@@ -237,7 +237,8 @@ def admission_view(st) -> dict:
             notices.append({"case": e.case_id, "who": who(people, e.case_id), "bed": e.payload.get("bed_id"),
                             "bed_ko": bed_ko(e.payload.get("bed_id")), "time": _hm(e.observed_at),
                             "proposal_id": e.payload.get("proposal_id"),
-                            "score": b.get("score"), "runner_up": bed_ko(b.get("runner_up")) if b.get("runner_up") else None,
+                            "score": b.get("score"), "runner_up": (bed_ko(b["runner_up"].get("bed_id") if isinstance(b["runner_up"], dict) else b["runner_up"])
+                                          if b.get("runner_up") else None),
                             "waived": [REVIEW_KO.get(x, x) for x in b.get("waived_reasons") or []],
                             "alternatives": b.get("alternatives") or [],
                             "undo_until": _hm(until) if until else "", "undo_open": bool(until and st.now < until),

@@ -249,12 +249,23 @@ class GeneratorConfig(_Frozen):
     # 보호자 도착 예정을 09:00~12:30으로, 입원 수속을 오후 가중으로 둔다
     discharge_mix: Literal["test", "realistic"] = "test"
     regular_discharge_rate: float = Field(default=0.65, ge=0, le=1)  # 등급 B: 인천성모 65%, 양산부산대 62.7%
+    # 병원 구조. base: 측정·회귀용 병동 2개 24병상(CLAUDE.md). demo: 화면 시연 전용 병동 4개 176병상 (DECISIONS 2026-11-10)
+    hospital: Literal["base", "demo"] = "base"
 
     @classmethod
     def realistic(cls, **kw) -> "GeneratorConfig":
         """현실 기준선 프리셋: 10일·하루 3건 퇴원(평균 재원 약 7일), 입원 대기 30, 조사 비율 (DECISIONS 2026-11-09)."""
         base = dict(days=10, discharges_per_day=3, admission_count=30, admission_mix="realistic",
                     discharge_mix="realistic", guardian_delay_count=4, unregistered_count=10, admission_cancel_count=4)
+        return cls(**{**base, **kw})
+
+    @classmethod
+    def demo_hospital(cls, **kw) -> "GeneratorConfig":
+        """화면 시연 전용: 병동 4개 176병상, 하루 퇴원 약 22건(평균 재원 약 8일). 입원 요청은 퇴원보다 적게 둬 대기가 쌓이지 않게 한다.
+        측정에는 쓰지 않는다 (DECISIONS 2026-11-10 병원 규모)."""
+        base = dict(days=5, discharges_per_day=22, admission_count=75, admission_mix="realistic", discharge_mix="realistic",
+                    guardian_delay_count=12, cleaning_delay_count=10, unregistered_count=25, admission_cancel_count=10,
+                    isolation_discharge_count=5, hospital="demo")
         return cls(**{**base, **kw})
 
     @property

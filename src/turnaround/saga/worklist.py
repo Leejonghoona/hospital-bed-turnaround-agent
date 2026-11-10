@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
+
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
@@ -141,17 +143,34 @@ def _closed_at(events: list[Event]) -> dict[str, datetime]:
         if t.type is EventType.HUMAN_TASK_CREATED and t.payload.get("exception_id") in cleared:
             out.setdefault(t.event_id, max(cleared[t.payload["exception_id"]], t.observed_at))
     reviews = [e for e in events if e.type is EventType.CASE_ROUTED_REVIEW]
+    # 사례별 색인 (시연용 큰 병원에서 사건 수가 늘면 전체를 매번 훑는 계산이 제곱으로 느려진다. 판정은 그대로)
+    closers: dict[str, list[datetime]] = {}
+    for e in events:
+        if e.type in _REVIEW_CLOSERS:
+            closers.setdefault(e.case_id, []).append(e.observed_at)
+    for v in closers.values():
+        v.sort()
+    by_case: dict[str, list[Event]] = {}
     for rv in reviews:
-        t = min((e.observed_at for e in events if e.type in _REVIEW_CLOSERS and e.case_id == rv.case_id
-                 and e.observed_at >= rv.observed_at), default=None)
+        by_case.setdefault(rv.case_id, []).append(rv)
+
+    def closer_between(case: str, lo: datetime, hi: datetime) -> bool:
+        c = closers.get(case, [])
+        i = bisect_left(c, lo)
+        return i < len(c) and c[i] <= hi
+
+    for rv in reviews:
+        c = closers.get(rv.case_id, [])
+        i = bisect_left(c, rv.observed_at)
+        t = c[i] if i < len(c) else None
+        same = by_case[rv.case_id]
         # 사례마다 열린 검토는 하나다 (2단계 현장 검수 M2·H5). 같은 사유로 다시 올라온 검토는 앞 검토의 연속이라
         # 바로 닫고(앞 검토가 마감·올림을 맡는다), 사유가 바뀐 새 검토가 열리면 앞 검토는 대체되어 닫힌다
-        prev = [r for r in reviews if r.case_id == rv.case_id and (r.seq or 0) < (rv.seq or 0)
-                and not any(e.type in _REVIEW_CLOSERS and e.case_id == rv.case_id
-                            and r.observed_at <= e.observed_at <= rv.observed_at for e in events)]
+        prev = [r for r in same if (r.seq or 0) < (rv.seq or 0)
+                and not closer_between(rv.case_id, r.observed_at, rv.observed_at)]
         if prev and sorted(prev[-1].payload.get("reasons") or []) == sorted(rv.payload.get("reasons") or []):
             t = rv.observed_at
-        later = min((r.observed_at for r in reviews if r.case_id == rv.case_id and (r.seq or 0) > (rv.seq or 0)
+        later = min((r.observed_at for r in same if (r.seq or 0) > (rv.seq or 0)
                      and sorted(r.payload.get("reasons") or []) != sorted(rv.payload.get("reasons") or [])),
                     default=None)
         if later is not None and (t is None or later < t):

@@ -64,6 +64,26 @@ _ROOM_LAYOUT = {
             ("05", RoomType.MULTI, 2, Gender.MALE)),
 }
 
+# 시연용 병원 (hospital="demo"): 병동 4개, 병동마다 44병상(1인실 2, 2인실 1, 4인실 10). 다인실은 남녀를 나눠 운영한다.
+# 구성 근거: 일반 병동 하나 약 40~43병상, 4인실 위주에 1·2인실 일부(국민건강보험 일산병원 연보 병실 현황, 원문 확인).
+# 성인 다인실 남녀 구분(의료법 시행규칙 제35조의2, 2026-05-31 복지부 보도설명 "현행대로 유지"). 병동 이름·진료과 묶음은 설계 가정.
+_DEMO_WARDS = (
+    Ward(id="W61", name="61병동", specialty="내과", departments=("소화기내과", "내분비내과")),
+    Ward(id="W62", name="62병동", specialty="내과", departments=("호흡기내과", "감염내과")),
+    Ward(id="W71", name="71병동", specialty="내과", departments=("순환기내과", "신장내과", "혈액종양내과")),
+    Ward(id="W72", name="72병동", specialty="외과", departments=("일반외과", "정형외과", "신경외과")),
+)
+_M, _F = Gender.MALE, Gender.FEMALE
+_DEMO_FOURS = tuple((f"{n:02d}", RoomType.MULTI, 4, _M if n % 2 == 0 else _F) for n in range(4, 14))
+_DEMO_LAYOUT = {w.id: ((("01", RoomType.NEGATIVE_PRESSURE, 1, None), ("02", RoomType.NEGATIVE_PRESSURE, 1, None))
+                       if w.id == "W62" else (("01", RoomType.SINGLE, 1, None), ("02", RoomType.SINGLE, 1, None)))
+                + (("03", RoomType.MULTI, 2, _F if w.id in ("W61", "W72") else _M),) + _DEMO_FOURS for w in _DEMO_WARDS}
+
+
+def _wards(cfg: GeneratorConfig) -> tuple[Ward, ...]:
+    return _DEMO_WARDS if cfg.hospital == "demo" else _WARDS
+
+
 _GUARDIAN_SLOTS = tuple(time(h, m) for h in range(10, 14) for m in (0, 30))
 _GUARDIAN_SLOTS_REALISTIC = tuple(time(h, m) for h in range(9, 14) for m in (0, 30))[:-1]  # 09:00~13:00 (등급 C: 서울성모 "오전 내원" 안내, 점심 뒤 도착 사례 해운대백)
 # 입원 수속 예정 (등급 B, 해운대백·동아대·서울아산·분당서울대): (시작, 끝, 가중치)
@@ -79,10 +99,11 @@ assert len(SPECIAL_KINDS) == N_SPECIAL_ADMISSIONS
 _ISOLATION_ROOMS = {RoomType.NEGATIVE_PRESSURE, RoomType.SINGLE}
 
 
-def _layout() -> tuple[tuple[Room, ...], tuple[Bed, ...]]:
+def _layout(cfg: GeneratorConfig | None = None) -> tuple[tuple[Room, ...], tuple[Bed, ...]]:
     rooms, beds = [], []
-    for ward in _WARDS:
-        for no, rtype, cap, gender in _ROOM_LAYOUT[ward.id]:
+    demo = cfg is not None and cfg.hospital == "demo"
+    for ward in (_DEMO_WARDS if demo else _WARDS):
+        for no, rtype, cap, gender in (_DEMO_LAYOUT if demo else _ROOM_LAYOUT)[ward.id]:
             room = Room(id=f"{ward.id}-R{no}", ward_id=ward.id, room_type=rtype, capacity=cap, gender=gender)
             rooms.append(room)
             beds += [Bed(id=f"{room.id}-B{i}", room_id=room.id, ward_id=ward.id) for i in range(1, cap + 1)]
@@ -96,9 +117,10 @@ class _Gen:
         self.rx_rng = random.Random(f"rx-{seed}")  # 퇴원약 단계 전용: 기존 난수열을 바꾸지 않는다
         self.cfg = config
         self.dists = dists
-        self.rooms, self.beds = _layout()
+        self.wards = _wards(config)
+        self.rooms, self.beds = _layout(config)
         self.room_by_id = {r.id: r for r in self.rooms}
-        self.ward_by_id = {w.id: w for w in _WARDS}
+        self.ward_by_id = {w.id: w for w in self.wards}
         self.used_names: set[str] = set()
         self._pid = 0
 
@@ -314,12 +336,12 @@ class _Gen:
         result = []
         for i in range(n):
             k = kind.get(i)
-            ward = self.rng.choice(_WARDS)
+            ward = self.rng.choice(self.wards)
             dept = self.rng.choice(ward.departments)
             organism = {"airborne": "MTB", "contact": self.rng.choice(["MRSA", "VRE", "CDIFF"]),
                         "droplet": "INFLUENZA", "preemptive": "CRE"}.get(k)
             if organism:
-                ward, dept = _WARDS[0], "감염내과"
+                ward, dept = next(w for w in self.wards if "감염내과" in w.departments), "감염내과"
             patient = self.new_patient(
                 gender=None if k == "missing_gender" else self.rng.choice(list(Gender)),
                 department="소아청소년과" if k == "pediatric" else dept,
@@ -363,6 +385,6 @@ def generate(seed: int = 42, config: GeneratorConfig | None = None,
     discharges = g.discharges()
     admissions = g.admissions(discharges)
     return SyntheticHospital(
-        seed=seed, config=cfg, distributions=dists, wards=_WARDS, rooms=g.rooms, beds=g.beds,
+        seed=seed, config=cfg, distributions=dists, wards=g.wards, rooms=g.rooms, beds=g.beds,
         discharges=discharges, admissions=admissions,
     )

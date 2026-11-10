@@ -66,6 +66,11 @@ class Decision:
     reasons: list[str] = field(default_factory=list)
 
 
+# 환자 정보를 바꾸는 사건 (_apply_patient_events가 반영하는 종류)
+_PATIENT_TYPES = {EventType.ADMISSION_REQUESTED, EventType.ISOLATION_ORDER_ADDED, EventType.PATIENT_INFO_UPDATED,
+                  EventType.ISOLATION_RELEASED, EventType.PATIENT_INFO_CORRECTED}
+
+
 def _patient_from_payload(pid: str, p: Mapping) -> Patient:
     return Patient(id=p.get("patient_id") or pid, name=p.get("name") or pid, gender=p.get("gender"),
                    age=p.get("age", 50), department=p.get("department") or "미상",
@@ -96,13 +101,23 @@ class Gateway:
         payload = self._apply_patient_events(case, {}, events)
         return (_patient_from_payload(case, payload) if payload else None), payload
 
+    def _patient_index(self, events: list[Event]) -> tuple[dict[str, list[Event]], set]:
+        """사례별 환자 사건 색인과 확인된 정정 목록. 같은 사건 목록이면 한 번만 만든다 (큰 병원에서 환자마다 전체를 훑지 않게)."""
+        key = (id(events), len(events))
+        if getattr(self, "_pidx_key", None) != key:
+            by: dict[str, list[Event]] = {}
+            for e in events:
+                if e.type in _PATIENT_TYPES:
+                    by.setdefault(e.case_id, []).append(e)
+            confirmed = {e.payload.get("correction_id") for e in events if e.type is EventType.CORRECTION_CONFIRMED}
+            self._pidx_key, self._pidx = key, (by, confirmed)
+        return self._pidx
+
     def _apply_patient_events(self, case: str, payload: dict, events: list[Event]) -> dict:
         """입원 요청, 격리 오더, 정보 변경·정정, 격리 해제를 순서대로 반영한다. 재원 환자에게도 쓴다."""
         payload = dict(payload)
-        confirmed = {e.payload.get("correction_id") for e in events if e.type is EventType.CORRECTION_CONFIRMED}
-        for e in events:
-            if e.case_id != case:
-                continue
+        by_case, confirmed = self._patient_index(events)
+        for e in by_case.get(case, ()):
             if e.type is EventType.ADMISSION_REQUESTED:
                 payload.update(e.payload)
             elif e.type in (EventType.ISOLATION_ORDER_ADDED, EventType.PATIENT_INFO_UPDATED):
@@ -728,9 +743,15 @@ class Gateway:
     def _shacl(self, case: str, patient: Patient, bed_id: str, events: list[Event]) -> list[str]:
         occ = self._occupants(events, exclude_case=case)
         occ[bed_id] = patient
-        mine = {f"urn:turnaround:patient/{patient.id}", f"urn:turnaround:room/{self.room_of.get(bed_id)}"}
-        out = []
-        for v in shacl_validate(self.rooms, self.beds, occ):
+        room_id = self.room_of.get(bed_id)
+        mine = {f"urn:turnaround:patient/{patient.id}", f"urn:turnaround:room/{room_id}"}
+        # 배치 제약(격리, 성별, 코호트, 결핵 공유, 동명이인)은 모두 '그 병실 안' 제약이고, 남기는 위반도 이 환자나 이 병실이 초점인
+        # 것뿐이다. 그래서 그 병실만 검사해도 결과가 같다. 병원 전체에 걸리는 '없는 병상' 검사만 따로 한다 (큰 병원 속도)
+        out = ["unknown_bed"] if any(b not in self.room_of for b in occ) else []
+        rooms = [r for r in self.rooms if r.id == room_id]
+        beds = [b for b in self.beds if self.room_of.get(b.id) == room_id]
+        local = {b: p for b, p in occ.items() if self.room_of.get(b) == room_id}
+        for v in shacl_validate(rooms, beds, local):
             focus = v.detail.split(" ", 1)[0]
             if focus in mine or v.code == "unknown_bed":
                 out.append(v.code)

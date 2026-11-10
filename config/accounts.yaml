@@ -4,14 +4,14 @@ accounts:
 - user_id: adm-kim
   name: 김하늘
   role: bed_manager
-  role_label: 원무 입원파트
+  role_label: 원무팀
   ward: null
   salt: adm-kim
   password_hash: b5f9422dcfed1d70cf863618cbc315b9f002ec95cbae99b47d739ef121ae5271
 - user_id: adm-seo
   name: 서민준
   role: bed_manager
-  role_label: 원무 야간 당직
+  role_label: 원무팀 응급실 창구
   ward: null
   salt: adm-seo
   password_hash: cec9fa14e34f58016d84031868a556c2fb9a668d03a78e4bb6cb89dfdeb2872f

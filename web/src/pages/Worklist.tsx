@@ -216,7 +216,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
               <div className="tbody">
                 {rows.length === 0 ? <div className="empty">할 일이 없습니다</div> : (
                   <table>
-                    <colgroup><col style={{ width: 108 }} /><col style={{ width: 200 }} /><col style={{ width: 128 }} /><col style={{ width: 76 }} /><col /><col style={{ width: 116 }} /></colgroup>
+                    <colgroup><col style={{ width: 108 }} /><col style={{ width: 200 }} /><col style={{ width: 128 }} /><col style={{ width: 88 }} /><col /><col style={{ width: 116 }} /></colgroup>
                     <thead><tr>{th('due')}<th>할 일</th>{th('patient')}{th('bed')}<th>내용</th>{th('status')}</tr></thead>
                     <tbody>
                       {rows.map(r => (

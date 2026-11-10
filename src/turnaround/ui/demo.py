@@ -58,20 +58,29 @@ def resident_census(h, seed: int) -> dict:
 def build_demo(seed: int = 42, day: int = 2, until: time = time(9, 30), via_fhir: bool = True, llm=None,
                policy=None, step_min: int = 15, mode: str = "explain", config=None, reactive=None,
                reviewer=None, past_admissions: bool = True, mapped=None, occupancy: str = "sparse",
-               live_from: time | None = None) -> DemoState:
+               live_from: time | None = None, backlog_days: int | None = None) -> DemoState:
     """reactive(ReactiveEffects)를 주면 에이전트 행동이 그 뒤 퇴원 시각을 바꾸는 반응형 재생 (로드맵 07 M2)."""
     h = generate(seed=seed, config=config)
     if mapped is not None:  # 병원 내보내기를 매핑한 결과(병상 구조·사건)로 재생 (로드맵 07 M6)
         h = h.model_copy(update={"wards": mapped.wards, "rooms": mapped.rooms, "beds": mapped.beds})
     if not past_admissions:  # 지난 날의 입원은 이미 입실했다고 본다 (그날과 그 뒤 입원만 재생)
         h = h.model_copy(update={"admissions": tuple(a for a in h.admissions if a.day >= day)})
+    elif backlog_days is not None:  # 며칠 전 입원 요청까지만 대기로 남긴다 (시연용 병원: 전날 요청만 밀린 대기로)
+        h = h.model_copy(update={"admissions": tuple(a for a in h.admissions if a.day >= day - backlog_days)})
     census = {}
-    if occupancy == "full":
+    if occupancy in ("full", "high"):
         # 현실 가동률 (병동 검수 1번, 2026-11-10): 병상은 재원 환자로 차 있고 그날·그 뒤 퇴원 병상만 비게 된다.
         # 지난 날 퇴원 병상은 이미 다른 환자가 채웠다고 본다(지난 날 퇴원 사례는 재생에서 뺀다). 상급종합 가동률 93%
         # (국민보건의료실태조사 보도자료 사본) 수준이 되며, 입원은 그날 퇴원 병상으로 들어가야 한다
         h = h.model_copy(update={"discharges": tuple(x for x in h.discharges if x.day >= day)})
         census = resident_census(h, seed)
+        if occupancy == "high":
+            # 시연용 병원(2026-11-10): 병상 약 6%를 빈 병상으로 둔다(가동률 약 94%, 상급종합 93% 수준). 오늘·뒤 퇴원 병상은 빼고 고른다
+            import random as _r
+            leaving = {x.bed_id for x in h.discharges}
+            pool = sorted(b for b in census if b not in leaving)
+            for b in _r.Random(f"vacant-{seed}").sample(pool, max(1, round(len(h.beds) * 0.06))):
+                census.pop(b)
     events = hospital_to_events(h, seed=seed) if mapped is None else list(mapped.events)
     entries = 0
     if via_fhir:

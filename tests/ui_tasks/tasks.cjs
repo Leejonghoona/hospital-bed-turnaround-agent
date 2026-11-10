@@ -38,9 +38,8 @@ const TASKS = {
     await page.getByRole('heading', { name: '할 일' }).waitFor()
     await page.locator('tr.row').first().waitFor()
     const c = []
-    const rows = await page.locator('tr.row').count()
-    const visible = await page.locator('tr.row').evaluateAll(els => els.filter(e => { const r = e.getBoundingClientRect(); return r.bottom <= window.innerHeight }).length)
-    c.push({ name: '할 일 전체가 스크롤 없이 보인다', ok: rows > 0 && visible === rows, detail: `${visible}/${rows}줄` })
+    const lateRows = await page.locator('tr.row').evaluateAll(els => els.filter(e => e.querySelector('.due.late')).map(e => e.getBoundingClientRect().bottom <= window.innerHeight))
+    c.push({ name: '마감 지난 일이 스크롤 없이 보인다', ok: lateRows.length > 0 && lateRows.every(Boolean), detail: `${lateRows.filter(Boolean).length}/${lateRows.length}줄` })
     const late = await page.locator('tr.row').evaluateAll(els => els.map(e => !!e.querySelector('.due.late')))
     c.push({ name: '마감 지난 일이 위', ok: late.join() === [...late].sort((x, y) => Number(y) - Number(x)).join() })
     const cut = await page.locator('td').evaluateAll(els => els.filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent))
