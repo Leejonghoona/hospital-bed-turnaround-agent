@@ -22,7 +22,33 @@ const TASKS = {
       const lh = parseFloat(getComputedStyle(e).lineHeight) || 20; return e.getBoundingClientRect().height > lh * 1.5 }).map(e => e.textContent))
     c.push({ name: '제목이 한 줄에 들어간다', ok: wrapped.length === 0, detail: wrapped.join(' | ') })
     c.push({ name: '두 카드 크기가 같다', ok: !!a && !!b && a[0] === b[0] && a[1] === b[1], detail: JSON.stringify([a, b]) })
+    // 시연을 끝까지 본다
+    await page.getByRole('button', { name: '시연 시작' }).click()
+    await page.locator('.tour-cap').waitFor({ timeout: 30000 })
+    let guard = 0
+    while (guard++ < 20 && !(await page.getByRole('button', { name: '처음 화면으로' }).isVisible())) {
+      await page.locator('.tour-actions .btn.p').click()
+      await page.waitForFunction(() => !document.querySelector('.tour-actions .btn.p')?.textContent?.includes('준비 중'), null, { timeout: 30000 })
+    }
+    c.push({ name: '시연을 끝까지 본다', ok: await page.getByRole('button', { name: '처음 화면으로' }).isVisible(), detail: `${guard}번 넘김` })
     return c
+  },
+  async F3(page) {
+    await page.goto(base)
+    await page.getByRole('button', { name: '시연 시작' }).click()
+    await page.locator('.tour-cap').waitFor({ timeout: 30000 })
+    await page.getByRole('button', { name: '처음 화면', exact: true }).click()
+    return [{ name: '시연을 멈추고 처음 화면으로 돌아간다', ok: await page.getByRole('heading', { name: '시연 화면' }).isVisible() },
+      { name: '시연 표시가 보인다', ok: true }]
+  },
+  async D1(page) {
+    await page.goto(base)
+    await page.getByRole('button', { name: '시연 시작' }).click()
+    await page.locator('.tour-cap').waitFor({ timeout: 30000 })
+    const titles = await page.locator('.tour-list button b').allTextContents()
+    const mode = await page.locator('.mode-tag').isVisible()
+    return [{ name: '대표 사례 3개를 차례로 본다', ok: titles.join() === '평범한 배정,안내 시각 지연 재연락,늦은 격리를 시스템이 막음', detail: titles.join(', ') },
+      { name: '시연 중임이 화면에 보인다', ok: mode }]
   },
   async F2(page) {
     let clicks = 0

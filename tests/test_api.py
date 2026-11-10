@@ -387,3 +387,16 @@ def test_admin_summary_locked_accounts_and_masked_case_trail():
     t = c.get(f"/api/admin/case/{case}", headers=a).json()
     assert t["patient"].count("○") == 1 and t["trail"]  # 감사용 경과: 이름은 가린다
     assert c.get(f"/api/admin/case/{case}", headers=_login(c)).status_code == 403
+
+
+# ---- 시연 화면 (P5) ----
+
+def test_tour_three_chapters_step_through(client):
+    ch = client.get("/api/tour").json()["chapters"]
+    assert [c["title"] for c in ch] == ["평범한 배정", "안내 시각 지연 재연락", "늦은 격리를 시스템이 막음"]
+    r = client.post("/api/tour/start", json={"chapter": "iso"}).json()
+    assert r["step"] == 1 and "격리" in r["caption"] and "·" not in r["caption"]
+    while not r["done"]:
+        r = client.post(f"/api/tour/{r['run']}/next").json()
+    assert "거부" in r["caption"] or "막" in r["caption"]
+    assert any("거절" in x["what"] for x in r["changed"])

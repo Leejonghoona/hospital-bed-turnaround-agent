@@ -44,6 +44,11 @@ export type AdminSummary = { flow: Record<string, string>; load: Record<string, 
 export type LogRow = { real_at: string; sim_at: string; user_id: string; name: string; ip: string; case: string | null; action: string; detail: string; hash: string }
 export type CaseTrail = { case: string; patient: string; status: string; bed: string; trail: { time: string; what: string; detail: string }[] }
 
+export type TourStep = {
+  run: string; chapter: string; chapter_title: string; summary: string; step: number; steps: number; done: boolean
+  title: string; caption: string; look: string[]; now: string | null; changed: { time: string; actor: string; patient: string; what: string; detail: string }[]
+}
+
 const KEY = 'wardflow.token'
 export const token = {
   get: () => { try { return sessionStorage.getItem(KEY) } catch { return null } },
@@ -89,6 +94,9 @@ export const api = {
   verifyLog: () => call<{ ok: boolean }>('/api/access-log/verify'),
   adminCase: (c: string) => call<CaseTrail>(`/api/admin/case/${encodeURIComponent(c)}`),
   unlockAccount: (uid: string) => call(`/api/accounts/${encodeURIComponent(uid)}/unlock`, { method: 'POST' }),
+  tourChapters: () => call<{ chapters: { id: string; title: string; summary: string; steps: number }[] }>('/api/tour'),
+  tourStart: (chapter: string) => call<TourStep>('/api/tour/start', { method: 'POST', body: JSON.stringify({ chapter }) }),
+  tourNext: (run: string) => call<TourStep>(`/api/tour/${encodeURIComponent(run)}/next`, { method: 'POST' }),
   worklist: () => call<Worklist>('/api/worklist'),
   beds: (c: string) => call<Board>(`/api/beds?case=${encodeURIComponent(c)}`),
   assign: (c: string, bed: string, reason: string, memo: string) => call('/api/assign', { method: 'POST', body: JSON.stringify({ case: c, bed, reason, memo }) }),

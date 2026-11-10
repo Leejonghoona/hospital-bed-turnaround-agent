@@ -8,6 +8,7 @@ import { RoleHome } from './pages/RoleHome'
 import { WardHome } from './pages/WardHome'
 import { IpcHome } from './pages/IpcHome'
 import { AdminHome } from './pages/AdminHome'
+import { Tour } from './pages/Tour'
 import { Worklist } from './pages/Worklist'
 import './styles.css'
 
@@ -31,7 +32,7 @@ function App() {
             : view.user.role === 'admin' ? <AdminHome user={view.user} onLogout={logout} onSwitch={onSwitch} />
               : <RoleHome user={view.user} onLogout={logout} onSwitch={onSwitch} />}
     </AutoLock>)
-  if (view.page === 'demo') return <div className="empty">시연 화면을 준비하고 있습니다 <button className="btn sm" onClick={() => setView({ page: 'entry' })}>처음 화면</button></div>
+  if (view.page === 'demo') return <Tour onHome={() => setView({ page: 'entry' })} />
   return <Entry onDemo={() => setView({ page: 'demo' })} onOps={() => setView({ page: 'login', demoFirst: true })} />
 }
 

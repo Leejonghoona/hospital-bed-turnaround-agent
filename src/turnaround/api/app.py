@@ -134,6 +134,10 @@ class ReasonIn(BaseModel):
     memo: str = ""
 
 
+class TourIn(BaseModel):
+    chapter: str
+
+
 class UnlockIn(BaseModel):
     password: str = ""
 
@@ -618,6 +622,28 @@ def create_app() -> FastAPI:
         store.log(s, "감사 열람", case=case)
         return {"case": case, "patient": t["who"], "status": t["status"], "bed": t["bed_ko"],
                 "trail": [dict(r, who=r["who"]) for r in _timeline(t["rows"])]}
+
+    # ---- 시연 화면 (P5): 로그인 없이, 운영 데이터와 따로 ----
+    @app.get("/api/tour")
+    def tour_chapters():
+        from turnaround.api.demo_tour import chapters
+        return {"chapters": chapters()}
+
+    @app.post("/api/tour/start")
+    def tour_start(body: TourIn):
+        from turnaround.api.demo_tour import start
+        out = start(body.chapter)
+        if out is None:
+            raise HTTPException(404, "없는 사례입니다")
+        return out
+
+    @app.post("/api/tour/{rid}/next")
+    def tour_next(rid: str):
+        from turnaround.api.demo_tour import step
+        out = step(rid)
+        if out is None:
+            raise HTTPException(404, "시연이 끝났거나 없습니다. 다시 시작하세요")
+        return out
 
     @app.get("/api/assignments")
     def assignment_log(day: str | None = None, s: Session = Depends(session)):

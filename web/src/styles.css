@@ -282,3 +282,21 @@ div.bd { cursor: default; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; } .kv dt { color: var(--mute); white-space: nowrap; } .kv dd { font-variant-numeric: tabular-nums; }
 .lockrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .filter { height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font: inherit; font-size: 13.5px; width: 320px; }
+/* 시연 화면 */
+.mode-tag { margin-left: 14px; font-size: 12.5px; font-weight: 800; color: #7C2D12; background: #FFEDD5; border-radius: 6px; padding: 3px 10px; }
+.tour { display: grid; grid-template-columns: 280px 1fr; flex: 1; min-height: 0; }
+.tour-list { border-right: 1px solid var(--line); background: #fff; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.tour-list button { display: flex; gap: 12px; align-items: center; text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fff; }
+.tour-list button.on { border-color: var(--brand); background: var(--brand-50); }
+.tour-list .num { width: 26px; height: 26px; border-radius: 50%; background: var(--brand-50); color: var(--brand); font-weight: 800; display: grid; place-items: center; flex: none; font-size: 13px; }
+.tour-list b { display: block; font-size: 14px; } .tour-list button span span { display: block; font-size: 12px; color: var(--mute); }
+.tour-main { padding: 22px 28px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.tour-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.tour-head h1 { font-size: 22px; font-weight: 800; letter-spacing: -.4px; }
+.tour-meta { display: flex; gap: 6px; }
+.progress { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; } .progress i { display: block; height: 100%; background: var(--brand); }
+.tour-sum { color: var(--sub); font-size: 14px; }
+.tour-cap { font-size: 15px; line-height: 1.7; }
+.look { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; line-height: 1.6; }
+.tour-actions { display: flex; justify-content: flex-end; }
+.card td, .card th { white-space: normal; overflow: visible; text-overflow: clip; }
