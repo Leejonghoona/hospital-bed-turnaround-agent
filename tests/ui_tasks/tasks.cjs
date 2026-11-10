@@ -47,6 +47,7 @@ const TASKS = {
     c.push({ name: '이전 근무 구분', ok: await page.getByText('인계', { exact: true }).first().isVisible() })
     const tabs = await page.locator('.tab .n').allTextContents()
     c.push({ name: '탭 숫자 합 = 전체', ok: tabs.slice(1).reduce((a, x) => a + Number(x), 0) === Number(tabs[0]), detail: tabs.join(',') })
+    await page.locator('.tl .t').first().waitFor(); await page.waitForTimeout(300)  // 상세 패널이 다 그려진 뒤에 잰다
     const tl = await page.locator('.tl .t').evaluateAll(els => els.filter(e => e.getBoundingClientRect().height > (parseFloat(getComputedStyle(e).lineHeight) || 19) * 1.5).length)
     c.push({ name: '경과 시각이 한 줄', ok: tl === 0, detail: `${tl}개 줄바꿈` })
     await page.getByRole('button', { name: /^환자/ }).click()
