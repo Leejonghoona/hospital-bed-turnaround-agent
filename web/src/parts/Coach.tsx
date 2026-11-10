@@ -11,7 +11,7 @@ const byText = (sel: string, re: RegExp) => [...document.querySelectorAll(sel)].
 let plainCase = '', recontactCase = ''
 const rowOf = (c: string) => (c ? q(`tr.row[data-case="${c}"]`) : null)
 const plainRow = () => {
-  if (!rowOf(plainCase)) plainCase = ([...document.querySelectorAll('tr.row')].find(r => !r.querySelector('.badge') && /안내 전/.test(r.textContent ?? '')) as HTMLElement | undefined)?.dataset.case ?? ''
+  if (!rowOf(plainCase)) plainCase = ([...document.querySelectorAll('tr.row')].find(r => !r.querySelector('.badge') && /안내 전/.test(r.textContent ?? '') && /에이전트/.test(r.textContent ?? '')) as HTMLElement | undefined)?.dataset.case ?? ''
   return rowOf(plainCase)
 }
 const recontactRow = () => {
