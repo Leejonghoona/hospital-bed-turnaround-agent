@@ -9,7 +9,7 @@ export type Worklist = { now: string; rows: Row[]; counts: Record<string, number
 export type Patient = {
   case: string; patient: string; patient_id: string; age: number | null; sex: string; department: string
   status: string; bed: string; isolation: string; from_icu: boolean; room_pref: string; reserved_at: string
-  phone: string; guardian_phone: string; dept_ward: string; notes: { time: string; who: string; text: string; tag: string }[]; timeline: { time: string; who: string; what: string; detail: string }[]
+  phone: string; guardian_phone: string; dept_ward: string; specialty: string; notes: { time: string; who: string; text: string; tag: string }[]; timeline: { time: string; who: string; what: string; detail: string }[]
 }
 
 export type Assignment = {
@@ -20,7 +20,7 @@ export type Assignment = {
 export type BoardBed = { id: string; label: string; status: string; fit: 'ok' | 'reason' | 'ipc' | 'no'; why: string; mine: boolean }
 export type Board = {
   case: string; patient: string; current: string
-  need: { sex: string; isolation: string; department: string; dept_wards: string[]; grade_wish: string }
+  need: { sex: string; isolation: string; department: string; dept_wards: string[]; specialty: string; grade_wish: string }
   recommend: { bed: string; label: string; ready: string; basis: string }[]
   wards: { id: string; name: string; specialty: string; rooms: { id: string; label: string; grade: string; sex: string; cohort: string; beds: BoardBed[] }[] }[]
   reasons: { code: string; label: string }[]

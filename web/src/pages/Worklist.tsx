@@ -242,7 +242,7 @@ export function Worklist({ user, onLogout, onSwitch }: { user: User; onLogout: (
                     {cur.kind !== 'ipc_wait' && pt.status !== '입실 완료' && <button className="btn sm push" onClick={() => setPicker(cur.case)}>{pt.bed === '-' ? '병상 직접 지정' : '병상 변경'}</button>}</div>
                   <dl className="facts two">
                     <dt>나이 성별</dt><dd>{pt.age}세 {pt.sex}</dd><dt>격리</dt><dd>{pt.isolation}</dd>
-                    <dt>진료과</dt><dd>{pt.department}</dd><dt>담당 병동</dt><dd>{pt.dept_ward}</dd>
+                    <dt>진료과</dt><dd>{pt.department}</dd><dt>구분</dt><dd>{pt.specialty}</dd>
                     <dt>입원 예약</dt><dd>{pt.reserved_at}</dd><dt>희망 병실</dt><dd>{pt.room_pref}</dd>
                     <dt>병상</dt><dd className="wide">{pt.bed === '-' ? '배정 전' : pt.bed}</dd>
                     <dt>환자</dt><dd>{pt.phone}</dd><dt>보호자</dt><dd>{pt.guardian_phone}</dd>

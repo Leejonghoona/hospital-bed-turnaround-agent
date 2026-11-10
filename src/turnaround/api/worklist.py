@@ -138,10 +138,10 @@ def admission_rows(st) -> dict:
             pp = people.get(x["case"]) or {}
             hint = _hint(st, x["case"])
             # 근거 칸에는 '어떤 병상이 필요한데 없는지'를 쓴다(할 일 칸의 '병상 없음'을 되풀이하지 않게)
-            ward = next((w.name.replace("병동", "") for w in st.h.wards if pp.get("department") in w.departments), "")
+            # 병동 이름 대신 내과·외과 구분으로 쓴다 (사용자 결정 2026-11-10: 개인별 표기보다 진료 구분)
+            spec = next((w.specialty for w in st.h.wards if pp.get("department") in w.departments), "")
             sex = SEX.get(str(pp.get("gender") or ""), "")
-            need = "격리 병상" if pp.get("precautions") else " ".join(x for x in (f"{ward}병동" if ward else "",
-                                                                                 f"{sex}자" if sex else "") if x) + " 병상"
+            need = "격리 병상" if pp.get("precautions") else " ".join(x for x in (spec, f"{sex}자" if sex else "") if x) + " 병상"
             label, action = "병상 없음", "입원 일정 정하기"
             reason = f"{need} 없음" if hint in ("오늘 비는 병상 없음", "후보 병상 없음") else f"{need}, {hint}"
             req = pp.get("requested_at")
@@ -227,11 +227,12 @@ def patient_detail(st, case: str, accounts: dict | None = None) -> dict | None:
     # 환자가 고르는 것은 병동이 아니라 병실 등급이다(1인실, 다인실 등. 서울대·분당서울대 입원 안내). 병동은 진료과로 정해진다.
     pref = "1인실 희망" if p.get("wants_single_room") else "다인실(기준 병실)"
     dept_ward = ", ".join(w.name for w in st.h.wards if p.get("department") in w.departments)
+    specialty = next((w.specialty for w in st.h.wards if p.get("department") in w.departments), "")
     # 원무 상세에 두는 것: 배정과 연락에 필요한 것만(docs/검토/화면재설계/05_원무_열람범위.md). 병원체명, 주민번호, 경과기록,
     # 검사 수치는 두지 않는다. 연락처는 합성 번호(010-0000-xxxx)다.
     return {"case": case, **_person(people, case), "department": p.get("department") or "",
             "status": t["status"], "bed": t["bed_ko"], "isolation": t["isolation"],
-            "from_icu": bool(p.get("from_icu")), "room_pref": pref, "dept_ward": dept_ward,
+            "from_icu": bool(p.get("from_icu")), "room_pref": pref, "dept_ward": dept_ward, "specialty": specialty,
             "reserved_at": f"{datetime.fromisoformat(req):%-m월 %-d일 %H:%M}" if req else "",
             "phone": f"010-0000-{reg[-4:]}", "guardian_phone": f"010-0000-{int(reg[-4:]) + 5000:04d}",
             "notes": notes(ev, case, accounts), "timeline": _timeline(t["rows"])[-12:] + _web_rows(ev, case, accounts)}
@@ -255,7 +256,7 @@ def _web_rows(ev, case: str, accounts: dict | None) -> list[dict]:
 
 
 # 배정 근거: 에이전트 점수 항목을 사람이 읽는 말로 (점수 숫자는 보여 주지 않는다)
-BASIS_KO = {"department_ward_match": "진료과 담당 병동", "negative_pressure_preserve": "음압실은 아껴 둠",
+BASIS_KO = {"department_ward_match": "진료과에 맞는 병동", "negative_pressure_preserve": "음압실은 아껴 둠",
             "positive_unordered_single": "격리 확인 전이라 1인실", "single_room_requested": "1인실 희망 반영",
             "near_nurse_station_high_risk": "낙상 위험이라 간호사실 가까이", "ward_load": "병동 업무량 나눔",
             "ready_delay": "앞 환자 퇴실 뒤 준비"}

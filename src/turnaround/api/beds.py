@@ -85,6 +85,7 @@ def board(st, case: str) -> dict | None:
     need = {"sex": SEX.get(str(p.get("gender") or ""), "성별 미상"),
             "isolation": ", ".join(views.PREC_KO.get(x, x) for x in (p.get("precautions") or [])) or "없음",
             "department": p.get("department") or "", "dept_wards": dept_wards,
+            "specialty": next((w.specialty for w in st.h.wards if p.get("department") in w.departments), ""),
             "grade_wish": "1인실 희망" if p.get("wants_single_room") else "다인실(기준 병실)"}
     current = next((views.bed_ko(b) for b, c in holder.items() if c == case), "")
     return {"case": case, "patient": p.get("name"), "need": need, "current": current, "recommend": recommend,

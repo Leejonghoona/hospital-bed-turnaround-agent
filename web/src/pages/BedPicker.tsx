@@ -15,7 +15,7 @@ export function BedPicker({ caseId, onClose, onDone }: { caseId: string; onClose
   const [tab, setTab] = useState<string | null>(null)
   const bRef = useRef<Board | null>(null)
   bRef.current = b
-  useEffect(() => { api.beds(caseId).then(x => { setB(x); setTab((x.wards.find(w => x.need.dept_wards.includes(w.name)) ?? x.wards[0])?.id ?? null) }).catch(() => setErr('병상 현황을 불러오지 못했습니다')) }, [caseId])
+  useEffect(() => { api.beds(caseId).then(x => { setB(x); setTab(x.wards[0]?.id ?? null) }).catch(() => setErr('병상 현황을 불러오지 못했습니다')) }, [caseId])
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -53,7 +53,7 @@ export function BedPicker({ caseId, onClose, onDone }: { caseId: string; onClose
                 <dt>성별</dt><dd>{b.need.sex}</dd>
                 <dt>격리</dt><dd>{b.need.isolation}</dd>
                 <dt>진료과</dt><dd>{b.need.department}</dd>
-                <dt>담당 병동</dt><dd>{b.need.dept_wards.join(', ') || '없음'}</dd>
+                <dt>구분</dt><dd>{b.need.specialty || '—'}</dd>
                 <dt>희망 병실</dt><dd>{b.need.grade_wish}</dd>
                 <dt>지금 병상</dt><dd>{b.current || '배정 전'}</dd>
               </dl>
@@ -88,7 +88,7 @@ export function BedPicker({ caseId, onClose, onDone }: { caseId: string; onClose
                   const free = w.rooms.flatMap(r => r.beds).filter(x => x.fit !== 'no').length
                   return (
                     <button key={w.id} role="tab" aria-selected={tab === w.id} className={tab === w.id ? 'on' : ''} onClick={() => setTab(w.id)}>
-                      <b>{w.name}</b><span>{b.need.dept_wards.includes(w.name) ? '담당 병동' : w.specialty}</span>
+                      <b>{w.name}</b><span>{w.specialty}</span>
                       <em className={free ? 'has' : ''}>{free ? `가능 ${free}` : '가능 없음'}</em></button>)
                 })}
               </div>
