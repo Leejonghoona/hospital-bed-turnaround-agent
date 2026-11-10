@@ -355,3 +355,35 @@ def test_ward_board_shows_only_my_ward():
     b = c.get("/api/ward/board", headers=w).json()
     assert b["rooms"] and all(bd["id"].startswith("W72-") for r in b["rooms"] for bd in r["beds"])
     assert {"state", "state_ko", "detail"} <= set(b["rooms"][0]["beds"][0])
+
+
+# ---- 감염관리실·관리자 화면 (P4) ----
+
+def test_ipc_decides_late_isolation_and_sees_terminal_cleaning():
+    c = TestClient(create_app())
+    i = _login(c, "ipc-lee")
+    d = c.get("/api/ipc", headers=i).json()
+    assert d["approvals"] and d["terminal"] is not None
+    a = d["approvals"][0]
+    assert {"exception_id", "patient", "bed", "situation", "effect", "deadline", "organism"} <= set(a)
+    assert c.get("/api/ipc", headers=_login(c)).status_code == 403  # 원무는 감염관리 결정 화면을 쓰지 않는다
+    # 원무는 늦은 격리 병상 결정을 승인할 수 없다
+    assert c.post(f"/api/ipc/approvals/{a['exception_id']}/approve", json={}, headers=_login(c)).status_code == 403
+    assert c.post(f"/api/ipc/approvals/{a['exception_id']}/decline", json={"reason": ""}, headers=i).status_code == 422
+    r = c.post(f"/api/ipc/approvals/{a['exception_id']}/decline", json={"reason": "지금 병상 유지(제자리 격리)", "memo": "커튼, 1m 간격"}, headers=i)
+    assert r.status_code == 200, r.text
+    assert a["exception_id"] not in {x["exception_id"] for x in c.get("/api/ipc", headers=i).json()["approvals"]}
+    log = c.get("/api/access-log", headers=_login(c, "admin-jung")).json()["rows"]
+    assert any(x["user_id"] == "ipc-lee" and x["action"] == "격리 병상 결정" for x in log)
+
+
+def test_admin_summary_locked_accounts_and_masked_case_trail():
+    c = TestClient(create_app())
+    a = _login(c, "admin-jung")
+    s = c.get("/api/admin/summary", headers=a).json()
+    assert {"flow", "safety", "load"} <= set(s) and all("위반" in x for x in s["safety"])
+    assert c.get("/api/admin/summary", headers=_login(c)).status_code == 403
+    case = _rows(c, _login(c))[0]["case"]
+    t = c.get(f"/api/admin/case/{case}", headers=a).json()
+    assert t["patient"].count("○") == 1 and t["trail"]  # 감사용 경과: 이름은 가린다
+    assert c.get(f"/api/admin/case/{case}", headers=_login(c)).status_code == 403

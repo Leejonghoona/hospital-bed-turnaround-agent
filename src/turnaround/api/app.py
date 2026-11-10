@@ -62,9 +62,11 @@ class Store:
             from turnaround.gateway import load_policy
             from turnaround.sim import GeneratorConfig
             from turnaround.ui.demo import build_demo
-            self.state = build_demo(seed=2, day=3, until=time(11, 45), via_fhir=False, policy=load_policy(),
-                                    config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1,
-                                    live_from=time(7, 0))
+            st = build_demo(seed=2, day=3, until=time(11, 15), via_fhir=False, policy=load_policy(),
+                            config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1, live_from=time(7, 0))
+            _inject_late_isolation(st)  # 감염관리실 화면 시연용: 확정 뒤 격리 오더 1건 (합성)
+            st.advance(st.now.replace(hour=11, minute=45))
+            self.state = st
             from turnaround.api.shift_model import apply_night_shift
             apply_night_shift(self.state)  # 이전 근무가 처리한 일 (데모 화면용 사람 응답 모형)
         return self.state
@@ -75,6 +77,26 @@ class Store:
         sim = self.state.now.isoformat(timespec="minutes") if self.state is not None else ""
         self.access_log.append(sim_at=sim, user_id=u["user_id"], name=u.get("name", ""), ip=_CLIENT_IP.get(),
                                case=case, action=action, detail=detail)
+
+
+def _inject_late_isolation(st) -> None:
+    """시연용 늦은 격리 1건: 4인실에 확정됐지만 아직 입실 전인 환자에게 MRSA 접촉주의 오더가 난다(합성 사례).
+    이후 재생에서 사가가 늦은 격리 예외를 올리고, 병상 결정은 감염관리실이 승인한다(늦은 격리는 감염관리실만 결정)."""
+    from turnaround.events import Event, EventType
+    from turnaround.saga import fold
+    ev = st.store.read()
+    s = fold(ev)
+    room = {b.id: st.gw.room_by_id[b.room_id] for b in st.gw.beds}
+    pick = next((m for c, m in sorted(s.matches.items()) if m.active and EventType.MATCH_COMMITTED in m.facts
+                 and EventType.PATIENT_ARRIVED not in m.facts and m.bed_id in room and room[m.bed_id].capacity == 4
+                 and EventType.PATIENT_CONTACTED in m.facts), None)
+    if pick is None:
+        return
+    t = st.now
+    st.store.append(Event(event_id=f"{pick.admission_id}:demo:late_isolation", case_id=pick.admission_id,
+                          type=EventType.ISOLATION_ORDER_ADDED, occurred_at=t, observed_at=t, source="his",
+                          payload={"organism": "MRSA", "precautions": ["contact"], "precaution_status": "confirmed",
+                                   "isolation_ordered_by": "ipc", "isolation_type": "contact", "bed_id": pick.bed_id}))
 
 
 def _load_accounts() -> dict[str, dict]:
@@ -514,6 +536,88 @@ def create_app() -> FastAPI:
         note(st, s, case, f"병동 의견({body.reason}): {memo}" if memo else f"병동 의견: {body.reason}")
         store.log(s, "병동 의견", case=case, detail=body.reason)
         return {"ok": True}
+
+    # ---- 감염관리실 (P4): 늦은 격리 병상 결정, 종말소독 대기, 격리 오더 ----
+    IPC_DECLINE = ("지금 병상 유지(제자리 격리)", "원무가 직접 처리", "다른 병동과 협의 중", "기타")
+
+    def ipc_only(s: Session) -> None:
+        if s.user["role"] not in ("ipc", "id_oncall"):
+            raise HTTPException(403, "감염관리실만 쓸 수 있습니다")
+
+    @app.get("/api/ipc")
+    def ipc_home(s: Session = Depends(session)):
+        from turnaround.ui import views
+        ipc_only(s)
+        st = store.demo()
+        v = views.ipc_view(st)
+        people = views._people(st.store.read())
+        org = {o["case"]: o for o in v["isolation_orders"]}
+        approvals = [{"exception_id": x["exception_id"], "case": x["case"], "patient": (people.get(x["case"]) or {}).get("name", ""),
+                      "who": x["who"], "bed": x["bed_ko"], "situation": x["situation"], "effect": x["effect"],
+                      "deadline": x["deadline"], "since": x["since"], "trigger": x["trigger_ko"], "action": x["action_ko"],
+                      "recommend": [r.replace(" · ", ", ") for r in x.get("recommend") or []],
+                      "organism": (org.get(x["who"]) or {}).get("organism", ""),
+                      "precautions": (org.get(x["who"]) or {}).get("precautions", "")}
+                     for x in views.pending_approvals(st) if x["decider"] == "ipc"]
+        store.log(s, "목록 조회", detail="감염관리")
+        return {"holder": v["holder"], "approvals": approvals, "terminal": v["terminal"], "orders": v["isolation_orders"],
+                "np_free": v["np_free"], "decline_reasons": list(IPC_DECLINE)}
+
+    @app.post("/api/ipc/approvals/{eid}/{verb}")
+    def ipc_decide(eid: str, verb: str, body: ReasonIn, s: Session = Depends(session)):
+        """늦은 격리의 병상 결정은 감염관리실(야간·휴일은 감염내과 당직)만 한다. 게이트웨이가 근무 중인 사람인지 다시 확인한다."""
+        ipc_only(s)
+        st = store.demo()
+        role = s.user["role"]
+        if verb == "approve":
+            d = st.gw.approve_action(eid, role, st.now, approver_id=s.user["user_id"])
+        elif verb == "decline":
+            if body.reason not in IPC_DECLINE:
+                raise HTTPException(422, "결정 사유를 골라 주세요")
+            memo = memo_of(body.memo, body.reason == "기타")
+            d = st.gw.decline_action(eid, role, body.reason + (f": {memo}" if memo else ""), st.now, approver_id=s.user["user_id"])
+        else:
+            raise HTTPException(404, "없는 처리입니다")
+        if d.status in ("rejected", "unknown"):
+            raise HTTPException(409, "처리할 수 없습니다: " + ", ".join(d.reasons or [d.status]))
+        case = next((e.case_id for e in st.store.read() if e.payload.get("exception_id") == eid), None)
+        store.log(s, "격리 병상 결정", case=case, detail=f"{'승인' if verb == 'approve' else '거절: ' + body.reason}")
+        return {"status": d.status}
+
+    # ---- 관리자(의료정보팀) (P4): 흐름과 안전 요약, 감사용 판단 경과(이름 가림), 접속기록 ----
+    def admin_only(s: Session) -> None:
+        if s.user["role"] != "admin":
+            raise HTTPException(403, "관리자만 볼 수 있습니다")
+
+    @app.get("/api/admin/summary")
+    def admin_summary(s: Session = Depends(session)):
+        from turnaround.ui import views
+        admin_only(s)
+        st = store.demo()
+        m = views.manager_view(st)
+        hl = m["human_load"]
+        load = {"입원 사례": hl.get("admission_cases"), "확정": hl.get("committed"),
+                "사람 손을 안 거친 확정": hl.get("no_touch_committed"),
+                "사례당 사람 판단": hl.get("judgement_per_case"), "자동 확정 비율": hl.get("fully_automatic_ratio")}
+        locked = [{"user_id": u, "name": store.accounts[u]["name"], "fails": n} for u, n in store.fails.items()
+                  if n >= MAX_FAIL and u in store.accounts]
+        store.log(s, "목록 조회", detail="관리자 요약")
+        return {"flow": m["flow"], "safety": m["safety"], "load": load, "unassigned": m["unassigned"], "locked": locked,
+                "note": "합성 데이터 기준 추정"}
+
+    @app.get("/api/admin/case/{case}")
+    def admin_case(case: str, s: Session = Depends(session)):
+        """감사용: 한 환자의 판단 경과를 처음부터 따라간다. 진료 정보가 아니라 결정 기록이고 이름은 가린다."""
+        from turnaround.api.worklist import _timeline
+        from turnaround.ui import views
+        admin_only(s)
+        st = store.demo()
+        t = views.case_timeline(st, case)
+        if not t["rows"]:
+            raise HTTPException(404, "없는 사례입니다")
+        store.log(s, "감사 열람", case=case)
+        return {"case": case, "patient": t["who"], "status": t["status"], "bed": t["bed_ko"],
+                "trail": [dict(r, who=r["who"]) for r in _timeline(t["rows"])]}
 
     @app.get("/api/assignments")
     def assignment_log(day: str | None = None, s: Session = Depends(session)):

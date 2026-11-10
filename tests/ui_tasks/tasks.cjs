@@ -148,6 +148,42 @@ const TASKS = {
     const ready = await page.locator('.bd.st-ready, .bd.st-empty, .bd.st-dirty, .bd.st-cleaning, .bd.st-discharging').count()
     return [{ name: '비었거나 곧 빌 병상을 색과 글로 찾는다', ok: ready > 0 && await page.locator('.legend').isVisible(), detail: `${ready}개` }]
   },
+  async I1(page) {
+    await enterOps(page, '이준호')
+    await page.locator('tr.row').first().click()
+    await page.getByRole('button', { name: '지금 병상 유지 등' }).click()
+    await page.getByRole('button', { name: '지금 병상 유지(제자리 격리)' }).click()
+    await page.getByRole('button', { name: '결정', exact: true }).click()
+    const msg = await page.getByRole('status').textContent()
+    return [{ name: '늦은 격리 1건의 병상을 결정한다', ok: /결정했습니다/.test(msg || ''), detail: msg }]
+  },
+  async I3(page) {
+    await enterOps(page, '이준호')
+    await page.getByRole('button', { name: '병실·오더' }).click()
+    await page.getByRole('heading', { name: '종말소독 대기 병실' }).waitFor()
+    await page.locator('.card').first().locator('tbody tr').first().waitFor({ timeout: 8000 }).catch(() => {})
+    const n = await page.locator('.card').first().locator('tbody tr').count()
+    return [{ name: '종말소독이 끝나지 않은 병실을 찾는다', ok: n > 0, detail: `${n}개` }]
+  },
+  async M1(page) {
+    await enterOps(page, '정예린')
+    await page.getByRole('heading', { name: '안전 검사' }).waitFor()
+    return [{ name: '오늘 흐름과 안전 검사 결과를 본다', ok: await page.getByRole('heading', { name: '흐름' }).isVisible() && (await page.locator('.card tbody tr').count()) >= 4 }]
+  },
+  async A4(page) {
+    await enterOps(page, '정예린')
+    await page.getByRole('button', { name: '접속기록' }).click()
+    await page.locator('tr.row').first().waitFor()
+    return [{ name: '누가 어떤 환자 기록을 보고 무엇을 했는지 본다', ok: (await page.locator('tr.row').count()) > 0 && await page.getByText('기록 연결 확인됨').isVisible() }]
+  },
+  async M2(page) {
+    await enterOps(page, '정예린')
+    await page.getByRole('button', { name: '감사 경과' }).click()
+    const first = page.locator('.card .seg button').first()
+    await first.waitFor(); await first.click()
+    await page.locator('.card .tl .t').first().waitFor()
+    return [{ name: '한 환자의 판단 경과를 따라간다(이름 가림)', ok: /○/.test(await page.locator('.card h3').nth(1).textContent() || '') }]
+  },
 }
 
 ;(async () => {

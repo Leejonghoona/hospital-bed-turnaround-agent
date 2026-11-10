@@ -33,6 +33,17 @@ export type WardRow = {
 export type WardIncoming = { ward: string; rows: WardRow[]; reasons: string[] }
 export type WardBoard = { ward: string; rooms: { id: string; label: string; grade: string; sex: string; beds: { id: string; label: string; state: string; state_ko: string; detail: string }[] }[] }
 
+export type IpcHome = {
+  holder: string; np_free: number; decline_reasons: string[]
+  approvals: { exception_id: string; case: string; patient: string; who: string; bed: string; situation: string; effect: string
+    deadline: string; since: string; trigger: string; action: string; recommend: string[]; organism: string; precautions: string }[]
+  terminal: { bed: string; departed: string; status: string }[]
+  orders: { case: string; time: string; precautions: string; organism: string }[]
+}
+export type AdminSummary = { flow: Record<string, string>; load: Record<string, number>; safety: Record<string, any>[]; locked: { user_id: string; name: string; fails: number }[]; note: string }
+export type LogRow = { real_at: string; sim_at: string; user_id: string; name: string; ip: string; case: string | null; action: string; detail: string; hash: string }
+export type CaseTrail = { case: string; patient: string; status: string; bed: string; trail: { time: string; what: string; detail: string }[] }
+
 const KEY = 'wardflow.token'
 export const token = {
   get: () => { try { return sessionStorage.getItem(KEY) } catch { return null } },
@@ -70,6 +81,14 @@ export const api = {
   wardBoard: () => call<WardBoard>('/api/ward/board'),
   wardPrep: (c: string) => call(`/api/ward/prep/${encodeURIComponent(c)}`, { method: 'POST' }),
   wardOpinion: (c: string, reason: string, memo: string) => call(`/api/ward/opinion/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
+  ipc: () => call<IpcHome>('/api/ipc'),
+  ipcDecide: (id: string, verb: 'approve' | 'decline', reason: string, memo: string) =>
+    call<{ status: string }>(`/api/ipc/approvals/${encodeURIComponent(id)}/${verb}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
+  adminSummary: () => call<AdminSummary>('/api/admin/summary'),
+  accessLog: () => call<{ rows: LogRow[] }>('/api/access-log'),
+  verifyLog: () => call<{ ok: boolean }>('/api/access-log/verify'),
+  adminCase: (c: string) => call<CaseTrail>(`/api/admin/case/${encodeURIComponent(c)}`),
+  unlockAccount: (uid: string) => call(`/api/accounts/${encodeURIComponent(uid)}/unlock`, { method: 'POST' }),
   worklist: () => call<Worklist>('/api/worklist'),
   beds: (c: string) => call<Board>(`/api/beds?case=${encodeURIComponent(c)}`),
   assign: (c: string, bed: string, reason: string, memo: string) => call('/api/assign', { method: 'POST', body: JSON.stringify({ case: c, bed, reason, memo }) }),

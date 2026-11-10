@@ -6,6 +6,8 @@ import { Login } from './pages/Login'
 import { AutoLock } from './parts/AutoLock'
 import { RoleHome } from './pages/RoleHome'
 import { WardHome } from './pages/WardHome'
+import { IpcHome } from './pages/IpcHome'
+import { AdminHome } from './pages/AdminHome'
 import { Worklist } from './pages/Worklist'
 import './styles.css'
 
@@ -25,7 +27,9 @@ function App() {
     <AutoLock user={view.user} onSwitch={onSwitch}>
       {view.user.role === 'bed_manager' ? <Worklist user={view.user} onLogout={logout} onSwitch={onSwitch} />
         : view.user.role === 'ward' ? <WardHome user={view.user} onLogout={logout} onSwitch={onSwitch} />
-          : <RoleHome user={view.user} onLogout={logout} onSwitch={onSwitch} />}
+          : view.user.role === 'ipc' || view.user.role === 'id_oncall' ? <IpcHome user={view.user} onLogout={logout} onSwitch={onSwitch} />
+            : view.user.role === 'admin' ? <AdminHome user={view.user} onLogout={logout} onSwitch={onSwitch} />
+              : <RoleHome user={view.user} onLogout={logout} onSwitch={onSwitch} />}
     </AutoLock>)
   if (view.page === 'demo') return <div className="empty">시연 화면을 준비하고 있습니다 <button className="btn sm" onClick={() => setView({ page: 'entry' })}>처음 화면</button></div>
   return <Entry onDemo={() => setView({ page: 'demo' })} onOps={() => setView({ page: 'login', demoFirst: true })} />
