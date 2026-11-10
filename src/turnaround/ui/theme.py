@@ -116,7 +116,7 @@ def chip(text: str, tone: str = "gray") -> str:
 
 
 def topbar(subtitle: str, now: str | None, mode: str) -> str:
-    return (f'<div class="wl-top"><div class="wl-brand"><div class="wl-logo">병</div>병실관리AI'
+    return (f'<div class="wl-top"><div class="wl-brand"><div class="wl-logo">W</div>WardFlow'
             f'<span class="wl-badge">합성 데이터 데모</span></div><div class="wl-meta"><span>{e(subtitle)}</span>'
             + (f'<span><b>{e(now)}</b> 기준</span>' if now else "") + f'<span class="wl-badge">{e(mode)}</span></div></div>')
 

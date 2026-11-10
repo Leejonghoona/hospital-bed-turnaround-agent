@@ -1,4 +1,4 @@
-"""병실관리AI 화면 (08 계획 4단계, UI 개편). 합성 데이터 전용.
+"""WardFlow 화면 (08 계획 4단계, UI 개편). 합성 데이터 전용.
 
 실행: streamlit run src/turnaround/ui/app.py
 - 시연 대본: 3장면을 "다음" 버튼으로 한 단계씩, 단계마다 "이 화면에서 볼 것" 안내.
@@ -16,7 +16,7 @@ from turnaround.ui import theme as T
 from turnaround.ui import views
 from turnaround.ui.scenes import SCENES, SceneRun
 
-st.set_page_config(page_title="병실관리AI", page_icon="🛏️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="WardFlow", page_icon="🛏️", layout="wide", initial_sidebar_state="expanded")
 st.html(T.CSS)
 st.html(T.LANG_SCRIPT, unsafe_allow_javascript=True)
 

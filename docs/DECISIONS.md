@@ -831,3 +831,8 @@
   - Langfuse 연결: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`가 있고 `opentelemetry-exporter-otlp`가 설치돼 있을 때만 Langfuse의 OTLP 수신 주소로도 보낸다. 시험에서는 네트워크를 쓰지 않는다(설정 계산만 시험).
   - 보고 스크립트 `scripts/trace_report.py`는 시연용 병원 하루를 추적을 켜고 돌려 `evals/results/final/trace_report.json`을 쓴다. 수치는 합성 데이터 기준 추정이다.
 - **설계 가정.** "자동/사람/막음" 분류는 게이트웨이 판정 상태에서 기계적으로 나눈 것이다(`committed`·`executed` 중 사람에게 올림이 아닌 것 = 자동, `awaiting_*`·사람에게 올림 = 사람, `rejected` = 막음).
+
+## 2026-11-10 서비스 이름 WardFlow로 통일 (사용자 결정)
+- 화면은 이미 WardFlow(시안 v2)인데 README, CLAUDE.md, Streamlit 화면, 기획·가이드 문서는 "병실관리AI"로 남아 있었다. 모두 WardFlow로 맞춘다. 문서의 지난 변경 기록 줄은 그때 사실이라 그대로 둔다.
+- 검토한 대안: WardLoop(뜻은 날카롭지만 2026-11-09에 버린 가칭이고 바꿀 곳이 40여 군데), SmartWard(국내에서 "스마트 병동"이 일반 명사, 삼성서울병원 사례), ClearWard·ReadyWard·NextBed 등.
+- 알려진 겹침: 해외에 같은 이름의 병원 직원 근무표 제품(Wardflow)이 있다. 하는 일이 달라 시연용 이름으로는 유지한다. 상표 등록 검색은 하지 않았다(웹 검색만).

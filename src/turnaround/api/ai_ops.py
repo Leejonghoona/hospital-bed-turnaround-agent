@@ -148,7 +148,7 @@ def differentiators(ob: dict) -> dict:
     last = sum(c["periods"][-1]["ratio"] for c in curves) / len(curves)
     if eb:
         a_val = f"{eb['change'] * 100:.0f}%".replace("-", "−")
-        a_sub = f"도착 후 입실까지 {eb['off_min']:.0f}분 → {eb['on_min']:.0f}분"
+        a_sub = f"안내한 수속 시각부터 입실까지 {eb['off_min']:.0f}분 → {eb['on_min']:.0f}분"
     else:
         a_val = f"{r['entry_wait']['change'] * 100:.0f}%".replace("-", "−")
         a_sub = "수속부터 입실까지"
@@ -160,7 +160,7 @@ def differentiators(ob: dict) -> dict:
         {"key": "G1", "title": "실행 직전 재검사", "what": "AI 판단도 사람 승인도, 실행 바로 전에 안전 조건을 다시 확인합니다.",
          "value": f"{sf['violations'] + sf['holdout']['violations']}건", "value_sub": f"안전 위반, 검사 {sf['checks'] + sf['holdout']['checks']}회", "where": "AI 운영 개요"},
         {"key": "C", "title": "기록이 정하는 자율 범위", "what": "사람 결정과 충분히 일치한 유형만 AI에 맡기고, 어긋나면 되돌립니다.",
-         "value": f"{last * 100:.0f}%", "value_sub": "위임 뒤 자동 확정 비율", "where": "AI 운영 자율 범위"},
+         "value": f"{last * 100:.0f}%", "value_sub": "위임 뒤 자동 확정 비율(사람 응답은 가정)", "where": "AI 운영 자율 범위"},
         {"key": "B", "title": "온톨로지로 병원 데이터 연결", "what": "병원마다 다른 표와 코드를 공통 개념 체계에 연결해, 같은 규칙이 어느 병원에서나 돕니다.",
          "value": f"{ob['mapped']}개", "value_sub": "연결한 항목, 시험 운영 " + ("통과" if ob["proof"]["passed"] else "실패"), "where": "AI 운영 병원 연동"},
         {"key": "LLM", "title": "시험을 통과한 AI만 사용", "what": "배정은 규칙 코드가 맡고, AI는 시험을 통과한 일에만 씁니다.",
