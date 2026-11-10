@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from turnaround import tracing
 from turnaround.events.models import EventType
 from turnaround.gateway import Decision, Gateway, Proposal
 from turnaround.saga import fold
@@ -117,7 +118,10 @@ class PlanningAgent:
         return f"ag:{case}:{n + 1}"
 
     def _proposal(self, case: str, now: datetime, events, cands: list[Candidate]) -> Proposal:
-        chosen, text, _ = self.choose(case, cands, now, events)
+        with tracing.span("agent.plan", case_id=case, **{"agent.candidates": len(cands)}) as h:
+            chosen, text, mode = self.choose(case, cands, now, events)
+            h.set(**{"agent.mode": mode, "agent.bed_id": chosen.bed_id if chosen else "none",
+                     "agent.top_candidates": [c.bed_id for c in cands[:3]]})
         if chosen is None:
             return Proposal(proposal_id=self._pid(case, events), case=case, bed_id=None,
                             basis_seq=self.gw.store.last_seq(), rationale=text)

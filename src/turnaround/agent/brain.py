@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from turnaround import tracing
 from turnaround.events import Event, EventType
 
 from .llm import LLM, LLMError
@@ -186,7 +187,10 @@ class ExceptionBrain:
                 continue  # 기다리기로 한 예외는 다시 볼 시각까지 건너뛴다
             if ex.payload["exception_id"] in pending - decided:
                 continue  # 사람 승인을 기다리는 예외는 다시 고르지 않는다 (2단계 안전 검수 M6)
-            choice = self.choose(ex, events, now)
+            with tracing.span("agent.brain.choose", case_id=ex.case_id, **{
+                    "agent.exception_id": ex.payload["exception_id"], "agent.trigger": ex.payload.get("trigger")}) as h:
+                choice = self.choose(ex, events, now)
+                h.set(**{"agent.action": choice.action, "agent.mode": choice.mode})
             d = self.gw.submit_action(choice, now)
             if d.status == "rejected" and d.reasons != ["stale_basis"] and choice.mode != "fallback":
                 events = self.gw.store.read()

@@ -22,6 +22,8 @@ from typing import Protocol
 
 import requests
 
+from turnaround.tracing import traced_llm  # 꺼져 있으면 불 값 하나만 본다
+
 
 class LLMError(RuntimeError):
     """모델 장애, 형식 오류. 호출한 쪽은 규칙 모드로 내려간다 (NFR-4)."""
@@ -199,6 +201,7 @@ class GuardedLLM:
         else:
             setattr(self.inner, key, value)
 
+    @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         guard_external(self, self.data_class, self.policy)
         try:
@@ -246,6 +249,7 @@ class FakeLLM:
     usage: Usage = field(default_factory=Usage)
     fail: bool = False  # 장애 주입 (NFR-4 시험)
 
+    @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         self.usage.calls += 1
         if self.fail:
@@ -400,6 +404,7 @@ class OpenAILLM(_HttpLLM):
     base_url: str = "https://api.openai.com/v1"
     reasoning_effort: str | None = None  # 추론 모델만 (low 등). 기본은 공급사 기본값
 
+    @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         body = {"model": self.model, "messages": [{"role": "system", "content": system},
                                                    {"role": "user", "content": user}],
@@ -428,6 +433,7 @@ class AnthropicLLM(_HttpLLM):
             body["temperature"] = 0  # 반복 일관성. Claude 5 계열은 temperature를 받지 않는다(HTTP 400)
         return body
 
+    @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         res = self._post(f"{self.base_url}/messages",
                          {"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version": "2023-06-01"},
@@ -456,6 +462,7 @@ class LocalLLM:
         self.name = self.name or f"local:{Path(self.model_path).name}"
         self._llm = Llama(model_path=self.model_path, n_ctx=self.n_ctx, n_threads=self.n_threads, verbose=False)
 
+    @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         t0 = time.monotonic()
         try:
@@ -490,6 +497,7 @@ class ClaudeSubLLM:
     def __post_init__(self):
         self.name = self.name or f"claudesub:{self.model}"
 
+    @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         if os.environ.get("ANTHROPIC_API_KEY"):
             raise LLMError("ANTHROPIC_API_KEY가 잡혀 있어 구독 대신 API로 과금된다. 변수를 지우고 다시 실행")

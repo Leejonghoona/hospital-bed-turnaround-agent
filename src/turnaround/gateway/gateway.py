@@ -24,6 +24,7 @@ from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
 from turnaround.saga import fold
 from turnaround.sim.models import Bed, Patient, IsolationType, Room, RoomType
+from turnaround import tracing
 
 from .policy import Policy
 
@@ -317,6 +318,16 @@ class Gateway:
 
     def submit_action(self, choice, now: datetime) -> Decision:
         """머리가 고른 예외 행동을 검사하고 실행한다. 병상과 숫자는 다루지 않는다(병상은 규칙 모드가 고른다)."""
+        if not tracing.enabled():
+            return self._submit_action(choice, now)
+        with tracing.span("gateway.submit_action", case_id=choice.case, **{
+                "gateway.exception_id": choice.exception_id, "gateway.trigger": choice.trigger,
+                "gateway.action": choice.action, "agent.mode": choice.mode}) as h:
+            d = self._submit_action(choice, now)
+            h.set(**tracing.decision_attrs(d, choice.action))
+            return d
+
+    def _submit_action(self, choice, now: datetime) -> Decision:
         events = self._events()
         exid = choice.exception_id
         raised = next((e for e in events if e.type is EventType.EXCEPTION_RAISED
@@ -760,6 +771,15 @@ class Gateway:
     # ---------- 제안 시점 ----------
 
     def submit(self, prop: Proposal, now: datetime) -> Decision:
+        if not tracing.enabled():
+            return self._submit(prop, now)
+        with tracing.span("gateway.submit", case_id=prop.case, **{
+                "gateway.proposal_id": prop.proposal_id, "gateway.bed_id": prop.bed_id}) as h:
+            d = self._submit(prop, now)
+            h.set(**tracing.decision_attrs(d))
+            return d
+
+    def _submit(self, prop: Proposal, now: datetime) -> Decision:
         key = f"gw:{prop.proposal_id}:submit"
         events = self._events()
         if any(e.event_id == key for e in events):
@@ -924,6 +944,17 @@ class Gateway:
     # ---------- 확정 직전 ----------
 
     def commit(self, pid: str, approved_version: int, now: datetime, attempt: int = 1, actor: str = "원무") -> Decision:
+        if not tracing.enabled():
+            return self._commit(pid, approved_version, now, attempt, actor)
+        case = pid.split(":")[1] if pid.startswith("ag:") and pid.count(":") >= 2 else None
+        with tracing.span("gateway.commit", case_id=case, **{
+                "gateway.proposal_id": pid, "gateway.actor": "agent" if actor == "agent" else "human",
+                "gateway.attempt": attempt}) as h:
+            d = self._commit(pid, approved_version, now, attempt, actor)
+            h.set(**tracing.decision_attrs(d))
+            return d
+
+    def _commit(self, pid: str, approved_version: int, now: datetime, attempt: int = 1, actor: str = "원무") -> Decision:
         key = f"gw:{pid}:commit:{attempt}"
         events = self._events()
         if any(e.event_id == key for e in events):
