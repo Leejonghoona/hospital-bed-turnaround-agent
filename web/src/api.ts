@@ -26,6 +26,13 @@ export type Board = {
   reasons: { code: string; label: string }[]
 }
 
+export type WardRow = {
+  case: string; patient: string; age: number | null; sex: string; bed: string; checkin: string; prep: string[]
+  front: string; front_detail: string; step: string; hold: string; notified: string; by: string
+}
+export type WardIncoming = { ward: string; rows: WardRow[]; reasons: string[] }
+export type WardBoard = { ward: string; rooms: { id: string; label: string; grade: string; sex: string; beds: { id: string; label: string; state: string; state_ko: string; detail: string }[] }[] }
+
 const KEY = 'wardflow.token'
 export const token = {
   get: () => { try { return sessionStorage.getItem(KEY) } catch { return null } },
@@ -59,6 +66,10 @@ export const api = {
   logout: () => call('/api/logout', { method: 'POST' }),
   unlock: (password: string) => call('/api/unlock', { method: 'POST', body: JSON.stringify({ password }) }),
   undo: (c: string, reason: string, memo: string) => call<{ status: string }>(`/api/assignments/${encodeURIComponent(c)}/undo`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
+  wardIncoming: () => call<WardIncoming>('/api/ward/incoming'),
+  wardBoard: () => call<WardBoard>('/api/ward/board'),
+  wardPrep: (c: string) => call(`/api/ward/prep/${encodeURIComponent(c)}`, { method: 'POST' }),
+  wardOpinion: (c: string, reason: string, memo: string) => call(`/api/ward/opinion/${encodeURIComponent(c)}`, { method: 'POST', body: JSON.stringify({ reason, memo }) }),
   worklist: () => call<Worklist>('/api/worklist'),
   beds: (c: string) => call<Board>(`/api/beds?case=${encodeURIComponent(c)}`),
   assign: (c: string, bed: string, reason: string, memo: string) => call('/api/assign', { method: 'POST', body: JSON.stringify({ case: c, bed, reason, memo }) }),

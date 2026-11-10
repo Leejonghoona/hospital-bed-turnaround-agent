@@ -151,6 +151,14 @@ def admission_rows(st) -> dict:
                     "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무에 넘겼습니다."
                                  + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
                     "effect": "환자에게 어떻게 안내했는지 고르세요."}
+        elif x["raw_kind"] == "ward_opinion":
+            ev_t = next((e for e in ev if e.event_id == x["task_id"]), None)
+            why = (ev_t.payload.get("reason") if ev_t else "") or ""
+            label, action, reason = "병동 의견", "배정 다시 보기", f"병동: {why}"
+            more = {"choices": [{"label": "배정 유지", "desc": "병동에 그대로 간다고 회신"},
+                                {"label": "병상 바꿈", "desc": "병상 변경으로 다시 지정함"},
+                                {"label": "기타", "desc": "메모에 내용 적기"}],
+                    "situation": f"병동에서 이 배정에 의견을 보냈습니다({why}). 배정은 그대로이고 원무가 유지하거나 바꿉니다."}
         elif x["raw_kind"] == "fee_consent" and (people.get(x["case"]) or {}).get("precautions"):
             continue  # 격리 목적 1인실은 상급병실 비용 대상이 아니다(요양급여 기준 별표 2 단서). 동의 작업을 보이지 않는다
         elif x["raw_kind"] == "fee_consent":

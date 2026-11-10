@@ -41,7 +41,7 @@ SAFETY_KO = {"S1": ("격리·성별 배정 위반", "격리 환자를 맞지 않
              "S2": ("종말소독 누락", "격리 퇴실 병상을 종말소독 없이 다음 환자에게 쓴 경우"),
              "S3": ("청소 전 빈 병상 전환", "청소·침상 정리가 끝나기 전에 빈 병상으로 바꾼 경우"),
              "S4": ("한 병상 두 환자", "앞 환자가 나가기 전에 다음 환자를 입실시킨 경우")}
-KIND_KO = {"isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "사람 확인 요청",
+KIND_KO = {"ward_opinion": "병동 의견", "isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "사람 확인 요청",
            "order_nudge": "퇴원 처방 재촉", "call_up_reminder": "호출 독촉", "approval_rejected": "승인 거부 안내",
            "postpone_contact": "연락 보류", "data_fix": "입력 보완", "recontact_prepare": "재연락 준비",
            "nudge_late_discharges": "늦은 퇴원 재촉", "cleaning_track": "청소 추적", "missing_bed_prep": "침상 정리 누락",
@@ -217,7 +217,7 @@ def blocked_decisions(st, limit: int = 8) -> list[dict]:
     return out[-limit:]
 
 
-ADMISSION_KINDS = {"recontact", "fee_consent", "approval_rejected", "postpone_contact", "call_up_held", "brain_escalate",
+ADMISSION_KINDS = {"ward_opinion", "recontact", "fee_consent", "approval_rejected", "postpone_contact", "call_up_held", "brain_escalate",
                    "data_fix", "recontact_prepare", "promise_watch"}
 
 

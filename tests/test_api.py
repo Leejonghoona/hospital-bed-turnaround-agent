@@ -319,3 +319,39 @@ def test_contact_can_record_cancel_and_releases_bed():
     st = c.app.state.store.demo()
     m = fold(st.store.read()).matches.get(row["case"])
     assert m is None or not m.active  # 사가가 병상을 풀었다
+
+
+# ---- 병동 화면 (P3) ----
+
+def test_ward_incoming_prep_and_opinion_goes_to_admission():
+    c = TestClient(create_app())
+    w = _login(c, "ward71-park")
+    c.post("/api/shift", json={"ward": "W71", "shift": "day"}, headers=w)
+    inc = c.get("/api/ward/incoming", headers=w).json()
+    assert inc["ward"] == "71병동" and inc["rows"], "71병동으로 올 환자가 있어야 한다"
+    r0 = inc["rows"][0]
+    assert {"case", "patient", "bed", "checkin", "prep", "front", "step"} <= set(r0)
+    assert all(x["bed"].startswith("71-") for x in inc["rows"])  # 내 병동만
+    assert c.get("/api/ward/incoming", headers=_login(c)).status_code == 403  # 원무는 병동 화면 API를 쓰지 않는다
+    # 준비 완료
+    assert c.post(f"/api/ward/prep/{r0['case']}", headers=w).status_code == 200
+    assert next(x for x in c.get("/api/ward/incoming", headers=w).json()["rows"] if x["case"] == r0["case"])["step"] == "준비 완료"
+    # 의견은 배정을 풀지 않고 원무 할 일로 간다 (원무가 정하고 수간호사는 의견: 서울고법 2013누25193)
+    assert c.post(f"/api/ward/opinion/{r0['case']}", json={"reason": "", "memo": ""}, headers=w).status_code == 422
+    assert c.post(f"/api/ward/opinion/{r0['case']}", json={"reason": "간호 인력 부족", "memo": ""}, headers=w).status_code == 200
+    st = c.app.state.store.demo()
+    assert r0["case"] in st.gw._assignments(st.store.read())  # 배정은 그대로
+    rows = _rows(c, _login(c))
+    op = next(x for x in rows if x["case"] == r0["case"] and x["kind_label"] == "병동 의견")
+    assert "간호 인력 부족" in op["reason"]
+    # 다른 병동 환자는 준비 완료로 바꿀 수 없다
+    other = next(x for x in rows if x["bed"] and not x["bed"].startswith("71-"))
+    assert c.post(f"/api/ward/prep/{other['case']}", headers=w).status_code == 403
+
+
+def test_ward_board_shows_only_my_ward():
+    c = TestClient(create_app())
+    w = _login(c, "ward72-choi")
+    b = c.get("/api/ward/board", headers=w).json()
+    assert b["rooms"] and all(bd["id"].startswith("W72-") for r in b["rooms"] for bd in r["beds"])
+    assert {"state", "state_ko", "detail"} <= set(b["rooms"][0]["beds"][0])

@@ -123,6 +123,31 @@ const TASKS = {
     c.push({ name: '다음 근무자 계정으로 넘어간다', ok: await page.getByRole('button', { name: /서민준/ }).isVisible() })
     return c
   },
+  async N1(page) {
+    await enterOps(page, '박서연')
+    await page.locator('tr.row').first().waitFor()
+    const rows = await page.locator('tr.row').count()
+    const beds = await page.locator('tr.row td.mono').allTextContents()
+    return [{ name: '우리 병동으로 올 환자와 준비 상태가 보인다', ok: rows > 0 && beds.every(b => b.startsWith('71-')), detail: `${rows}명` },
+      { name: '준비할 것과 앞 환자 진행이 보인다', ok: await page.getByRole('columnheader', { name: '앞 환자' }).isVisible() }]
+  },
+  async N3(page) {
+    await enterOps(page, '박서연')
+    await page.locator('tr.row').first().click()
+    await page.getByRole('button', { name: '원무에 의견 보내기' }).click()
+    await page.getByRole('button', { name: '간호 인력 부족' }).click()
+    await page.getByRole('button', { name: '의견 보내기', exact: true }).click()
+    const msg = await page.getByRole('status').textContent()
+    return [{ name: '의견을 내면 원무에 알리고 배정은 그대로', ok: /원무에 의견/.test(msg || ''), detail: msg }]
+  },
+  async N4(page) {
+    await enterOps(page, '박서연')
+    await page.locator('tr.row').first().waitFor()
+    await page.getByRole('button', { name: '병상 현황' }).click()
+    await page.locator('.room').first().waitFor()
+    const ready = await page.locator('.bd.st-ready, .bd.st-empty, .bd.st-dirty, .bd.st-cleaning, .bd.st-discharging').count()
+    return [{ name: '비었거나 곧 빌 병상을 색과 글로 찾는다', ok: ready > 0 && await page.locator('.legend').isVisible(), detail: `${ready}개` }]
+  },
 }
 
 ;(async () => {

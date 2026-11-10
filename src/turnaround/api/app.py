@@ -16,7 +16,7 @@ import threading
 import time as _time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 import yaml
@@ -458,6 +458,62 @@ def create_app() -> FastAPI:
         note(st, s, case, memo)
         store.log(s, "배정 되돌림", case=case, detail=f"{row['bed']} {body.reason}")
         return {"status": d.status}
+
+    # ---- 병동 화면 (P3) ----
+    def ward_only(s: Session) -> str:
+        if s.user["role"] != "ward" or not s.ward:
+            raise HTTPException(403, "병동 담당만 쓸 수 있습니다")
+        return s.ward
+
+    def my_ward_case(st, s: Session, case: str) -> None:
+        bed = st.gw._assignments(st.store.read()).get(case)
+        if not bed or next((b.ward_id for b in st.h.beds if b.id == bed), None) != s.ward:
+            store.log(s, "병동 처리 거부", case=case)
+            raise HTTPException(403, "우리 병동으로 오는 환자가 아닙니다")
+
+    @app.get("/api/ward/incoming")
+    def ward_incoming(s: Session = Depends(session)):
+        from turnaround.api.ward import incoming
+        w = ward_only(s)
+        out = incoming(store.demo(), w)
+        store.log(s, "목록 조회", detail="입실 예정")
+        return out
+
+    @app.get("/api/ward/board")
+    def ward_board(s: Session = Depends(session)):
+        from turnaround.api.ward import board
+        w = ward_only(s)
+        store.log(s, "목록 조회", detail="병상 현황")
+        return board(store.demo(), w)
+
+    @app.post("/api/ward/prep/{case}")
+    def ward_prep(case: str, s: Session = Depends(session)):
+        from turnaround.events import EventType
+        ward_only(s)
+        st = store.demo()
+        my_ward_case(st, s, case)
+        bed = st.gw._assignments(st.store.read()).get(case)
+        human(st, case, "ward_prep_done", EventType.WARD_PREP_DONE, bed_id=bed, by=s.user["user_id"])
+        store.log(s, "병동 준비 완료", case=case)
+        return {"ok": True}
+
+    @app.post("/api/ward/opinion/{case}")
+    def ward_opinion(case: str, body: ReasonIn, s: Session = Depends(session)):
+        """병동 의견: 배정을 풀지 않고 원무 할 일로 보낸다. 원무가 유지하거나 병상을 바꾼다."""
+        from turnaround.api.ward import OPINION_REASONS
+        from turnaround.events import EventType
+        ward_only(s)
+        st = store.demo()
+        my_ward_case(st, s, case)
+        if body.reason not in OPINION_REASONS:
+            raise HTTPException(422, "의견 사유를 골라 주세요")
+        memo = memo_of(body.memo, body.reason == "기타")
+        bed = st.gw._assignments(st.store.read()).get(case)
+        human(st, case, f"ward_opinion:{secrets.token_hex(3)}", EventType.HUMAN_TASK_CREATED, kind="ward_opinion",
+              assignee="bed_manager", bed_id=bed, reason=body.reason, by=s.user["user_id"], due=(st.now + timedelta(minutes=30)).isoformat())  # 원무 회신 기한 30분(설계 가정)
+        note(st, s, case, f"병동 의견({body.reason}): {memo}" if memo else f"병동 의견: {body.reason}")
+        store.log(s, "병동 의견", case=case, detail=body.reason)
+        return {"ok": True}
 
     @app.get("/api/assignments")
     def assignment_log(day: str | None = None, s: Session = Depends(session)):
