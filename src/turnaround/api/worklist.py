@@ -162,7 +162,9 @@ def admission_rows(st) -> dict:
             more = {"choices": [{"label": "처리함", "desc": "처리를 마쳤습니다"}, {"label": "기타", "desc": "메모에 내용 적기"}],
                     "situation": x.get("why") or ""}
         status = "책임자 확인 중" if esc else "처리 전"
-        add(x["case"], "task", label, action, x["due_at"], x["overdue"], x.get("bed"), reason, status, x["stale"],
+        # '병상 없음'에는 기다리던(지금은 못 쓰는) 병상을 보이지 않는다: 병상 칸이 비어야 할 일과 맞다
+        add(x["case"], "task", label, action, x["due_at"], x["overdue"], None if label == "병상 없음" else x.get("bed"), reason,
+            status, x["stale"],
             ref=x["task_id"], **more)
     for x in a["notices"]:
         if not (x.get("active") and x.get("undo_open")):
