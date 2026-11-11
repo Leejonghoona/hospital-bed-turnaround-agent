@@ -1,0 +1,4 @@
+# 승인된 규칙표 우선 규칙 (LLM 판단의 규칙표 반영, src/turnaround/agent/rule_learning.py).
+# scripts/rule_proposals.py --approve 로만 추가한다. 지우지 않고 active: false로 끈다(기록 보존).
+# 이 파일이 바뀌면 규칙표가 바뀐 것이므로 인수 시험 판정 묶음은 만료된다(재인수).
+overrides: []

@@ -276,8 +276,28 @@ class FakeLLM:
         raise LLMError(f"모르는 작업: {task}")
 
 
-def _fake_exception_action(ctx: dict) -> dict:
-    """가짜 LLM의 예외 행동 결정표 (설계 개정 4.5). 같은 입력에 같은 출력. 실제 모델 평가의 비교선."""
+_OVERRIDE_CACHE: dict = {"mtime": None, "rules": []}
+
+
+def _approved_overrides() -> list[dict]:
+    """config/rule_overrides.yaml의 승인된 우선 규칙 (rule_learning). 파일이 바뀔 때만 다시 읽는다."""
+    from .rule_learning import OVERRIDES, load_overrides
+    m = OVERRIDES.stat().st_mtime if OVERRIDES.exists() else None
+    if m != _OVERRIDE_CACHE["mtime"]:
+        _OVERRIDE_CACHE.update(mtime=m, rules=load_overrides())
+    return _OVERRIDE_CACHE["rules"]
+
+
+def _fake_exception_action(ctx: dict, overrides: list[dict] | None = None) -> dict:
+    """가짜 LLM의 예외 행동 결정표 (설계 개정 4.5). 같은 입력에 같은 출력. 실제 모델 평가의 비교선.
+
+    책임자가 승인한 우선 규칙(LLM 판단의 규칙표 반영, rule_learning)이 있으면 먼저 본다.
+    규칙표에 해당 트리거 규칙이 없어 기본값으로 떨어지면 "default": True를 붙인다(새 상황: LLM 답은 제안으로만).
+    """
+    from .rule_learning import match_override
+    hit = match_override(ctx, _approved_overrides() if overrides is None else overrides)
+    if hit:
+        return hit
     ex = ctx.get("exception", {})
     allowed = [a["id"] for a in ctx.get("allowed_actions", [])]
     st0 = ctx.get("case_state") or {}
@@ -338,8 +358,8 @@ def _fake_exception_action(ctx: dict) -> dict:
         if "wait" in allowed:
             return {"action": "wait", "params": {}, "rationale": "기다리는 입원 없음: 보호자 도착까지 둠"}
     if "rematch_now" in allowed:
-        return {"action": "rematch_now", "params": {}, "rationale": "연락 전: 규칙 모드로 다시 찾음"}
-    return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게"}
+        return {"action": "rematch_now", "params": {}, "rationale": "연락 전: 규칙 모드로 다시 찾음", "default": True}
+    return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게", "default": True}
 
 
 def _fake_extract(text: str, ref: str | None) -> dict:

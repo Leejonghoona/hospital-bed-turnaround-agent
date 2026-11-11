@@ -179,8 +179,11 @@ class ExceptionBrain:
         from .llm import _fake_exception_action
         rule = _fake_exception_action(ctx)
         allowed = {a["id"] for a in ctx.get("allowed_actions", [])}
+        from .rule_learning import features
         rec = {"exception_id": base["exception_id"], "trigger": base["trigger"], "case": base["case"],
                "stage": (ctx.get("exception") or {}).get("stage"), "at": now.isoformat(),
+               # 규칙표 반영(rule_learning)용: 유형 키, 규칙표 기본값이라 LLM 답을 제안으로 보여 주는 사례 표시
+               "features": features(ctx), "shown_to_human": bool(rule.get("default")),
                "rule_action": rule["action"], "model_action": None, "status": "ok", "agree": False,
                "would_block": None, "latency_s": None, "error": None}
         t0 = time.monotonic()
