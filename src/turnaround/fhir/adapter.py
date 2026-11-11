@@ -57,16 +57,10 @@ PRECAUTION_SNOMED = {"airborne": ("409524006", "Airborne precautions"),
                      "contact": ("409529001", "Contact precautions")}
 SNOMED_PRECAUTION = {v[0]: k for k, v in PRECAUTION_SNOMED.items()}
 ISOLATION_SNOMED = ("361235007", "Isolation of infected patient")  # 격리 시행 (docs/환자분류코드_조사.md 4절 확인)
-# 원인균 → SNOMED CT 개념. MTB(113861009)와 CRE(712662001, 조사 문서 4절)만 이 저장소에서 확인했다.
-# 나머지는 실제 연동 전에 SNOMED CT 브라우저와 대조해야 한다(DECISIONS.md 한계). 인플루엔자는 아형을 정하지 않아 내부 코드만.
+# 원인균 → SNOMED CT 개념. 이 저장소에서 근거를 확인한 코드만 둔다(MTB 113861009, CRE 712662001 조사 문서 4절).
+# 나머지 균은 SNOMED 브라우저와 대조하기 전까지 내부 코드만 붙인다(확인 안 된 코드를 쓰지 않는다, DECISIONS 한계).
 ORGANISM_SNOMED = {"MTB": ("113861009", "Mycobacterium tuberculosis"),
-                   "CRE": ("712662001", None),
-                   "MRSA": ("115329001", "Methicillin resistant Staphylococcus aureus"),
-                   "VRE": ("113727004", "Vancomycin resistant Enterococcus"),
-                   "CDIFF": ("5933001", "Clostridioides difficile"),
-                   "MEASLES": ("52584002", "Measles virus"),
-                   "PERTUSSIS": ("5247005", "Bordetella pertussis"),
-                   "VARICELLA": ("19551004", "Human alphaherpesvirus 3")}
+                   "CRE": ("712662001", None)}
 PATIENT_KEYS = ("patient_id", "name", "gender", "age", "department", "isolation_order", "isolation_type",
                 "precautions", "organism", "precaution_status", "isolation_ordered_by", "immunocompromised",
                 "open_wound")
