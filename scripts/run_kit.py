@@ -226,7 +226,8 @@ def summarize(tag: str, heads: list[str], items: list[dict], set_path: Path) -> 
     listed = [c["spec"] for c in cand.get("candidates") or []]
     m = cand.get("m")
     if m:
-        full = {c: pvals.get(c, 1.0) for c in listed}  # 못 잰 후보는 p=1로 m에 남긴다
+        # 못 잰 후보는 p=1로 m에 남긴다. 임대 GPU 측정은 같은 후보의 kit:rental-<별칭>으로 찾는다.
+        full = {c: pvals.get(c, pvals.get(c.replace("kit:", "kit:rental-", 1), 1.0)) for c in listed}
         res["holm"] = {"m": m, "p": full, "pass": K.holm(full, m) if full else {},
                        "note": "SA5는 보고만 한다(판정은 SA1·SA3·SA4·SA6)"}
     return res

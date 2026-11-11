@@ -89,3 +89,11 @@ endpoints:
     model: naver-hyperclovax/HyperCLOVAX-SEED-Think-14B
     max_tokens: 2048
     extra_body: {chat_template_kwargs: {skip_reasoning: true}}  # 비사고 모드(모델 카드)
+  # 사후 추가(2026-11-11, 설계 15절): 등록 후보 4개 중 GPU에서 못 잰 Qwen3.8 27B. 대표 선정은 바꾸지 않는다.
+  rental-qwen3.8-27b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: Qwen/Qwen3.8-27B
+    max_tokens: 2048
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}  # 호스팅 대리 측정과 같은 비사고 조건
