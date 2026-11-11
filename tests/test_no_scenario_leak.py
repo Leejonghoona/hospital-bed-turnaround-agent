@@ -14,8 +14,14 @@ def _targets():
         yield p
 
 
+# HL7 v2 ADT 트리거 코드(A01 입원, A02 전동, A03 퇴원, A08 정보 변경)는 표준 코드라 HL7 모듈에서만 허용한다 (DECISIONS 2026-11-12)
+_HL7_FILES = {"hl7v2.py", "hl7_adapter.py"}
+_HL7_TRIGGERS = {"A01", "A02", "A03", "A08"}
+
+
 def test_no_scenario_ids_in_code_under_test():
-    hits = [(p.name, m.group()) for p in _targets() for m in SCENARIO_ID.finditer(p.read_text(encoding="utf-8"))]
+    hits = [(p.name, m.group()) for p in _targets() for m in SCENARIO_ID.finditer(p.read_text(encoding="utf-8"))
+            if not (p.name in _HL7_FILES and m.group() in _HL7_TRIGGERS)]
     assert hits == []
 
 

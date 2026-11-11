@@ -1,0 +1,400 @@
+{
+ "input": "evals/hl7/sample_adt.hl7",
+ "standard": "HL7 v2.5 ADT (A01, A02, A03, A08)",
+ "patients": 16,
+ "before_answers": {
+  "messages": 36,
+  "parse_errors": 0,
+  "events_converted": 32,
+  "wrong_links": 0,
+  "missed": 0,
+  "held_messages": 4,
+  "questions": 7,
+  "order_violations_detected": 2,
+  "order_violations_expected": 2,
+  "order_violations_false": 0,
+  "safety_values_unread": 3,
+  "store_appended": 32,
+  "store_appended_on_replay": 0,
+  "details": {
+   "wrong": [],
+   "missed": [],
+   "unread": [
+    {
+     "msg": "MSG0009",
+     "key": "precautions"
+    },
+    {
+     "msg": "MSG0010",
+     "key": "organism"
+    },
+    {
+     "msg": "MSG0011",
+     "key": "precautions"
+    }
+   ],
+   "traps": [
+    {
+     "msg": "MSG0001",
+     "trap": "시각 12자리(분)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0002",
+     "trap": "시각 14자리(초)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0004",
+     "trap": "성별 U",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0005",
+     "trap": "성별 O",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0006",
+     "trap": "사전에 없는 병동 ICU2",
+     "outcome": "held: 병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0009",
+     "trap": "격리 OBX(위치 모름)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0010",
+     "trap": "원인균 Z세그먼트(위치 모름)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0011",
+     "trap": "격리 OBX(같은 위치, 질문 중복 없음)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0012",
+     "trap": "A08 성별 정정",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0013",
+     "trap": "입원 시각이 날짜만(8자리)",
+     "outcome": "held: PV1-44=20261104: 시각 정밀도가 분보다 낮다(8자리)"
+    },
+    {
+     "msg": "MSG0014",
+     "trap": "시각 초+시간대",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0018",
+     "trap": "A02 전동(병동 간)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0019",
+     "trap": "A02 전동(병동 간)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0021",
+     "trap": "시각 14자리(초)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0022",
+     "trap": "사전에 없는 병동 ICU2",
+     "outcome": "held: 병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0023",
+     "trap": "전동 뒤 퇴원(전동 메시지가 늦게 옴)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0024",
+     "trap": "순서가 뒤바뀐 메시지(A03 뒤에 도착한 A02)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0025",
+     "trap": "퇴원 시각이 입원 시각보다 앞섬",
+     "outcome": "held: 사건 순서 위반"
+    },
+    {
+     "msg": "MSG0032",
+     "trap": "A02 전동 뒤 A03",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0035",
+     "trap": "소수 초+시간대",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0036",
+     "trap": "A02 전동 뒤 A03",
+     "outcome": "converted"
+    }
+   ],
+   "questions": [
+    {
+     "id": "code:patient.gender:U",
+     "item": "PID-8=U",
+     "why": "남녀 병실 구별에 쓸 수 없는 성별이다(사람이 병실 성별 운영을 확인)"
+    },
+    {
+     "id": "code:patient.gender:O",
+     "item": "PID-8=O",
+     "why": "남녀 병실 구별에 쓸 수 없는 성별이다(사람이 병실 성별 운영을 확인)"
+    },
+    {
+     "id": "code:ward:ICU2",
+     "item": "PV1-3.1=ICU2",
+     "why": "병동 코드표에 없는 값이다(내부 병동을 정해 주거나 쓰지 않음)"
+    },
+    {
+     "id": "pos:OBX:ISO",
+     "item": "OBX:ISO",
+     "why": "격리·원인균 같은 값의 자리는 병원마다 다르다(OBX·Z세그먼트). 어느 필드가 무엇인지 정해 주세요"
+    },
+    {
+     "id": "pos:ZIS",
+     "item": "ZIS",
+     "why": "격리·원인균 같은 값의 자리는 병원마다 다르다(OBX·Z세그먼트). 어느 필드가 무엇인지 정해 주세요"
+    },
+    {
+     "id": "fmt:time:MSG0013",
+     "item": "A01 시각",
+     "why": "사건 시각을 읽지 못했다(PV1-44=20261104: 시각 정밀도가 분보다 낮다(8자리))"
+    },
+    {
+     "id": "order:MSG0025",
+     "item": "V1008 A03",
+     "why": "사건 순서 위반: A03 2026-11-03 13:00가 MSG0017(단계 0) 2026-11-04 13:00와 순서가 맞지 않는다. 어느 시각이 맞는지 확인"
+    }
+   ],
+   "held": [
+    {
+     "msg": "MSG0006",
+     "reason": "병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0013",
+     "reason": "PV1-44=20261104: 시각 정밀도가 분보다 낮다(8자리)"
+    },
+    {
+     "msg": "MSG0022",
+     "reason": "병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0025",
+     "reason": "사건 순서 위반"
+    }
+   ],
+   "order_violations": [
+    {
+     "msg": "MSG0024",
+     "case": "V1007",
+     "kind": "late_arrival",
+     "detail": "A02가 뒤 단계 MSG0023보다 늦게 도착(시각은 맞아 발생 시각으로 넣음)"
+    },
+    {
+     "msg": "MSG0025",
+     "case": "V1008",
+     "kind": "time_contradiction",
+     "detail": "A03 2026-11-03 13:00가 MSG0017(단계 0) 2026-11-04 13:00와 순서가 맞지 않는다"
+    }
+   ]
+  }
+ },
+ "after_answers": {
+  "messages": 36,
+  "parse_errors": 0,
+  "events_converted": 32,
+  "wrong_links": 0,
+  "missed": 0,
+  "held_messages": 4,
+  "questions": 5,
+  "order_violations_detected": 2,
+  "order_violations_expected": 2,
+  "order_violations_false": 0,
+  "safety_values_unread": 0,
+  "store_appended": 32,
+  "store_appended_on_replay": 0,
+  "details": {
+   "wrong": [],
+   "missed": [],
+   "unread": [],
+   "traps": [
+    {
+     "msg": "MSG0001",
+     "trap": "시각 12자리(분)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0002",
+     "trap": "시각 14자리(초)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0004",
+     "trap": "성별 U",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0005",
+     "trap": "성별 O",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0006",
+     "trap": "사전에 없는 병동 ICU2",
+     "outcome": "held: 병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0009",
+     "trap": "격리 OBX(위치 모름)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0010",
+     "trap": "원인균 Z세그먼트(위치 모름)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0011",
+     "trap": "격리 OBX(같은 위치, 질문 중복 없음)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0012",
+     "trap": "A08 성별 정정",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0013",
+     "trap": "입원 시각이 날짜만(8자리)",
+     "outcome": "held: PV1-44=20261104: 시각 정밀도가 분보다 낮다(8자리)"
+    },
+    {
+     "msg": "MSG0014",
+     "trap": "시각 초+시간대",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0018",
+     "trap": "A02 전동(병동 간)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0019",
+     "trap": "A02 전동(병동 간)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0021",
+     "trap": "시각 14자리(초)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0022",
+     "trap": "사전에 없는 병동 ICU2",
+     "outcome": "held: 병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0023",
+     "trap": "전동 뒤 퇴원(전동 메시지가 늦게 옴)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0024",
+     "trap": "순서가 뒤바뀐 메시지(A03 뒤에 도착한 A02)",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0025",
+     "trap": "퇴원 시각이 입원 시각보다 앞섬",
+     "outcome": "held: 사건 순서 위반"
+    },
+    {
+     "msg": "MSG0032",
+     "trap": "A02 전동 뒤 A03",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0035",
+     "trap": "소수 초+시간대",
+     "outcome": "converted"
+    },
+    {
+     "msg": "MSG0036",
+     "trap": "A02 전동 뒤 A03",
+     "outcome": "converted"
+    }
+   ],
+   "questions": [
+    {
+     "id": "code:patient.gender:U",
+     "item": "PID-8=U",
+     "why": "남녀 병실 구별에 쓸 수 없는 성별이다(사람이 병실 성별 운영을 확인)"
+    },
+    {
+     "id": "code:patient.gender:O",
+     "item": "PID-8=O",
+     "why": "남녀 병실 구별에 쓸 수 없는 성별이다(사람이 병실 성별 운영을 확인)"
+    },
+    {
+     "id": "code:ward:ICU2",
+     "item": "PV1-3.1=ICU2",
+     "why": "병동 코드표에 없는 값이다(내부 병동을 정해 주거나 쓰지 않음)"
+    },
+    {
+     "id": "fmt:time:MSG0013",
+     "item": "A01 시각",
+     "why": "사건 시각을 읽지 못했다(PV1-44=20261104: 시각 정밀도가 분보다 낮다(8자리))"
+    },
+    {
+     "id": "order:MSG0025",
+     "item": "V1008 A03",
+     "why": "사건 순서 위반: A03 2026-11-03 13:00가 MSG0017(단계 0) 2026-11-04 13:00와 순서가 맞지 않는다. 어느 시각이 맞는지 확인"
+    }
+   ],
+   "held": [
+    {
+     "msg": "MSG0006",
+     "reason": "병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0013",
+     "reason": "PV1-44=20261104: 시각 정밀도가 분보다 낮다(8자리)"
+    },
+    {
+     "msg": "MSG0022",
+     "reason": "병동 코드 ICU2 모름"
+    },
+    {
+     "msg": "MSG0025",
+     "reason": "사건 순서 위반"
+    }
+   ],
+   "order_violations": [
+    {
+     "msg": "MSG0024",
+     "case": "V1007",
+     "kind": "late_arrival",
+     "detail": "A02가 뒤 단계 MSG0023보다 늦게 도착(시각은 맞아 발생 시각으로 넣음)"
+    },
+    {
+     "msg": "MSG0025",
+     "case": "V1008",
+     "kind": "time_contradiction",
+     "detail": "A03 2026-11-03 13:00가 MSG0017(단계 0) 2026-11-04 13:00와 순서가 맞지 않는다"
+    }
+   ]
+  }
+ }
+}
