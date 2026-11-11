@@ -21,7 +21,7 @@ def _git(*args: str) -> str:
 
 def stamp(policy=None) -> dict:
     pkgs = {}
-    for p in ("pydantic", "rdflib", "pyshacl", "streamlit"):
+    for p in ("pydantic", "rdflib", "pyshacl"):
         try:
             pkgs[p] = metadata.version(p)
         except metadata.PackageNotFoundError:

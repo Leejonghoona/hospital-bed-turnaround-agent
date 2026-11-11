@@ -70,48 +70,6 @@ def test_views_have_korean_labels(exception):
         assert b["reason"] and not b["reason"].isascii()
 
 
-# ---------------- 화면 자동 시험 (Streamlit AppTest: 브라우저 없이 버튼을 누른다) ----------------
-
-APP = str(__import__("pathlib").Path(__file__).resolve().parents[1] / "src/turnaround/ui/app.py")
-
-
-@pytest.mark.parametrize("sid", list(SCENES))
-def test_app_clicks_through_scene(sid):
-    from streamlit.testing.v1 import AppTest
-    at = AppTest.from_file(APP, default_timeout=180).run()
-    at.sidebar.selectbox[0].set_value(sid).run()
-    for _ in SCENES[sid].steps:
-        at.button(key="next").click().run()
-    assert not at.exception, at.exception
-    text = " ".join(h.proto.body for h in at.get("html"))
-    assert "화면에서 볼 것" in text and "wl-kpi" in text  # 단계 안내와 지표 카드가 그려진다
-    assert at.button(key="next").disabled
-
-
-@pytest.mark.parametrize("role", ["admission", "ward", "ipc", "manager", "vendor"])
-def test_app_role_screens_render(role):
-    from streamlit.testing.v1 import AppTest
-    at = AppTest.from_file(APP, default_timeout=180).run()
-    at.sidebar.radio[0].set_value("역할 화면").run()
-    at.sidebar.radio[1].set_value(role).run()
-    assert not at.exception, at.exception
-    text = " ".join(h.proto.body for h in at.get("html"))
-    assert "wl-page-h" in text and ("wl-kpi" in text or "wl-table" in text or "wl-empty" in text)
-
-
-def test_browser_screenshot_of_scene(tmp_path):
-    """실제 브라우저(Playwright)로 화면을 띄워 '다음'을 누르고 찍는다. 단계마다 화면이 그려지고 오류가 없어야 한다."""
-    import shutil
-    import sys
-    if not shutil.which("node"):
-        pytest.skip("node 없음")
-    sys.path.insert(0, str(__import__("pathlib").Path(APP).resolve().parents[3] / "scripts"))
-    from screenshots import shoot
-    shots = shoot(tmp_path, scale=1, only="onboard")
-    assert len(shots) == 5 and all(s["ok"] for s in shots)
-    assert all((tmp_path / f"scene_onboard_{i}.png").stat().st_size > 10_000 for i in range(1, 6))
-
-
 INTERNAL = ("isolation_order_after_commit", "isolation_after_commit", "bed_occupancy_conflict", "'structure'",
             "proposed", "approved", "None", "stage_locked", "promise_at_risk", "late_isolation")
 

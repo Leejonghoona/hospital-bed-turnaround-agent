@@ -17,3 +17,8 @@ models/
 *.egg-info/
 evals/results/tmp/
 var/
+undefined/
+docs/검토/현장조사/유튜브_자막/
+traces.jsonl
+*.tgz
+.claude/settings.local.json

@@ -1,8 +1,6 @@
 """9단계 화면 목업 데이터와 사람 개입 지표 (EVL-5, H1, H2, SEC-2)."""
 
-import py_compile
 from datetime import time
-from pathlib import Path
 
 import pytest
 
@@ -57,6 +55,3 @@ def test_autonomy_stage2_reduces_judgement_interventions():
     assert b["judgement_per_case"] < a["judgement_per_case"]
     assert b["fully_automatic_ratio"] > 0
 
-
-def test_app_compiles():
-    py_compile.compile(str(Path(__file__).resolve().parents[1] / "src" / "turnaround" / "ui" / "app.py"), doraise=True)
