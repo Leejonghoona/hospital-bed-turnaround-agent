@@ -960,3 +960,41 @@
 - **대리 실험(합성, 담당자 자리에 v4 정답):** `--from-kit 2026-11-11-gpu`. 300문항 모두 셀 수 있는 사례(처음 실행 때는 연락 전 규칙 재매칭 36건도 기본값으로 뺐으나, 참고 의견 구현에서 '사람에게 넘기는 기본값'만 빼도록 바꿔 0건). 기준을 넘은 수정안은 Gemma 4 26B, gpt-oss-20b, Qwen3.8 27B 모두 0건. Gemma 4 26B의 첫 후보는 "보호자 지연, 퇴실 전, 다음 입원 대기: offer_lounge → share_eta" 지지 9/12(하한 0.47)로, 정답 검토 때 사용자가 물었던 라운지 규칙과 같은 자리다. 대리 실험 결과로는 승인할 수 없게 막았다(운영 기록으로만 승인).
 - **한계:** 합성 데이터라 담당자 결정은 모의다. 하루 예외 약 49건이라 한 유형에 25건이 쌓이려면 시간이 걸린다(유형 키가 세밀할수록 더 느림).
 - **새 상황 참고 의견 (같은 날 추가, 사용자 결정 A):** 규칙표가 정하지 못해 사람에게 넘기는 기본값(`default: True`)일 때만 LLM 답을 담당자 확인 카드(`card.ai_hint`)와 원무 할 일 목록에 "AI 참고 의견: …(자동 실행 안 함)"으로 붙인다. 실행은 규칙표 그대로(사람에게). 이 사례는 `shown_to_human`이라 규칙표 반영 집계에서 빠진다. 연락 전 규칙 재매칭 기본값은 규칙표의 일반 규칙이라 표시하지 않는다. 시험 `test_new_situation_attaches_llm_hint_to_human_card_without_executing`. 전체 시험 1,154개 통과(화면 시험 63개는 streamlit·fastapi 없는 환경이라 제외).
+
+## 2026-11-12 FHIR 어댑터 표준 의미로 정리 (외부 검수 지적 반영)
+
+- **지적:** 모든 사건을 `Task(status=completed, intent=order)`로만 냈고, Patient를 사건마다 새 ID로 만들어 같은 환자가 쪼개졌고, 확장 URL이 `urn:` 형식이었다.
+- **바꾼 점:** 사건 종류마다 표준 의미에 맞는 리소스로 낸다. 환자당 Patient 하나(`Patient.identifier` system `https://wardflow.example/fhir/sid/patient-id`, 값이 바뀌면 같은 id의 새 판). 확장은 `https://wardflow.example/fhir/StructureDefinition/<이름>`, 내부 코드 체계는 `.../fhir/CodeSystem/<이름>`, 식별자 체계는 `.../fhir/sid/<이름>`. 이력 번들이라 같은 Encounter·병상 Location·Task·Patient가 `meta.versionId`를 올리며 여러 번 나온다. 위 2026-11-08 대응표의 "이벤트 1건 = Task 1개" 줄은 이 표로 바뀐다(정본 원칙, 현실 시각·인지 시각 분리, 합격선은 그대로).
+- **사건 봉투:** 사건 하나 = 주 항목 하나. `Bundle.entry.extension`에 사건 ID(`event-id`), 종류(`event-type`), 사례(`case-id`), 출처(`event-source`), 현실 시각(`occurred-at`), payload 키 순서를 둔다. 리소스 본문은 표준 필드만 쓰고, 표준 필드로 되살릴 수 없는 payload 값(예: `cleaning_type`, `proposal_id`)만 봉투의 `payload-value` 확장에 남긴다. 딸린 항목(Patient 새 판, Flag, ServiceRequest, Observation, 병상 상태 판, 청소 Task)은 주 항목 바로 앞에 나온다(`companion-of`).
+- **시간대:** 합성 병원 현지 시각이라 `+09:00` 고정을 유지하고 모듈 주석에 적었다. 다른 시간대 표기는 들여오기에서 거부한다.
+
+**대응표**
+| 내부 사건 | FHIR R4 리소스 | 상태 값 | 비고 |
+|---|---|---|---|
+| 입원 요청 | `Encounter` (class `IMP`, 사례 하나 = Encounter 하나) | status `planned`, 희망 병동은 location(physicalType `wa`) `planned` | |
+| 사전 매칭 / 배정 확정 | 같은 `Encounter`의 `location`(병상, physicalType `bd`) | location `planned` / `reserved` | |
+| 입실 | `Encounter` + 병상 `Location` 판 | Encounter `in-progress`, location `active`, 병상 `operationalStatus` O | 다른 병상이 active면 completed로 |
+| 퇴원 결정·등록·취소, 병동 내 사망 확인 | `Encounter` + 병상 `Location` 판 | Encounter `in-progress`, location `active`, 병상 O | 자의 퇴원은 `hospitalization.dischargeDisposition` `aadvice`, 사망은 `exp` |
+| 급변 전동, 임종실 전실 | `Encounter` | location(원래 병상) `completed`, 전동 목적지는 표시명 location `active` | |
+| 퇴실, 안치실 이송 | `Encounter` + 병상 `Location` 판 | Encounter `finished`, location `completed`, 병상 K | |
+| 입원 취소 | `Encounter` | `cancelled` | |
+| 청소 요청(사람·사가) / 시작 / 끝 / 청결도 확인 | 병상 `Location.operationalStatus` (HL7 v2-0116) | K / H / H / H | 청소 요청·시작·끝은 청소 `Task`(requested → in-progress → completed)도 같이 낸다 |
+| 입실 가능, 빈 병상 표시 | 병상 `Location.operationalStatus` | U | |
+| 병실 사용 중지 / 복귀 | 병실 `Location` | status `suspended` + C / `active` + U | |
+| 격리 오더 / 격리 해제 | `ServiceRequest` (intent `order`, code SNOMED 361235007 + 주의 코드) | `active` / `completed` | 지시자는 `requester.display` |
+| 환자 필드의 전파경로 주의 | `Flag` + SNOMED 409524006·409525007·409529001 | `active` | 기존과 같음 |
+| 환자 필드의 원인균 | `Observation.valueCodeableConcept` (SNOMED 생물체 + 내부 코드) | 판정 confirmed → `final`, preemptive → `preliminary`, 없음 → `registered` | 예: MTB 113861009 |
+| 선별검사 오더 / 결과 | `ServiceRequest` / `Observation` | `active` / `final` | |
+| 사람 할 일 생성 / 인계 / 상향 / 완료 | `Task` (작업 하나 = Task 하나, `identifier` = 작업 ID) | `requested` / 그대로(담당 변경) / 그대로 + priority `urgent` / `completed` | 담당은 `owner.display` |
+| 침상 정리 요청 / 완료 | `Task` (focus = 병상) | `requested` / `completed` | |
+| 그 밖의 사건(사가 명령, 게이트웨이 감사, 예외 판단 기록 등 79종) | 사건마다 `Task` 하나, payload는 `Task.input` | 대개 `completed`, `*_requested`·`*_asked`는 `requested`, 취소·철회는 `cancelled`, 거절은 `rejected`. 에이전트 출처는 intent `proposal` | 표준 대응이 없어 기록용 |
+
+**확인:** 왕복 시험(`tests/test_fhir.py`)은 그대로 통과한다: 시드 0~2 해시, 잡음(중복·순서·누락) 보존, 시드 0~199 이중 실행(느린 시험), 모든 사건 종류 111종에 환자 필드와 임의 값을 넣은 왕복(새 시험). 시험을 11개 더했다: 왕복 2개(손으로 만든 입퇴원 흐름, 사건 종류 전체), 매핑 8개(Encounter 상태, v2-0116 병상 상태 순서 O→K→H→U→O, 환자당 Patient 하나 2개, 격리 오더·원인균, Task 생애주기, 확장 URL, 시간대 거부), 구조 검증 1개. `fhir.resources`(R4B)가 있으면 전체 번들 구조 검증을 하고 없으면 건너뛴다. 작업 환경에 `fhir.resources` 8.3.0을 임시로 두고 돌려 통과를 확인했다(저장소 의존성은 바꾸지 않음). 합성 시연 하루(사건 509건)를 내보내면 항목 627개: Task 397, Location 118, Encounter 76, Patient 30.
+
+**한계**
+- KR Core 1.0.2에는 Location·Task·Flag 프로파일이 없고(`docs/환자분류코드_조사.md` 4절), Encounter 프로파일 검증도 하지 않았다. 프로파일 검증(Java 검증기)은 여전히 비목표다. `fhir.resources` 검증은 R4 기본 구조만 본다(값셋 바인딩, 불변식 일부, 참조 대상 존재는 보지 않음).
+- 원인균 SNOMED 코드 중 이 저장소에서 확인한 것은 MTB 113861009와 CRE 712662001뿐이다. MRSA 115329001, VRE 113727004, C. difficile 5933001, 홍역 52584002, 백일해 5247005, 수두 19551004는 실제 연동 전에 SNOMED CT 브라우저에서 대조해야 한다. 인플루엔자는 아형을 정하지 않아 내부 코드만 붙인다.
+- 그 밖의 사건 79종은 여전히 기록용 Task다. 사가 명령·감사 기록은 FHIR에 맞는 자리가 없다(AuditEvent·Provenance로 옮기는 일은 하지 않았다).
+- 병상 상태의 H는 "청소 중"과 "청소 끝, 입실 가능 표시 전"을 함께 쓴다. v2-0116에 그 사이 상태가 없다. 격리 병상 상태 I(Isolated)는 쓰지 않았다.
+- 나이·진료과·면역저하·개방 창상은 기존처럼 Patient 확장이다. 진료과는 Encounter 쪽이 맞지만, 환자 필드를 한곳에서 되살리려고 옮기지 않았다.
+- 사건과 딸린 항목의 연결은 번들 순서와 `companion-of` 확장에 기댄다. 이 어댑터가 만든 번들만 받는다고 가정한다(다른 시스템이 만든 이력 번들의 들여오기는 범위 밖).
