@@ -14,6 +14,11 @@ from turnaround.ui import views
 SEX = {"M": "남", "F": "여"}
 
 
+def _md_hm(t: datetime) -> str:
+    """'3월 5일 14:30' 꼴. strftime의 %-m은 Windows에서 오류가 나서 직접 만든다."""
+    return f"{t.month}월 {t.day}일 {t:%H:%M}"
+
+
 def _bed(b: str | None) -> str:
     """W71-R03-B3 → 71-03-3 (표에 들어가는 짧은 병상 표기)."""
     if not b:
@@ -149,7 +154,7 @@ def admission_rows(st) -> dict:
             req = pp.get("requested_at")
             more = {"choices": NO_BED_CHOICES,
                     "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무팀에 넘겼습니다."
-                                 + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
+                                 + (f" 입원 예약은 {_md_hm(datetime.fromisoformat(req))}입니다." if req else ""),
                     "effect": "환자에게 어떻게 안내했는지 고르세요."}
             if x.get("ai_hint"):  # 규칙표가 정하지 못한 새 상황: LLM 답은 참고 의견으로만 (자동 실행 안 함)
                 more["situation"] += f" AI 참고 의견: {x['ai_hint']} (자동 실행 안 함, 결정은 담당자)."
@@ -247,7 +252,7 @@ def patient_detail(st, case: str, accounts: dict | None = None) -> dict | None:
     return {"case": case, **_person(people, case), "department": p.get("department") or "",
             "status": t["status"], "bed": t["bed_ko"], "isolation": t["isolation"],
             "from_icu": bool(p.get("from_icu")), "room_pref": pref, "dept_ward": dept_ward, "specialty": specialty,
-            "reserved_at": f"{datetime.fromisoformat(req):%-m월 %-d일 %H:%M}" if req else "",
+            "reserved_at": f"{_md_hm(datetime.fromisoformat(req))}" if req else "",
             "phone": f"010-0000-{reg[-4:]}", "guardian_phone": f"010-0000-{int(reg[-4:]) + 5000:04d}",
             "notes": notes(ev, case, accounts), "timeline": _timeline(t["rows"])[-12:] + _web_rows(ev, case, accounts)}
 

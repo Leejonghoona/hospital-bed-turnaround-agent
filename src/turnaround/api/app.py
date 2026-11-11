@@ -75,14 +75,28 @@ class Store:
                                case=case, action=action, detail=detail)
 
 
+def demo_policy():
+    """시연 병원의 정책. 이 병원은 국내 지침 5.4.5.1 문장대로 비말주의 퇴실에도 환기 대기를 건다(ventilation.droplet_wait).
+    기본값(공기주의만)과 다르게 둔 이유: 설정이 실제로 동작하는 예를 화면에 남기고, 시연 장면(에이전트 확정 되돌리기 등)을
+    2026-11-12 기본값 변경 전과 같게 유지한다. 측정에는 시연 병원을 쓰지 않는다 (DECISIONS 2026-11-12)."""
+    from turnaround.gateway import load_policy
+    p = load_policy()
+    return p.model_copy(update={"ventilation": p.ventilation.model_copy(update={"droplet_wait": True})})
+
+
+def demo_config():
+    from turnaround.sim import GeneratorConfig
+    return GeneratorConfig.demo_hospital(droplet_wait=True)
+
+
 def build_hospital():
     """시연용 합성 병원 하루(11:45). 운영 화면과 시연 세션이 같은 방법으로 만든다."""
     from turnaround.api.shift_model import apply_night_shift
     from turnaround.gateway import load_policy
     from turnaround.sim import GeneratorConfig
     from turnaround.ui.demo import build_demo
-    st = build_demo(seed=2, day=3, until=time(11, 15), via_fhir=False, policy=load_policy(),
-                    config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1, live_from=time(7, 0))
+    st = build_demo(seed=2, day=3, until=time(11, 15), via_fhir=False, policy=demo_policy(),
+                    config=demo_config(), occupancy="high", backlog_days=1, live_from=time(7, 0))
     _inject_late_isolation(st)  # 감염관리실 화면 시연용: 확정 뒤 격리 오더 1건 (합성)
     st.advance(st.now.replace(hour=11, minute=45))
     apply_night_shift(st)  # 이전 근무가 처리한 일 (데모 화면용 사람 응답 모형)

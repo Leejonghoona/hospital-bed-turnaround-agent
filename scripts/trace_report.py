@@ -34,8 +34,9 @@ def run_day(until: time = time(23, 45), seed: int = 2, llm=None, exception_llm=N
     from turnaround.sim import GeneratorConfig
     from turnaround.ui.demo import build_demo
     with tracing.capture() as rec:
-        st = build_demo(seed=seed, day=3, until=time(11, 15), via_fhir=False, policy=load_policy(),
-                        config=GeneratorConfig.demo_hospital(), occupancy="high", backlog_days=1, live_from=time(7, 0),
+        from turnaround.api.app import demo_config, demo_policy
+        st = build_demo(seed=seed, day=3, until=time(11, 15), via_fhir=False, policy=demo_policy(),
+                        config=demo_config(), occupancy="high", backlog_days=1, live_from=time(7, 0),
                         llm=llm, exception_llm=exception_llm, shadow=shadow)
         _inject_late_isolation(st)
         st.advance(st.now.replace(hour=11, minute=45))
