@@ -1,5 +1,7 @@
 # WardFlow
 
+[![test](https://github.com/Leejonghoona/wardflow-bed-agent/actions/workflows/test.yml/badge.svg)](https://github.com/Leejonghoona/wardflow-bed-agent/actions/workflows/test.yml)
+
 퇴원부터 다음 환자 입실까지, 병상 준비 과정을 맡는 병원 운영 AI 에이전트입니다.
 **LLM은 판단만 하고, 실행은 규칙과 게이트웨이가 다시 검사한 뒤에만 합니다.** 모든 데이터는 합성(가상 병원)입니다.
 
