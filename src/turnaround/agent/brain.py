@@ -42,6 +42,27 @@ SYSTEM = ("너는 병상 운영 예외 하나에 대해 허용 목록 중 행동
           "우선순위: 1 안전 2 되돌릴 수 없는 일 최소 3 임상 우선순위 4 병상 공백 최소 5 선호 6 변동 최소. "
           'JSON 하나로 답한다: {"action": "...", "params": {}, "rationale": "..."}')
 
+# 제한된 도구 호출 루프 (DECISIONS 2026-11-12). 기본값은 위의 단일 호출이고, ExceptionBrain(tool_loop=True)일 때만 쓴다.
+# 도구는 읽기 전용이며 결과는 `_tool_outputs`가 이미 계산한 값을 나눠 보여 준다(새 계산은 사례 최근 사건뿐).
+MAX_TOOL_STEPS = 3
+TOOLS = {
+    "rematch_candidates": "다른 후보 병상 수와 첫 후보(병실 종류, 준비까지 분), 남은 음압 병상 수",
+    "ready_eta": "병상 준비 예상(P50·P90 분), 오늘 퇴원 중 가장 빨리 준비되는 병상, 보호자 도착 예상, 라운지 여부",
+    "case_history": "이 환자 사례의 최근 사건 종류와 몇 분 전인지 (최근 8건, 자유 서술 없음)",
+}
+_TOOL_KEYS = {
+    "rematch_candidates": ("rematch_candidates", "best_candidate_room_type", "best_ready_in_min",
+                           "negative_pressure_free"),
+    "ready_eta": ("ready_p50_min", "ready_p90_min", "earliest_ready_bed", "earliest_ready_p50_min",
+                  "earliest_ready_p90_min", "guardian_eta_in_min", "lounge_available"),
+}
+SYSTEM_LOOP = SYSTEM.replace(
+    'JSON 하나로 답한다: {"action": "...", "params": {}, "rationale": "..."}',
+    "tool_outputs는 처음에 주지 않는다. 필요하면 tools 목록의 도구를 불러 값을 받는다(읽기 전용). "
+    f"도구 호출과 최종 답을 합쳐 최대 {MAX_TOOL_STEPS}단계이고, 마지막 단계에서는 반드시 행동을 고른다. "
+    "받은 결과는 tool_results에 쌓인다. 단계마다 JSON 하나로 답한다: "
+    '도구를 부르면 {"tool": "...", "args": {}}, 행동을 고르면 {"action": "...", "params": {}, "rationale": "..."}')
+
 
 class ActionChoice(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -54,17 +75,22 @@ class ActionChoice(BaseModel):
     basis_seq: int
     mode: str  # llm | fake | fallback
     basis_input: dict[str, Any] = Field(default_factory=dict)  # 머리에 준 입력 (게이트웨이 상황별 금지 검사에 같은 값을 쓴다)
+    # 도구 호출 루프에서 부른 도구와 결과 요약 [{step, tool, args, result}]. 단일 호출이면 비어 있다
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    loop_status: str | None = None  # 루프일 때만: ok | step_limit | unknown_tool | format_error | llm_error
 
 
 class ExceptionBrain:
     def __init__(self, gw, llm: LLM, policy=None, wards=(), data_class: str | None = None,
-                 shadow: bool = False, shadow_log: list | None = None):
+                 shadow: bool = False, shadow_log: list | None = None, tool_loop: bool = False):
         from .llm import bind_data_class
         self.gw, self.llm = gw, bind_data_class(llm, data_class)  # 외부 모델 관문 (기본 병원 데이터)
         # 그림자 모드 (docs/검토/LLM운영_시험설계.md 3절): 모델 제안은 기록만 하고, 실행은 규칙표가 한다
         self.shadow = shadow
         self.shadow_log = shadow_log if shadow_log is not None else []
         self.wards = tuple(wards)
+        # 제한된 도구 호출 루프 (DECISIONS 2026-11-12). 기본 False = 기존 단일 호출 (인수 시험 키트와 같은 방식)
+        self.tool_loop = tool_loop
         self.policy = policy or gw.policy
         # LLM에 넣은 입력 (감사·시험용). 오래 도는 서비스에서 끝없이 쌓이지 않게 최근 것만 둔다(2026-11-12 검수 C).
         # 영구 감사는 그림자 기록·추적 span이 맡는다
@@ -159,6 +185,63 @@ class ExceptionBrain:
             out["ready_p90_min"] = mins(tools.ready_at(ex.payload["bed_id"], events, now, q="p90")[0])
         return out
 
+    # ---- 제한된 도구 호출 루프 (DECISIONS 2026-11-12) ----
+
+    def _loop_active(self) -> bool:
+        # 결정적 규칙표(가짜 LLM)는 모든 도구 값을 이미 본 결정표라 도구를 부르지 않는 1단계로 둔다: 입력·결과가 단일 호출과 같다
+        return self.tool_loop and not (self.llm.name == "fake" and not _scripted(self.llm))
+
+    def _tool_results(self, ctx: dict, ex: Event, events: list[Event], now: datetime) -> dict:
+        """도구 이름 → 결과. `_tool_outputs`가 계산한 값을 나눠 쓴다 (읽기 전용, 이벤트를 쓰지 않음)."""
+        to = ctx.get("tool_outputs") or {}
+        res = {name: {k: to[k] for k in keys if k in to} for name, keys in _TOOL_KEYS.items()}
+        hist = [e for e in events if e.case_id == ex.case_id and e.observed_at <= now][-8:]
+        res["case_history"] = {"recent_events": [
+            {"type": e.type.value, "min_ago": max(0, int((now - e.observed_at).total_seconds() // 60))} for e in hist]}
+        return res
+
+    def _run_loop(self, ctx: dict, ex: Event, events: list[Event], now: datetime) -> tuple[dict | None, list, str]:
+        """최대 MAX_TOOL_STEPS 단계. 행동 답(dict), 도구 호출 기록, 상태를 돌려준다. 행동이 없으면 부르는 쪽이 대체 경로로 간다.
+        LLMError는 그대로 올린다(부르는 쪽이 대체 경로·그림자 기록으로 처리)."""
+        results = self._tool_results(ctx, ex, events, now)
+        shown = {k: ctx[k] for k in ("exception", "case_state", "allowed_actions")}
+        shown["tools"] = [{"name": n, "description": d} for n, d in TOOLS.items()]
+        calls: list[dict] = []
+        for step in range(1, MAX_TOOL_STEPS + 1):
+            user = json.dumps({**shown, "tool_results": [{k: c[k] for k in ("tool", "args", "result")} for c in calls],
+                               "step": step, "max_steps": MAX_TOOL_STEPS}, ensure_ascii=False)
+            self.records.append(user)
+            out = self.llm.complete_json("choose_exception_step", SYSTEM_LOOP, user)
+            if not isinstance(out, dict) or ("tool" in out) == ("action" in out):
+                return None, calls, "format_error"
+            if "action" in out:
+                if not isinstance(out["action"], str) or not out["action"]:
+                    return None, calls, "format_error"
+                return out, calls, "ok"
+            name, args = out.get("tool"), out.get("args", {})
+            if not isinstance(name, str) or name not in TOOLS:
+                return None, calls, "unknown_tool"
+            if not isinstance(args, dict):
+                return None, calls, "format_error"
+            with tracing.span("agent.brain.tool", case_id=ex.case_id, **{
+                    "agent.exception_id": ex.payload["exception_id"], "agent.tool": name, "agent.tool.step": step}):
+                calls.append({"step": step, "tool": name, "args": dict(args), "result": results[name]})
+        return None, calls, "step_limit"
+
+    def _choose_loop(self, base: dict, ctx: dict, ex: Event, events: list[Event], now: datetime) -> ActionChoice:
+        try:
+            out, calls, status = self._run_loop(ctx, ex, events, now)
+        except LLMError:
+            out, calls, status = None, [], "llm_error"
+        if out is not None:
+            try:
+                return ActionChoice(**base, action=str(out["action"]), params=dict(out.get("params") or {}),
+                                    rationale=str(out.get("rationale") or "")[:300], basis_input=ctx, mode="llm",
+                                    tool_calls=calls, loop_status=status)
+            except (KeyError, TypeError, ValueError):
+                status = "format_error"
+        return self.fallback(base).model_copy(update={"tool_calls": calls, "loop_status": status})
+
     def choose(self, ex: Event, events: list[Event], now: datetime) -> ActionChoice:
         ctx = self._input(ex, events, now)
         user = json.dumps(ctx, ensure_ascii=False)
@@ -166,7 +249,9 @@ class ExceptionBrain:
         base = dict(exception_id=ex.payload["exception_id"], trigger=ex.payload["trigger"], case=ex.case_id,
                     basis_seq=max((e.seq or 0) for e in events))
         if self.shadow:
-            return self._shadow_choose(base, ctx, user, now)
+            return self._shadow_choose(base, ctx, user, now, ex, events)
+        if self._loop_active():
+            return self._choose_loop(base, ctx, ex, events, now)
         try:
             out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
             return ActionChoice(**base, action=str(out["action"]), params=dict(out.get("params") or {}),
@@ -175,7 +260,8 @@ class ExceptionBrain:
         except (LLMError, KeyError, TypeError, ValueError):
             return self.fallback(base)
 
-    def _shadow_choose(self, base: dict, ctx: dict, user: str, now: datetime) -> ActionChoice:
+    def _shadow_choose(self, base: dict, ctx: dict, user: str, now: datetime,
+                       ex: Event | None = None, events: list[Event] | None = None) -> ActionChoice:
         """규칙표(가짜 LLM 결정표)로 실행할 행동을 정하고, 모델 제안은 따로 받아 기록만 한다."""
         import time
 
@@ -191,11 +277,19 @@ class ExceptionBrain:
                "features": features(ctx), "shown_to_human": bool(rule.get("default")),
                "rule_action": rule["action"], "model_action": None, "status": "ok", "agree": False,
                "would_block": None, "latency_s": None, "error": None}
+        loop = self._loop_active() and ex is not None
+        if loop:
+            rec["tool_calls"], rec["loop_status"] = [], None
         t0 = time.monotonic()
         try:
-            out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
+            if loop:  # 그림자에서도 루프는 모델 답을 얻는 방식만 바꾼다. 실행은 아래 규칙표 그대로
+                out, rec["tool_calls"], rec["loop_status"] = self._run_loop(ctx, ex, events, now)
+            else:
+                out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
             act = out.get("action") if isinstance(out, dict) else None
-            if not isinstance(act, str) or not act:
+            if loop and rec["loop_status"] != "ok":
+                rec["status"] = rec["loop_status"]
+            elif not isinstance(act, str) or not act:
                 rec["status"] = "format_error"
             else:
                 rec["model_action"] = act
@@ -207,6 +301,8 @@ class ExceptionBrain:
                     rec["agree"] = act.split(":", 1)[0] == rule["action"]
         except LLMError as e:
             rec["status"], rec["error"] = "llm_error", str(e)[:200]
+            if loop:
+                rec["loop_status"] = "llm_error"
         rec["latency_s"] = round(time.monotonic() - t0, 3)
         self.shadow_log.append(rec)
         params = dict(rule.get("params") or {})
@@ -243,10 +339,16 @@ class ExceptionBrain:
                     "agent.exception_id": ex.payload["exception_id"], "agent.trigger": ex.payload.get("trigger")}) as h:
                 choice = self.choose(ex, events, now)
                 h.set(**{"agent.action": choice.action, "agent.mode": choice.mode})
+                if choice.loop_status is not None:  # 도구 호출 루프 감사 기록
+                    h.set(**{"agent.loop.status": choice.loop_status,
+                             "agent.loop.tools": [c["tool"] for c in choice.tool_calls]})
                 if self.shadow and self.shadow_log and self.shadow_log[-1]["exception_id"] == choice.exception_id:
                     r = self.shadow_log[-1]
                     h.set(**{"agent.shadow.model_action": r["model_action"] or "", "agent.shadow.status": r["status"],
                              "agent.shadow.agree": r["agree"], "agent.shadow.would_block": r["would_block"] or ""})
+                    if r.get("loop_status") is not None:
+                        h.set(**{"agent.shadow.loop_status": r["loop_status"],
+                                 "agent.shadow.tools": [c["tool"] for c in r["tool_calls"]]})
             d = self.gw.submit_action(choice, now)
             if d.status == "rejected" and d.reasons != ["stale_basis"] and choice.mode != "fallback":
                 events = self.gw.store.read()
