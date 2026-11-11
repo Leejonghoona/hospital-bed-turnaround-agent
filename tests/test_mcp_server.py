@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+pytest.importorskip("fastapi")  # 고정물이 api.app을 쓴다. 없으면 건너뛴다
+
 from turnaround import mcp_server as ms
 from turnaround.ui import views
 

@@ -131,7 +131,8 @@ def forecast_noon(events: list[Event], h: SyntheticHospital, day: datetime, cfg:
         mine = [c for c in cases if c.ward == w.id]
         counts = sorted(sum(_ready_time(c, day, cfg, rand) <= noon for c in mine) for _ in range(cfg.samples))
         q = lambda p: counts[min(len(counts) - 1, int(p * len(counts)))]  # noqa: E731
-        out[w.id] = {"p10": q(0.1), "p50": q(0.5), "p90": q(0.9), "mean": round(statistics.fmean(counts), 3),
+        pmf = {k: counts.count(k) / len(counts) for k in sorted(set(counts))}  # 추정 분포 전체 (보정 검사용)
+        out[w.id] = {"p10": q(0.1), "p50": q(0.5), "p90": q(0.9), "mean": round(statistics.fmean(counts), 3), "pmf": pmf,
                      "weak_baseline": len(mine), "strong_baseline": sum(_ready_time(c, day, cfg, median) <= noon
                                                                          for c in mine),
                      "cases": len(mine)}
@@ -168,6 +169,7 @@ def evaluate(seeds, config=None, cfg: ForecastConfig = ForecastConfig(), samples
         cfg = ForecastConfig(**{**cfg.__dict__, "samples": samples})
     err = {"p50": [], "weak": [], "strong": []}
     covered = n = 0
+    implied, pit, rps = 0.0, [], []
     for seed in seeds:
         h = generate(seed=seed, config=config, distributions=distributions)  # 분포 이동 홀드아웃: 실제만 바뀐다
         store = EventStore(":memory:")
@@ -187,7 +189,23 @@ def evaluate(seeds, config=None, cfg: ForecastConfig = ForecastConfig(), samples
                 err["strong"].append(abs(f["strong_baseline"] - a))
                 covered += f["p10"] <= a <= f["p90"]
                 n += 1
+                # 보정 검사 (DECISIONS 2026-11-12 예측 구간 판정 기준). 병상 수는 작은 정수라 P10~P90 구간(양 끝 포함)이
+                # 담는 확률이 80%보다 크다. 그래서 "명목 80%"가 아니라 추정 분포가 스스로 말한 구간 확률과 견준다
+                pmf = f["pmf"]
+                implied += sum(p for k, p in pmf.items() if f["p10"] <= k <= f["p90"])
+                below, at = sum(p for k, p in pmf.items() if k < a), pmf.get(a, 0.0)
+                pit.append(below + random.Random(f"pit-{seed}-{day}-{w}").random() * at)  # 무작위화 PIT (이산 분포용)
+                top = max(max(pmf), a)
+                rps.append(sum((sum(p for k, p in pmf.items() if k <= x) - (a <= x)) ** 2 for x in range(top + 1)))
+    pit.sort()
+    ks = max(max((i + 1) / n - u, u - i / n) for i, u in enumerate(pit))
     return {"ward_days": n, "MAE_p50": round(statistics.fmean(err["p50"]), 4),
             "MAE_weak_baseline": round(statistics.fmean(err["weak"]), 4),
             "MAE_strong_baseline": round(statistics.fmean(err["strong"]), 4),
-            "coverage_p10_p90": round(covered / n, 4), "coverage_ci95": wilson(covered, n)}
+            "coverage_p10_p90": round(covered / n, 4), "coverage_ci95": wilson(covered, n),
+            # 추정 분포가 스스로 말한 구간 확률의 평균(잘 맞는 추정이면 실제 포함률이 이 값 근처다)
+            "coverage_implied": round(implied / n, 4),
+            # 무작위화 PIT: 잘 맞는 추정이면 0~1 고른 분포. ks는 고른 분포와의 최대 차이, 5% 임계값은 1.36/sqrt(n)
+            "pit_mean": round(statistics.fmean(pit), 4), "pit_ks": round(ks, 4), "pit_ks_crit05": round(1.36 / math.sqrt(n), 4),
+            # 순위 확률 점수(낮을수록 좋음, 분포 전체를 채점). 점 추정의 RPS는 절대 오차와 같아 강한 기준선 MAE와 견준다
+            "rps": round(statistics.fmean(rps), 4)}

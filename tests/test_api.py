@@ -4,7 +4,9 @@
 """
 
 import pytest
-from fastapi.testclient import TestClient
+
+pytest.importorskip("fastapi")  # api 추가 설치가 없으면 건너뛴다(수집 오류로 멈추지 않게)
+from fastapi.testclient import TestClient  # noqa: E402
 
 from turnaround.api.app import create_app
 
