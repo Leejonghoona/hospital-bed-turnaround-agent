@@ -19,7 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from turnaround.events.corrections import apply_correction, apply_release, correction_direction
 from turnaround.events.models import Event, EventType
 from turnaround.saga.worklist import OperatingCalendar, load_operations
-from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, guideline_delta, vacancy_floor
+from turnaround.rules import (DEFAULT_ACH, aerosol_wait_applies, aerosol_wait_min, guideline_delta, needs_sporicidal,
+                              vacancy_floor)
 from turnaround.events.store import EventStore
 from turnaround.ontology import validate as shacl_validate
 from turnaround.saga import fold
@@ -356,14 +357,10 @@ class Gateway:
             return reject(why)  # 연락·확정·입실 뒤 자동 재매칭 금지 (머리가 골라도 막는다)
         if not fallback_ok and choice.action not in rule.allowed_for(raised.payload.get("stage"), contacted):
             return reject("not_allowed")
-        builder = getattr(self, "_input_builder", None)
-        if builder is None:  # 머리가 등록되지 않아도 게이트웨이가 스스로 입력을 계산한다 (2회차 안전 검토)
-            from turnaround.agent.brain import ExceptionBrain
-            from turnaround.agent.llm import FakeLLM
-            builder = ExceptionBrain(self, FakeLLM(), self.policy, wards=getattr(self, "wards", ()))
-        # 머리가 낸 입력은 믿지 않는다: 운영에서는 게이트웨이가 이벤트에서 같은 입력을 다시 계산해 판정한다
-        basis = builder._input(raised, events, now) if builder is not None else choice.basis_input
-        if not fallback_ok and basis:
+        # 머리가 낸 입력(choice.basis_input)은 믿지 않는다: 게이트웨이가 자기 정책(self.policy)으로 이벤트에서 같은 입력을
+        # 다시 계산해 판정한다. 머리가 여럿이거나 머리의 정책이 달라도 판정은 게이트웨이 정책 하나를 따른다 (2차 검수)
+        basis = self._basis_builder()._input(raised, events, now)
+        if not fallback_ok:
             from .guards import situational_block
             if (why := situational_block(basis, choice.action)) is not None:
                 return reject(why)  # 상황별 금지: 정답 세트 측정과 같은 함수 (08 계획 2단계)
@@ -602,6 +599,28 @@ class Gateway:
             self._emit(adm_case, f"{exid}:rematch:{adm_case}", EventType.REMATCH_REQUESTED, now, target="admission",
                        admission_id=adm_case)
 
+    def _basis_builder(self):
+        b = getattr(self, "_own_builder", None)
+        if b is None:
+            from turnaround.agent.brain import ExceptionBrain
+            from turnaround.agent.llm import FakeLLM
+            wards = getattr(self, "_brain_wards", ())
+            b = ExceptionBrain(self, FakeLLM(), self.policy, wards=wards)
+            self._brain_wards, self._own_builder = wards, b  # 생성자가 지운 값을 되돌린다
+        return b
+
+    def _card_extras(self, choice, rule) -> dict:
+        """담당자 카드에 붙는 시스템 값. 값 형식을 검사한다: 행동 이름은 영문 식별자 꼴만,
+        거부 사유도 짧은 코드만(자유 문장 금지). 형식이 다르면 싣지 않는다."""
+        out, p = {}, choice.params or {}
+        for k in ("rejected_action", "ai_hint"):
+            if isinstance(p.get(k), str) and 0 < len(p[k]) <= 40 and p[k].replace("_", "").isalnum() and p[k].isascii():
+                out[k] = p[k]
+        r = p.get("rejected_reason")
+        if isinstance(r, str) and 0 < len(r) <= 60 and r.replace("_", "").replace(":", "").isalnum() and r.isascii():
+            out["rejected_reason"] = r
+        return out
+
     def _execute_action(self, choice, raised: Event, now: datetime) -> None:
         exid, case = choice.exception_id, choice.case
         rule = self.policy.exception_actions.get(choice.trigger)
@@ -613,7 +632,7 @@ class Gateway:
                        rationale=choice.rationale, context=raised.payload.get("context"))
         if choice.action == "escalate":
             card = dict(raised.payload.get("context") or {})
-            card.update({k: choice.params[k] for k in ("rejected_action", "rejected_reason", "ai_hint") if choice.params.get(k)})
+            card.update(self._card_extras(choice, rule))
             card["deadline"] = raised.payload.get("deadline")
             also = []
             p, _ = self._admission(raised.payload.get("admission_id") or case, self._events())
@@ -1050,9 +1069,9 @@ class Gateway:
         if any(e.event_id == key for e in events):
             return Decision("duplicate", "cleaning")
         payload: dict = {"bed_id": d.bed_id, "cleaning_type": "terminal" if d.isolation else cleaning_type}
-        if d.isolation and {"droplet", "airborne"} & set(d.precautions):
+        if d.isolation and aerosol_wait_applies(d.precautions, self.policy.ventilation.droplet_wait):
             payload.update(self.aerosol_wait(d.bed_id, d.organism))
-        if d.isolation and d.organism == "CDIFF":
+        if d.isolation and needs_sporicidal(d.organism):
             payload["sporicidal"] = True
         reasons = []
         if payload["cleaning_type"] != cleaning_type:

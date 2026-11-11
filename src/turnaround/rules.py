@@ -30,9 +30,35 @@ DEFAULT_ACH = {"negative_pressure": 12, "single": 4, "multi": 4}
 VACANCY_FLOOR_MIN = {"MTB": 60}
 
 
+# 정규 원인균 코드 (sim/models.py ORGANISM_PRECAUTIONS와 같다. 시험이 일치를 확인한다)
+KNOWN_ORGANISMS = frozenset({"MTB", "MEASLES", "VARICELLA", "INFLUENZA", "PERTUSSIS", "ADENOVIRUS", "MRSA", "VRE", "CRE",
+                             "CDIFF"})
+
+
+def unknown_organism(organism: str | None) -> bool:
+    """정규 코드가 아닌 원인균 값인가. 입구(매핑·HL7)에서 걸러야 하지만, 걸러지지 않고 들어온 값은
+    쓰는 쪽에서 가장 엄격하게 다룬다(2026-11-12 2차 검수: 글자 비교 규칙이 조용히 꺼지는 문제를 종류째 닫음)."""
+    return organism is not None and organism not in KNOWN_ORGANISMS
+
+
 def vacancy_floor(organism: str | None) -> int:
-    """병원체별 퇴실 후 최소 비움 시간(분). 없으면 0."""
+    """병원체별 퇴실 후 최소 비움 시간(분). 없으면 0. 모르는 원인균은 가장 긴 하한을 쓴다."""
+    if unknown_organism(organism):
+        return max(VACANCY_FLOOR_MIN.values())
     return VACANCY_FLOOR_MIN.get(organism or "", 0)
+
+
+def needs_sporicidal(organism: str | None) -> bool:
+    """퇴실 뒤 아포 대응 소독이 필요한가. C. difficile, 그리고 무엇인지 모르는 원인균(엄격한 쪽)."""
+    return organism == "CDIFF" or unknown_organism(organism)
+
+
+def aerosol_wait_applies(precautions, droplet_wait: bool = False) -> bool:
+    """퇴실 뒤 환기 대기를 거는가. 공기주의는 늘 건다. 비말주의는 병원 설정(ventilation.droplet_wait)을 켠 병원만.
+    근거: 국내 표준예방지침 5.4.5.1은 비말주의에도 대기를 권고하지만 등급 (II) 약한 권고이고, 그 근거 문헌(PHAC)과
+    CDC 2007은 공기주의에만 대기를 둔다 (DECISIONS 2026-11-12 비말 환기 대기)."""
+    p = {getattr(x, "value", x) for x in (precautions or ())}
+    return "airborne" in p or (droplet_wait and "droplet" in p)
 
 
 def aerosol_wait_min(ach: int, removal_pct: float = 99.9) -> int:

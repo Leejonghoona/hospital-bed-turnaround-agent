@@ -231,6 +231,7 @@ class GeneratorConfig(_Frozen):
     isolation_discharge_count: int = Field(default=3, ge=0)
     # 환기 대기: 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다 (LP-23). 병원 규칙으로 덮어쓰려면 값을 넣는다
     aerosol_wait_override_min: int | None = Field(default=None, ge=0)
+    droplet_wait: bool = False  # 비말주의 퇴실에도 환기 대기를 거는 병원 (기본은 공기주의만, DECISIONS 2026-11-12)
     rx_revision_rate: float = Field(default=0.15, ge=0, le=1)  # 퇴원처방 수정 비율 (LP-27, 합성 가정)
     death_count: int = Field(default=1, ge=0)  # 임종실 전실 사례 (DAT-10, 합성 가정)
     ama_count: int = Field(default=1, ge=0)  # 자의 퇴원 사례

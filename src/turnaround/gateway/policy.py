@@ -30,6 +30,7 @@ class Ventilation(BaseModel):
     model_config = ConfigDict(frozen=True)
     removal_pct: float = 99.9
     hospital_wait_min: int | None = Field(default=None, ge=0)  # 병원 규칙 덮어쓰기 (POL-2)
+    droplet_wait: bool = False  # 비말주의 퇴실에도 환기 대기를 건다(국내 지침 5.4.5.1, 등급 II). 기본은 공기주의만
 
 
 class Scoring(BaseModel):

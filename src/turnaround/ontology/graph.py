@@ -85,7 +85,9 @@ def build_graph(rooms: Iterable[Room], beds: Iterable[Bed], occupants: Mapping[s
         if t.sporicidal_done:
             g.add((tn, TA.sporicidalDone, Literal(True)))
         # 환기 대기가 필요한 퇴실이면 "청소 시작 가능 시각"을 정책값으로 미리 계산해 둔다 (SPARQL 날짜 연산 회피)
-        if {IsolationType(x) for x in t.previous_precautions} & _AEROSOL and t.departed_at is not None:
+        _prev = {IsolationType(x) for x in t.previous_precautions}
+        # 공기주의는 늘, 비말주의는 대기 값이 적힌 퇴실만 (비말 대기는 병원 설정, DECISIONS 2026-11-12)
+        if (IsolationType.AIRBORNE in _prev or (_prev & _AEROSOL and t.aerosol_wait_min)) and t.departed_at is not None:
             g.add((tn, TA.aerosolReadyAt, Literal(t.departed_at + timedelta(minutes=t.aerosol_wait_min if t.aerosol_wait_min is not None else aerosol_wait_min),
                                                    datatype=XSD.dateTime)))
     for triple in extra_triples:

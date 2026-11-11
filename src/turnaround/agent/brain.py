@@ -64,6 +64,15 @@ SYSTEM_LOOP = SYSTEM.replace(
     '도구를 부르면 {"tool": "...", "args": {}}, 행동을 고르면 {"action": "...", "params": {}, "rationale": "..."}')
 
 
+# 담당자 카드에 실리는 시스템 전용 값. 모델 출력에 들어 있어도 버린다(모델이 "AI 참고 의견"이나 거부 사유를
+# 꾸며 담당자에게 보이는 일을 막는다, 2026-11-12 2차 검수). 그림자 기록과 대체 경로만 채운다
+RESERVED_PARAMS = ("ai_hint", "rejected_action", "rejected_reason")
+
+
+def _model_params(raw) -> dict:
+    return {k: v for k, v in (raw if isinstance(raw, dict) else {}).items() if k not in RESERVED_PARAMS}
+
+
 class ActionChoice(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     exception_id: str
@@ -96,7 +105,8 @@ class ExceptionBrain:
         # 영구 감사는 그림자 기록·추적 span이 맡는다
         self.records: deque[str] = deque(maxlen=RECORDS_MAX)
         # 게이트웨이가 상황별 금지를 판정할 때 머리가 낸 입력을 믿지 않고 이 함수로 이벤트에서 다시 계산한다 (최고점 루프 1회차)
-        gw._input_builder = self
+        gw._brain_wards = self.wards  # 계산기는 게이트웨이가 자기 정책으로 만든다(머리 객체·정책을 넘기지 않는다)
+        gw._own_builder = None
 
     def open_exceptions(self, events: list[Event]) -> list[Event]:
         done = {e.payload.get("exception_id") for e in events if e.type is EventType.EXCEPTION_RESOLVED}
@@ -235,7 +245,7 @@ class ExceptionBrain:
             out, calls, status = None, [], "llm_error"
         if out is not None:
             try:
-                return ActionChoice(**base, action=str(out["action"]), params=dict(out.get("params") or {}),
+                return ActionChoice(**base, action=str(out["action"]), params=_model_params(out.get("params")),
                                     rationale=str(out.get("rationale") or "")[:300], basis_input=ctx, mode="llm",
                                     tool_calls=calls, loop_status=status)
             except (KeyError, TypeError, ValueError):
@@ -254,7 +264,7 @@ class ExceptionBrain:
             return self._choose_loop(base, ctx, ex, events, now)
         try:
             out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
-            return ActionChoice(**base, action=str(out["action"]), params=dict(out.get("params") or {}),
+            return ActionChoice(**base, action=str(out["action"]), params=_model_params(out.get("params")),
                                 rationale=str(out.get("rationale") or "")[:300], basis_input=ctx,
                                 mode="fake" if self.llm.name == "fake" and not _scripted(self.llm) else "llm")
         except (LLMError, KeyError, TypeError, ValueError):

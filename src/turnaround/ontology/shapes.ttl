@@ -137,3 +137,11 @@ ta:KnownOrganismShape a sh:NodeShape ;
     sh:property [ sh:path ta:organism ;
         sh:in ( "MTB" "MEASLES" "VARICELLA" "INFLUENZA" "PERTUSSIS" "ADENOVIRUS" "MRSA" "VRE" "CRE" "CDIFF" ) ;
         sh:message "정규화되지 않은 원인균 코드" ] .
+
+# 퇴실 기록의 원인균도 같다. 모르는 값이면 아포 소독 규칙("CDIFF" 글자 비교)이 조용히 빠지므로 위반으로 올린다
+ta:KnownPreviousOrganismShape a sh:NodeShape ;
+    rdfs:comment "unknown_organism" ;
+    sh:targetSubjectsOf ta:previousOrganism ;
+    sh:property [ sh:path ta:previousOrganism ;
+        sh:in ( "MTB" "MEASLES" "VARICELLA" "INFLUENZA" "PERTUSSIS" "ADENOVIRUS" "MRSA" "VRE" "CRE" "CDIFF" ) ;
+        sh:message "정규화되지 않은 퇴실 원인균 코드" ] .

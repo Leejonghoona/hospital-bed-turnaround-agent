@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from typing import Iterable, Mapping
 
 from turnaround.sim.models import Bed, CleaningType, IsolationType, Patient, PrecautionStatus, Room, RoomType
+from turnaround.rules import needs_sporicidal
 
 AEROSOL_WAIT_MIN = 104  # 퇴실 기록에 대기 값이 없을 때: 일반실 4회, 99.9% 제거 (지침 부록 3, LP-23)
 _AEROSOL = {IsolationType.AIRBORNE, IsolationType.DROPLET}
@@ -110,11 +111,12 @@ def check_turnover(t: BedTurnover, aerosol_wait_min: int = AEROSOL_WAIT_MIN) -> 
         if at is not None and (terminal_done is None or at < terminal_done):
             out.append(Violation(code, "S2", f"{t.bed_id}: 종말소독 완료 전 {label}"))
     prev = {IsolationType(x) for x in t.previous_precautions}
-    if prev & _AEROSOL and t.departed_at and t.cleaning_started_at and \
+    if (IsolationType.AIRBORNE in prev or (prev & _AEROSOL and t.aerosol_wait_min)) and t.departed_at \
+            and t.cleaning_started_at and \
             t.cleaning_started_at < t.departed_at + timedelta(
                 minutes=t.aerosol_wait_min if t.aerosol_wait_min is not None else aerosol_wait_min):
         out.append(Violation("cleaning_before_aerosol_wait", "S2", f"{t.bed_id}: 환기 대기 전 청소 시작"))
-    if t.previous_organism == "CDIFF" and not t.sporicidal_done:
+    if needs_sporicidal(t.previous_organism) and not t.sporicidal_done:
         out.append(Violation("sporicidal_missing", "S2", f"{t.bed_id}: C. difficile 퇴실 아포 소독 누락"))
     return out
 

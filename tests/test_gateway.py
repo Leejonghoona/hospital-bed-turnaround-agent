@@ -274,8 +274,7 @@ def test_general_cleaning_for_isolation_discharge_is_corrected_not_rejected():
     assert d.status == "executed"
     req = [e for e in store.read() if e.type is EventType.CLEANING_REQUEST_ISSUED]
     assert len(req) == 1
-    assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", "aerosol_wait_min": 104,
-                              "overridden_from": "general"}
+    assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", "overridden_from": "general"}
     assert gw.request_cleaning("D1", "general", at(11, 5)).status == "duplicate"
 
 

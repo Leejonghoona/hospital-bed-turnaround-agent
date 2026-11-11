@@ -28,11 +28,15 @@ def _digest(h) -> str:
 # ---------- 끄면 그대로 ----------
 
 @pytest.mark.parametrize("cfg,seed,want", [
-    (GeneratorConfig(), 0, "85d9263071fab523"), (GeneratorConfig(), 7, "85ac63099564b420"),
-    (GeneratorConfig.realistic(), 0, "b55fe7b969a68cc7"), (GeneratorConfig.realistic(), 7, "93c1d4fec4705b76"),
+    # 비말 환기 대기를 켜면 옵션 추가 전 커밋에서 잰 지문(2026-11-10)과 같다: 2026-11-12에 바뀐 것은 비말 대기뿐이다
+    (GeneratorConfig(droplet_wait=True), 0, "85d9263071fab523"), (GeneratorConfig(droplet_wait=True), 7, "85ac63099564b420"),
+    (GeneratorConfig.realistic(droplet_wait=True), 0, "b55fe7b969a68cc7"),
+    (GeneratorConfig.realistic(droplet_wait=True), 7, "93c1d4fec4705b76"),
+    # 기본(공기주의만 대기). 비말 퇴실이 없는 시드 7은 그대로다
+    (GeneratorConfig(), 0, "f67bb358f2366624"), (GeneratorConfig(), 7, "85ac63099564b420"),
+    (GeneratorConfig.realistic(), 0, "ffcb23d1ff891b95"), (GeneratorConfig.realistic(), 7, "93c1d4fec4705b76"),
 ])
 def test_option_off_keeps_generator_output_identical(cfg, seed, want):
-    # 옵션 추가 전 커밋에서 잰 퇴원 기록 지문 (2026-11-10)
     assert cfg.ops_realism is False
     assert _digest(generate(seed=seed, config=cfg)) == want
 

@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from turnaround.events.corrections import correction_direction
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
-from turnaround.rules import DEFAULT_ACH, aerosol_wait_min, vacancy_floor
+from turnaround.rules import DEFAULT_ACH, aerosol_wait_applies, aerosol_wait_min, needs_sporicidal, vacancy_floor
 
 from .isolation import decide_contact_trace, decide_isolation_info, decide_late_isolation_admission
 
@@ -35,6 +35,7 @@ class SagaPolicy(BaseModel):
     bed_ach: dict[str, int] = {}
     removal_pct: float = 99.9
     aerosol_wait_override_min: int | None = None  # 병원 규칙
+    droplet_wait: bool = False  # 비말주의 퇴실에도 환기 대기 (정책 ventilation.droplet_wait)
     # 격리 정보 (설계 개정 3.7 (가)). 위험 조건이 비어 있으면 알림을 내지 않는다(지금 동작)
     isolation_risk_conditions: tuple[str, ...] = ()
     isolation_alert_to: tuple[str, ...] = ("bed_manager", "ipc")
@@ -66,7 +67,8 @@ class SagaPolicy(BaseModel):
                     isolation_mismatch_after=timedelta(minutes=hp.isolation.mismatch_alert_min),
                     exceptions_enabled=policy.brain.enabled, lounge_enabled=hp.guardian.lounge_enabled,
                     cleaning_split=hp.cleaning.split, field_sequence=hp.discharge_sequence.preset == "field", call_up_enabled=hp.ward_confirmation.mode == "notify",
-                    exception_deadline=timedelta(minutes=policy.brain.max_wait_min))
+                    exception_deadline=timedelta(minutes=policy.brain.max_wait_min),
+                    droplet_wait=policy.ventilation.droplet_wait)
         vals.update(kw)
         return cls.for_layout(rooms, beds, **vals) if rooms is not None else cls(**vals)
 
@@ -617,9 +619,9 @@ def _decide_discharge(d: DischargeCase, s: SagaState, now: datetime, out: _Out, 
     # 퇴실 즉시 청소 요청 (AS-01). 격리면 종말소독 강제
     if departed is not None:
         extra = {}
-        if d.isolation and {"droplet", "airborne"} & set(d.precautions):
+        if d.isolation and aerosol_wait_applies(d.precautions, p.droplet_wait):
             extra["aerosol_wait_min"] = p.aerosol_wait(bed, d.organism)  # 환기 대기 뒤 청소 (LP-23)
-        if d.isolation and d.organism == "CDIFF":
+        if d.isolation and needs_sporicidal(d.organism):
             extra["sporicidal"] = True  # 아포 대응 소독
         # 퇴실 시점에 알던 격리 여부로 첫 요청을 내고, 퇴실 뒤 격리 오더가 오면 종말소독으로 올린다
         # (늦게 도착한 안전 정보. 실행 시각에 상관없이 같은 결과가 나오도록 사실의 인지 시각으로 판정)

@@ -212,14 +212,17 @@ def test_isolation_patients_follow_organism_precaution_table(seed):
             assert p.precautions == () and p.organism is None
 
 
+@pytest.mark.parametrize("droplet_wait", [False, True])
 @pytest.mark.parametrize("seed", range(0, 30))
-def test_turnover_requirements_follow_precautions(seed):
-    """비말·공기주의 퇴실은 병실 공기순환 횟수로 정한 환기 대기 뒤 청소, C. difficile은 아포 대응 소독 (LP-23)."""
-    from turnaround.rules import aerosol_wait_min
-    h = generate(seed=seed)
+def test_turnover_requirements_follow_precautions(seed, droplet_wait):
+    """공기주의 퇴실은 병실 공기순환 횟수로 정한 환기 대기 뒤 청소(LP-23). 비말주의는 병원 설정을 켠 병원만
+    (DECISIONS 2026-11-12). C. difficile은 아포 대응 소독."""
+    from turnaround.rules import aerosol_wait_applies, aerosol_wait_min
+    from turnaround.sim import GeneratorConfig
+    h = generate(seed=seed, config=GeneratorConfig(droplet_wait=droplet_wait))
     ach = {b.id: r.air_changes_per_hour for r in h.rooms for b in h.beds if b.room_id == r.id}
     for d in h.discharges:
-        aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(d.patient.precautions))
+        aerosol = aerosol_wait_applies(d.patient.precautions, droplet_wait)
         assert d.aerosol_wait_min == (aerosol_wait_min(ach[d.bed_id]) if aerosol else 0)
         assert d.actual.cleaning_started_at >= d.actual.departed_at + timedelta(minutes=d.aerosol_wait_min)
         assert d.sporicidal == (d.patient.organism == "CDIFF")

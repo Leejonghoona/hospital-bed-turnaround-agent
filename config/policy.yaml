@@ -38,8 +38,9 @@ manual_override:
     gender_room: forbidden                 # 의료법 시행규칙 제35조의2제2호 "입원실은 남ㆍ여별로 구별하여 운영할 것" (예외 단서는 공포 뒤 반영)
   preapproval_organisms:
     isolation_room: [CRE, CPE]             # 5.2.1 CRE 1인실 우선, 감염관리실무자 결정
-ventilation:                 # 비말·공기주의 퇴실 환기 대기 (LP-23). 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다
+ventilation:                 # 공기주의 퇴실 환기 대기 (LP-23). 병실 공기순환 횟수로 지침 부록 3 표에서 찾는다
   removal_pct: 99.9
+  droplet_wait: false        # 비말주의 퇴실에도 대기를 걸려면 true (국내 지침 5.4.5.1, 약한 권고 II. DECISIONS 2026-11-12)
   hospital_wait_min: null    # 병원 규칙으로 덮어쓸 때만 분 단위로 넣는다. 지침 값과 다르면 "지침 대비" 표시 (POL-2)
 external_llm: deny
 admission_priority: [icu_stepdown]   # 목표 함수 3항 임상 우선순위(처리 순서만). 응급실 경유는 설문 뒤 추가

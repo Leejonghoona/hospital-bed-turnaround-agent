@@ -13,6 +13,7 @@ from datetime import datetime, time, timedelta
 
 from turnaround.events.models import Event, EventType
 from turnaround.gateway import Gateway
+from turnaround.rules import aerosol_wait_applies
 from turnaround.saga import fold
 from turnaround.sim.distributions import DEFAULT_STAGE_DISTRIBUTIONS
 from turnaround.sim.models import IsolationType, Patient, RoomType
@@ -131,7 +132,7 @@ class PlanningTools:
         m = lambda k: timedelta(minutes=k)  # noqa: E731
         clean = _MED["cleaning_terminal"] if d.isolation else _MED["cleaning_general"]
         wait = 0
-        if d.isolation and {"droplet", "airborne"} & set(d.precautions):
+        if d.isolation and aerosol_wait_applies(d.precautions, self.gw.policy.ventilation.droplet_wait):
             wait = self.gw.aerosol_wait(bed_id)["aerosol_wait_min"]
         if EventType.CLEANING_DONE in f:
             t = f[EventType.CLEANING_DONE] + m(_MED["bed_make"])

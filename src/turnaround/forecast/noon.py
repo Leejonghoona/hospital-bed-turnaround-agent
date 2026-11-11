@@ -19,6 +19,7 @@ from datetime import datetime, time, timedelta
 
 from turnaround.events.models import Event, EventType
 from turnaround.events.store import EventStore
+from turnaround.rules import aerosol_wait_applies
 from turnaround.saga import fold
 from turnaround.sim.distributions import DEFAULT_STAGE_DISTRIBUTIONS
 from turnaround.sim.models import StageDistribution, SyntheticHospital
@@ -60,7 +61,7 @@ def _cases(events: list[Event], day: datetime, ward_of: dict[str, str], aerosol:
         for e in events:
             if e.case_id == d.id and e.type in (EventType.GUARDIAN_ETA_SET, EventType.GUARDIAN_ETA_UPDATED):
                 eta = datetime.fromisoformat(e.payload["eta"])
-        wait = aerosol.get(d.bed_id, 0) if d.isolation and {"droplet", "airborne"} & set(d.precautions) else 0
+        wait = aerosol.get(d.bed_id, 0) if d.isolation and aerosol_wait_applies(d.precautions) else 0
         out.append(_Case(ward_of[d.bed_id], d.isolation, wait, dict(d.facts), eta))
     return out
 

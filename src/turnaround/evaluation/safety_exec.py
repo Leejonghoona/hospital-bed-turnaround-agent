@@ -13,12 +13,12 @@ from datetime import time
 from typing import Iterable
 
 from turnaround.events import Event, EventType
-from turnaround.rules import vacancy_floor
+from turnaround.rules import needs_sporicidal, vacancy_floor
 from turnaround.saga import fold
 
 from .invariants import Violation, check_assignment, zero_event_upper_bound
 
-_AEROSOL = {"droplet", "airborne"}
+_AEROSOL = {"airborne"}  # 환기 대기가 늘 필요한 주의. 비말주의는 병원 설정이라 불변식이 아니다 (DECISIONS 2026-11-12)
 
 
 def _row(violations: list[Violation], n: int) -> dict:
@@ -71,7 +71,7 @@ def _s2(gw, events: list[Event]) -> dict:
             found.append(Violation("aerosol_wait_missing", "S2", f"{d.bed_id}: 환기 대기 표시 없음"))
         if (req.payload.get("aerosol_wait_min") or 0) < vacancy_floor(d.organism):
             found.append(Violation("vacancy_floor_short", "S2", f"{d.bed_id}: {d.organism} 퇴실 비움 시간이 지침 하한보다 짧음"))
-        if d.organism == "CDIFF" and not req.payload.get("sporicidal"):
+        if needs_sporicidal(d.organism) and not req.payload.get("sporicidal"):
             found.append(Violation("sporicidal_missing", "S2", f"{d.bed_id}: 아포 소독 표시 없음"))
         done = next((e for e in events if e.type is EventType.CLEANING_DONE and e.case_id == d.id
                      and e.observed_at >= req.occurred_at

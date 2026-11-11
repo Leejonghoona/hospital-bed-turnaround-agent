@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 
 from turnaround.agent.mapping_agent import _PATIENT_ONLY_GENDER, Question, _time_format, allowed_values
 from turnaround.events import Event, EventType
+from turnaround.rules import unknown_organism
 
 from .core import event_kinds
 from .hl7v2 import Message, Segment
@@ -158,7 +159,12 @@ class _Ctx:
                 if val not in got["precautions"]:
                     got["precautions"].append(val)
             elif key == "patient.organism":
-                got["organism"] = self.cfg.codes.get(key, {}).get(raw, raw)
+                val = self.cfg.codes.get(key, {}).get(raw, raw)
+                if unknown_organism(val):  # 정규 코드가 아니면 추측하지 않는다 (주의 코드와 같은 규칙, 2차 검수)
+                    self.out.ask(f"code:{key}:{raw}", f"{ans['field']}={raw}", "원인균 코드표에 없는 값이다(안전 속성, 사람 확인)")
+                    unread.append(pos)
+                    continue
+                got["organism"] = val
         return got, unread
 
 

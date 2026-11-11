@@ -357,8 +357,9 @@ def _decided_with(organism, precautions, bed="W72-R01-B1"):
 
 
 @pytest.mark.parametrize("organism,precautions,extra", [
-    ("INFLUENZA", ["droplet"], {"aerosol_wait_min": 104}),  # 병상 정보 없으면 일반실 4회
-    ("MEASLES", ["airborne"], {"aerosol_wait_min": 104}),
+    ("INFLUENZA", ["droplet"], {}),  # 비말주의는 기본 대기 없음 (병원 설정, DECISIONS 2026-11-12)
+    ("MEASLES", ["airborne"], {"aerosol_wait_min": 104}),  # 병상 정보 없으면 일반실 4회
+    ("C. difficile", ["contact"], {"sporicidal": True}),  # 정규화 안 된 원인균은 가장 엄격하게: 아포 소독
     ("CDIFF", ["contact"], {"sporicidal": True}),
     ("MRSA", ["contact"], {}),
 ])
@@ -367,6 +368,15 @@ def test_cleaning_request_carries_precaution_requirements(organism, precautions,
                     departed(bed="W72-R01-B1")], until=at(0, 11, 10))
     req = saga_events(store, EventType.CLEANING_REQUEST_ISSUED)
     assert req[0].payload == {"bed_id": "W72-R01-B1", "cleaning_type": "terminal", **extra}
+
+
+def test_droplet_wait_is_a_hospital_setting():
+    from turnaround.saga.machine import SagaPolicy, decide, fold
+    evs = [_decided_with("INFLUENZA", ["droplet"]), registered(bed="W72-R01-B1"), departed(bed="W72-R01-B1")]
+    for on, want in ((False, None), (True, 104)):
+        out = decide(fold(evs), at(0, 11, 10), set(), SagaPolicy(droplet_wait=on))
+        req = [e for e in out if e.type is EventType.CLEANING_REQUEST_ISSUED]
+        assert req and req[0].payload.get("aerosol_wait_min") == want
 
 
 def test_aerosol_wait_uses_room_ach_from_layout():

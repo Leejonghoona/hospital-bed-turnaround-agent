@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from datetime import datetime, time, timedelta
 
-from turnaround.rules import aerosol_wait_min
+from turnaround.rules import aerosol_wait_applies, aerosol_wait_min, needs_sporicidal
 
 from . import ops
 
@@ -274,7 +274,7 @@ class _Gen:
                 seq = dict(billing_review_done_at=review, billing_review_reopened_at=reopened, notice_given_at=notice,
                            receipt_checked_at=receipt, medication_handed_at=handed)
             requested = departed + m(d["baseline_cleaning_request_delay"])
-            aerosol = bool({IsolationType.AIRBORNE, IsolationType.DROPLET} & set(patient.precautions))
+            aerosol = aerosol_wait_applies(patient.precautions, cfg.droplet_wait)
             room = self.room_by_id[bed.room_id]
             wait = (cfg.aerosol_wait_override_min if cfg.aerosol_wait_override_min is not None
                     else aerosol_wait_min(room.air_changes_per_hour)) if aerosol else 0
@@ -299,7 +299,7 @@ class _Gen:
                 guardian_expected_at=guardian_expected, guardian_delayed=i in guardian_delayed,
                 cleaning_type=cleaning_type, cleaning_delayed=i in cleaning_delayed,
                 cleaning_extra_delay_min=extra, durations_min=d,
-                aerosol_wait_min=wait, sporicidal=patient.organism == "CDIFF", rx_revision_reason=rx_reason,
+                aerosol_wait_min=wait, sporicidal=needs_sporicidal(patient.organism), rx_revision_reason=rx_reason,
                 discharge_type=dtype.get(i, "normal"), death_place=place.get(i),
                 actual=DischargeTimeline(
                     order_confirmed_at=order, medication_ready_at=med, education_done_at=edu,
