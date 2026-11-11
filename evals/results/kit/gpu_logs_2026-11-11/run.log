@@ -1,0 +1,61 @@
+=== judge rental-gpt-oss-120b 04:03:44
+vLLM start failed: rental-gpt-oss-120b
+=== judge rental-gpt-oss-20b 04:07:09
+K3 verdict rental-gpt-oss-20b: True
+ "exception_latency_s": {
+  "p50": 1.367,
+  "p95": 2.393
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 1.344,
+  "p95": 2.187
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 1.697,
+  "p95": 2.743
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 1.877,
+  "p95": 4.35
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+=== judge rental-gemma-4-26b 04:17:32
+vLLM start failed: rental-gemma-4-26b
+=== explore rental-gemma-4-31b 04:17:47
+vLLM start failed: rental-gemma-4-31b
+=== explore rental-kanana-2-30b 04:18:02
+K3 explore rental-kanana-2-30b: False
+=== explore rental-hcx-seed-14b 04:23:24
+vLLM start failed: rental-hcx-seed-14b
+=== done 04:23:43: results_gpu.tgz

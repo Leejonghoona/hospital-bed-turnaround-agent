@@ -1,0 +1,328 @@
+vLLM start failed: rental-gpt-oss-120b
+(APIServer pid=2163)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=2163)     async with build_async_engine_client(
+(APIServer pid=2163)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=2163)     return await anext(self.gen)
+(APIServer pid=2163)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=2163)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=2163)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=2163)     return await anext(self.gen)
+(APIServer pid=2163)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 136, in build_async_engine_client_from_engine_args
+(APIServer pid=2163)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=2163)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 225, in from_vllm_config
+(APIServer pid=2163)     return cls(
+(APIServer pid=2163)            ^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 154, in __init__
+(APIServer pid=2163)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=2163)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=2163)     return func(*args, **kwargs)
+(APIServer pid=2163)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 130, in make_async_mp_client
+(APIServer pid=2163)     return AsyncMPClient(*client_args)
+(APIServer pid=2163)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=2163)     return func(*args, **kwargs)
+(APIServer pid=2163)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 887, in __init__
+(APIServer pid=2163)     super().__init__(
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 535, in __init__
+(APIServer pid=2163)     with launch_core_engines(
+(APIServer pid=2163)   File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=2163)     next(self.gen)
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 998, in launch_core_engines
+(APIServer pid=2163)     wait_for_engine_startup(
+(APIServer pid=2163)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1057, in wait_for_engine_startup
+(APIServer pid=2163)     raise RuntimeError(
+(APIServer pid=2163) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+vLLM start failed: rental-gemma-4-26b
+(APIServer pid=8637)     return __asyncio.run(
+(APIServer pid=8637)            ^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+(APIServer pid=8637)     return runner.run(main)
+(APIServer pid=8637)            ^^^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=8637)     return self._loop.run_until_complete(task)
+(APIServer pid=8637)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "uvloop/loop.pyx", line 1515, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=8637)     return await main
+(APIServer pid=8637)            ^^^^^^^^^^
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 670, in run_server
+(APIServer pid=8637)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=8637)     async with build_async_engine_client(
+(APIServer pid=8637)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=8637)     return await anext(self.gen)
+(APIServer pid=8637)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=8637)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=8637)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=8637)     return await anext(self.gen)
+(APIServer pid=8637)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=8637)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=8637)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1549, in create_engine_config
+(APIServer pid=8637)     model_config = self.create_model_config()
+(APIServer pid=8637)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1398, in create_model_config
+(APIServer pid=8637)     return ModelConfig(
+(APIServer pid=8637)            ^^^^^^^^^^^^
+(APIServer pid=8637)   File "/root/venv/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=8637)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=8637) pydantic_core._pydantic_core.ValidationError: 1 validation error for ModelConfig
+(APIServer pid=8637)   Value error, The checkpoint you are trying to load has model type `gemma4` but Transformers does not recognize this architecture. This could be because of an issue with the checkpoint, or because your version of Transformers is out of date.
+(APIServer pid=8637) 
+(APIServer pid=8637) You can update Transformers with the command `pip install --upgrade transformers`. If this does not work, and the checkpoint is very new, then there may not be a release version that supports this model yet. In this case, you can get the most up-to-date code by installing Transformers from source with the command `pip install git+https://github.com/huggingface/transformers.git` [type=value_error, input_value=ArgsKwargs((), {'model': ...nderer_num_workers': 1}), input_type=ArgsKwargs]
+(APIServer pid=8637)     For further information visit https://errors.pydantic.dev/2.14/v/value_error
+vLLM start failed: rental-gemma-4-31b
+(APIServer pid=8845)     return __asyncio.run(
+(APIServer pid=8845)            ^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+(APIServer pid=8845)     return runner.run(main)
+(APIServer pid=8845)            ^^^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=8845)     return self._loop.run_until_complete(task)
+(APIServer pid=8845)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "uvloop/loop.pyx", line 1515, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=8845)     return await main
+(APIServer pid=8845)            ^^^^^^^^^^
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 670, in run_server
+(APIServer pid=8845)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=8845)     async with build_async_engine_client(
+(APIServer pid=8845)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=8845)     return await anext(self.gen)
+(APIServer pid=8845)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=8845)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=8845)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=8845)     return await anext(self.gen)
+(APIServer pid=8845)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=8845)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=8845)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1549, in create_engine_config
+(APIServer pid=8845)     model_config = self.create_model_config()
+(APIServer pid=8845)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1398, in create_model_config
+(APIServer pid=8845)     return ModelConfig(
+(APIServer pid=8845)            ^^^^^^^^^^^^
+(APIServer pid=8845)   File "/root/venv/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=8845)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=8845) pydantic_core._pydantic_core.ValidationError: 1 validation error for ModelConfig
+(APIServer pid=8845)   Value error, The checkpoint you are trying to load has model type `gemma4` but Transformers does not recognize this architecture. This could be because of an issue with the checkpoint, or because your version of Transformers is out of date.
+(APIServer pid=8845) 
+(APIServer pid=8845) You can update Transformers with the command `pip install --upgrade transformers`. If this does not work, and the checkpoint is very new, then there may not be a release version that supports this model yet. In this case, you can get the most up-to-date code by installing Transformers from source with the command `pip install git+https://github.com/huggingface/transformers.git` [type=value_error, input_value=ArgsKwargs((), {'model': ...nderer_num_workers': 1}), input_type=ArgsKwargs]
+(APIServer pid=8845)     For further information visit https://errors.pydantic.dev/2.14/v/value_error
+vLLM start failed: rental-hcx-seed-14b
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=10937)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=10937)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=10937)     return await anext(self.gen)
+(APIServer pid=10937)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=10937)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=10937)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1549, in create_engine_config
+(APIServer pid=10937)     model_config = self.create_model_config()
+(APIServer pid=10937)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1398, in create_model_config
+(APIServer pid=10937)     return ModelConfig(
+(APIServer pid=10937)            ^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=10937)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/config/model.py", line 491, in __post_init__
+(APIServer pid=10937)     hf_config = get_config(
+(APIServer pid=10937)                 ^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 691, in get_config
+(APIServer pid=10937)     config_dict, config = config_parser.parse(
+(APIServer pid=10937)                           ^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/vllm/transformers_utils/config.py", line 215, in parse
+(APIServer pid=10937)     config = AutoConfig.from_pretrained(
+(APIServer pid=10937)              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/transformers/models/auto/configuration_auto.py", line 1346, in from_pretrained
+(APIServer pid=10937)     config_class = get_class_from_dynamic_module(
+(APIServer pid=10937)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/transformers/dynamic_module_utils.py", line 604, in get_class_from_dynamic_module
+(APIServer pid=10937)     final_module = get_cached_module_file(
+(APIServer pid=10937)                    ^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/transformers/dynamic_module_utils.py", line 406, in get_cached_module_file
+(APIServer pid=10937)     resolved_module_file = cached_file(
+(APIServer pid=10937)                            ^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/transformers/utils/hub.py", line 322, in cached_file
+(APIServer pid=10937)     file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+(APIServer pid=10937)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=10937)   File "/root/venv/lib/python3.12/site-packages/transformers/utils/hub.py", line 583, in cached_files
+(APIServer pid=10937)     raise OSError(
+(APIServer pid=10937) OSError: naver-hyperclovax/HyperCLOVAX-SEED-Think-14B does not appear to have a file named configuration_hyperclovax.py. Checkout 'https://huggingface.co/naver-hyperclovax/HyperCLOVAX-SEED-Think-14B/tree/9b74e35d4c7e4ffec489f4171273caca8948a2b9' for available files.
+vLLM start failed: rental-gemma-4-31b
+(APIServer pid=15576)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=15576)     async with build_async_engine_client(
+(APIServer pid=15576)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=15576)     return await anext(self.gen)
+(APIServer pid=15576)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=15576)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=15576)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=15576)     return await anext(self.gen)
+(APIServer pid=15576)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 136, in build_async_engine_client_from_engine_args
+(APIServer pid=15576)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=15576)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 225, in from_vllm_config
+(APIServer pid=15576)     return cls(
+(APIServer pid=15576)            ^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 154, in __init__
+(APIServer pid=15576)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=15576)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=15576)     return func(*args, **kwargs)
+(APIServer pid=15576)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 130, in make_async_mp_client
+(APIServer pid=15576)     return AsyncMPClient(*client_args)
+(APIServer pid=15576)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=15576)     return func(*args, **kwargs)
+(APIServer pid=15576)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 887, in __init__
+(APIServer pid=15576)     super().__init__(
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 535, in __init__
+(APIServer pid=15576)     with launch_core_engines(
+(APIServer pid=15576)   File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=15576)     next(self.gen)
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 998, in launch_core_engines
+(APIServer pid=15576)     wait_for_engine_startup(
+(APIServer pid=15576)   File "/root/venv2/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1057, in wait_for_engine_startup
+(APIServer pid=15576)     raise RuntimeError(
+(APIServer pid=15576) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+vLLM start failed: rental-gpt-oss-120b
+(APIServer pid=16305)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=16305)     async with build_async_engine_client(
+(APIServer pid=16305)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=16305)     return await anext(self.gen)
+(APIServer pid=16305)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=16305)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=16305)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=16305)     return await anext(self.gen)
+(APIServer pid=16305)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 136, in build_async_engine_client_from_engine_args
+(APIServer pid=16305)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=16305)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 225, in from_vllm_config
+(APIServer pid=16305)     return cls(
+(APIServer pid=16305)            ^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 154, in __init__
+(APIServer pid=16305)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=16305)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=16305)     return func(*args, **kwargs)
+(APIServer pid=16305)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 130, in make_async_mp_client
+(APIServer pid=16305)     return AsyncMPClient(*client_args)
+(APIServer pid=16305)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=16305)     return func(*args, **kwargs)
+(APIServer pid=16305)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 887, in __init__
+(APIServer pid=16305)     super().__init__(
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 535, in __init__
+(APIServer pid=16305)     with launch_core_engines(
+(APIServer pid=16305)   File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=16305)     next(self.gen)
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 998, in launch_core_engines
+(APIServer pid=16305)     wait_for_engine_startup(
+(APIServer pid=16305)   File "/root/venv/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1057, in wait_for_engine_startup
+(APIServer pid=16305)     raise RuntimeError(
+(APIServer pid=16305) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+vLLM start failed: rental-hcx-seed-14b
+(APIServer pid=17236)     return __asyncio.run(
+(APIServer pid=17236)            ^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+(APIServer pid=17236)     return runner.run(main)
+(APIServer pid=17236)            ^^^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=17236)     return self._loop.run_until_complete(task)
+(APIServer pid=17236)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "uvloop/loop.pyx", line 1515, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=17236)     return await main
+(APIServer pid=17236)            ^^^^^^^^^^
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 670, in run_server
+(APIServer pid=17236)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=17236)     async with build_async_engine_client(
+(APIServer pid=17236)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=17236)     return await anext(self.gen)
+(APIServer pid=17236)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=17236)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=17236)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=17236)     return await anext(self.gen)
+(APIServer pid=17236)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=17236)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=17236)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1549, in create_engine_config
+(APIServer pid=17236)     model_config = self.create_model_config()
+(APIServer pid=17236)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1398, in create_model_config
+(APIServer pid=17236)     return ModelConfig(
+(APIServer pid=17236)            ^^^^^^^^^^^^
+(APIServer pid=17236)   File "/root/venv/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=17236)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=17236) pydantic_core._pydantic_core.ValidationError: 1 validation error for ModelConfig
+(APIServer pid=17236)   Value error, The repository naver-hyperclovax/HyperCLOVAX-SEED-Think-14B contains custom code which must be executed to correctly load the model. You can inspect the repository content at https://hf.co/naver-hyperclovax/HyperCLOVAX-SEED-Think-14B .
+(APIServer pid=17236)  You can inspect the repository content at https://hf.co/naver-hyperclovax/HyperCLOVAX-SEED-Think-14B.
+(APIServer pid=17236) Please pass the argument `trust_remote_code=True` to allow custom code to be run. [type=value_error, input_value=ArgsKwargs((), {'model': ...nderer_num_workers': 1}), input_type=ArgsKwargs]
+(APIServer pid=17236)     For further information visit https://errors.pydantic.dev/2.14/v/value_error
+vLLM start failed: rental-hcx-seed-14b
+(APIServer pid=24180)     return __asyncio.run(
+(APIServer pid=24180)            ^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+(APIServer pid=24180)     return runner.run(main)
+(APIServer pid=24180)            ^^^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=24180)     return self._loop.run_until_complete(task)
+(APIServer pid=24180)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "uvloop/loop.pyx", line 1515, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=24180)     return await main
+(APIServer pid=24180)            ^^^^^^^^^^
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 670, in run_server
+(APIServer pid=24180)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 684, in run_server_worker
+(APIServer pid=24180)     async with build_async_engine_client(
+(APIServer pid=24180)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=24180)     return await anext(self.gen)
+(APIServer pid=24180)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=24180)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=24180)   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=24180)     return await anext(self.gen)
+(APIServer pid=24180)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=24180)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=24180)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1549, in create_engine_config
+(APIServer pid=24180)     model_config = self.create_model_config()
+(APIServer pid=24180)                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1398, in create_model_config
+(APIServer pid=24180)     return ModelConfig(
+(APIServer pid=24180)            ^^^^^^^^^^^^
+(APIServer pid=24180)   File "/root/venv/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+(APIServer pid=24180)     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+(APIServer pid=24180) pydantic_core._pydantic_core.ValidationError: 1 validation error for ModelConfig
+(APIServer pid=24180)   Value error, The checkpoint you are trying to load has model type `hyperclovax` but Transformers does not recognize this architecture. This could be because of an issue with the checkpoint, or because your version of Transformers is out of date.
+(APIServer pid=24180) 
+(APIServer pid=24180) You can update Transformers with the command `pip install --upgrade transformers`. If this does not work, and the checkpoint is very new, then there may not be a release version that supports this model yet. In this case, you can get the most up-to-date code by installing Transformers from source with the command `pip install git+https://github.com/huggingface/transformers.git` [type=value_error, input_value=ArgsKwargs((), {'model': ...nderer_num_workers': 1}), input_type=ArgsKwargs]
+(APIServer pid=24180)     For further information visit https://errors.pydantic.dev/2.14/v/value_error

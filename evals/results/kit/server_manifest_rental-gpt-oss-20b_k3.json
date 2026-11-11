@@ -1,0 +1,42 @@
+{
+ "alias": "rental-gpt-oss-20b",
+ "condition": "k3",
+ "hf_repo": "openai/gpt-oss-20b",
+ "hf_revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+ "vllm": "0.19.0",
+ "vllm_args": "--max-model-len 4096 --max-num-seqs 16 --gpu-memory-utilization 0.90",
+ "gpu": "NVIDIA H100 80GB HBM3, 81559 MiB, 595.91.07",
+ "torch": "2.10.0",
+ "python": "3.12.3",
+ "models_api": {
+  "object": "list",
+  "data": [
+   {
+    "id": "openai/gpt-oss-20b",
+    "object": "model",
+    "created": 1794370184,
+    "owned_by": "vllm",
+    "root": "openai/gpt-oss-20b",
+    "parent": null,
+    "max_model_len": 4096,
+    "permission": [
+     {
+      "id": "modelperm-a919c5a7e101bc97",
+      "object": "model_permission",
+      "created": 1794370184,
+      "allow_create_engine": false,
+      "allow_sampling": true,
+      "allow_logprobs": true,
+      "allow_search_indices": false,
+      "allow_view": true,
+      "allow_fine_tuning": false,
+      "organization": "*",
+      "group": null,
+      "is_blocking": false
+     }
+    ]
+   }
+  ]
+ },
+ "country": "IN"
+}

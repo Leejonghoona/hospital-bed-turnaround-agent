@@ -1,0 +1,7 @@
+=== retry hcx 04:37:15 without --trust-remote-code
+=== explore rental-hcx-seed-14b 04:37:20
+vLLM start failed: rental-hcx-seed-14b
+=== done 04:37:36: results_gpu.tgz
+tar: Removing leading `/' from member names
+tar: Removing leading `/' from hard link targets
+=== all done 04:37:36

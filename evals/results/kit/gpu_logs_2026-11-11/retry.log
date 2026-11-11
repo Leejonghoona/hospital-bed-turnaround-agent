@@ -1,0 +1,61 @@
+=== retry gemma 04:23:58 transformers 5.5.4
+=== judge rental-gemma-4-26b 04:24:03
+K3 verdict rental-gemma-4-26b: True
+ "exception_latency_s": {
+  "p50": 1.526,
+  "p95": 3.038
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 1.523,
+  "p95": 2.863
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 1.697,
+  "p95": 4.112
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 1.659,
+  "p95": 2.93
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+=== explore rental-gemma-4-31b 04:34:31
+vLLM start failed: rental-gemma-4-31b
+=== done 04:35:28: results_gpu.tgz
+=== retry gpt-oss-120b 04:35:28 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+=== judge rental-gpt-oss-120b 04:35:34
+vLLM start failed: rental-gpt-oss-120b
+=== done 04:37:10: results_gpu.tgz
+tar: Removing leading `/' from member names
+tar: Removing leading `/' from hard link targets
+=== retry done 04:37:10
