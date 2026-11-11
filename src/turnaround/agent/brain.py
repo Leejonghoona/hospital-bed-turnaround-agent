@@ -204,7 +204,11 @@ class ExceptionBrain:
             rec["status"], rec["error"] = "llm_error", str(e)[:200]
         rec["latency_s"] = round(time.monotonic() - t0, 3)
         self.shadow_log.append(rec)
-        return ActionChoice(**base, action=rule["action"], params=dict(rule.get("params") or {}),
+        params = dict(rule.get("params") or {})
+        if rule.get("default") and rule["action"] == "escalate" and rec["status"] == "ok" and not rec["would_block"]:
+            # 규칙표가 정하지 못한 새 상황: LLM 답을 담당자 카드에 참고 의견으로만 붙인다 (실행하지 않음, 규칙표 반영 집계에서 제외)
+            params["ai_hint"] = rec["model_action"].split(":", 1)[0]
+        return ActionChoice(**base, action=rule["action"], params=params,
                             rationale=str(rule.get("rationale") or "")[:300], basis_input=ctx, mode="fake")
 
     def fallback(self, base: dict, rejected: tuple[str, str] | None = None) -> ActionChoice:

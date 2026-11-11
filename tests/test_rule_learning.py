@@ -106,6 +106,35 @@ def test_shadow_record_feeds_rule_learning():
                    shadow_log=log).step(datetime(2026, 3, 4, 11, 30))
     r = log[0]
     assert isinstance(r["features"], dict) and "waiting" in r["features"]
-    assert r["shown_to_human"] is True  # 이 사례는 규칙표 기본값(rematch_now)이라 LLM 답을 제안으로만 보여 준다
+    assert r["shown_to_human"] is False  # 규칙표가 정한 사례(연락 전 규칙 재매칭): LLM 답은 아무에게도 보이지 않는다
     cs = RL.join_cases(log, [{"exception_id": r["exception_id"], "action": "escalate"}])
-    assert len(cs) == 1 and not cs[0].clean  # 보여 준 사례는 증거로 세지 않는다
+    assert len(cs) == 1 and cs[0].clean
+
+
+def test_new_situation_attaches_llm_hint_to_human_card_without_executing():
+    """규칙표가 정하지 못해 사람에게 넘기는 새 상황: LLM 답은 카드의 참고 의견으로만 붙고 실행되지 않는다."""
+    from datetime import datetime
+
+    from test_brain import FIELD, _Script, _setup, _types
+    from turnaround.agent.brain import ExceptionBrain
+    from turnaround.events import EventType
+
+    store, gw = _setup()
+    log = []
+    brain = ExceptionBrain(gw, _Script({"action": "rematch_now"}), FIELD, shadow=True, shadow_log=log)
+    import turnaround.agent.llm as llm_mod
+    orig = llm_mod._fake_exception_action
+    llm_mod._fake_exception_action = lambda ctx, overrides=None: {
+        "action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게", "default": True}
+    try:
+        brain.step(datetime(2026, 3, 4, 11, 30))
+    finally:
+        llm_mod._fake_exception_action = orig
+    r = log[0]
+    assert r["shown_to_human"] is True
+    assert r["status"] == "ok" and not r["would_block"]
+    executed = [e.payload["action"] for e in _types(store, EventType.ACTION_EXECUTED)]
+    assert executed == ["escalate"]  # 실행은 규칙표(사람에게)뿐, LLM 답(rematch_now)은 실행되지 않는다
+    cards = [e.payload.get("card") or {} for e in _types(store, EventType.HUMAN_TASK_CREATED)
+             if e.payload.get("kind") == "brain_escalate"]
+    assert cards and cards[0].get("ai_hint") == "rematch_now"
