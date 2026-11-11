@@ -43,7 +43,8 @@ def test_forecast_uses_only_known_events():
 def test_mc_beats_both_baselines_at_admission_time():
     r = evaluate(range(0, 8), cfg=CFG15)
     assert r["MAE_p50"] < r["MAE_strong_baseline"] <= r["MAE_weak_baseline"]
-    assert r["coverage_p10_p90"] >= 0.7
+    # 명목 80% 구간. 현재 0.96 안팎으로 과대(보정 전, AI-DD 5절). 너무 좁아지거나 늘 100%가 되는 퇴화를 둘 다 잡는다
+    assert 0.7 <= r["coverage_p10_p90"] <= 0.99
 
 
 def test_noon_is_degenerate_in_synthetic_baseline_process():

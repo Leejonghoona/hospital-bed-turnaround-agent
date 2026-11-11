@@ -128,3 +128,12 @@ ta:SporicidalShape a sh:NodeShape ;
     sh:sparql [ sh:message "C. difficile 퇴실 아포 소독 누락" ; sh:prefixes ta:shapes ;
         sh:select """SELECT $this WHERE { $this ta:previousIsolation true ; ta:cleaningType "terminal" ;
                      ta:previousOrganism "CDIFF" . FILTER NOT EXISTS { $this ta:sporicidalDone true } }""" ] .
+
+# 원인균은 알려진 정규 코드여야 한다 (2026-11-12 검수 A1). 위 형상들이 "MTB"·"CDIFF" 글자에 기대므로,
+# 정규화되지 않은 표기(예: "TB", SNOMED 숫자 코드)가 들어오면 규칙이 조용히 빠지지 않게 위반으로 올린다.
+ta:KnownOrganismShape a sh:NodeShape ;
+    rdfs:comment "unknown_organism" ;
+    sh:targetSubjectsOf ta:organism ;
+    sh:property [ sh:path ta:organism ;
+        sh:in ( "MTB" "MEASLES" "VARICELLA" "INFLUENZA" "PERTUSSIS" "ADENOVIRUS" "MRSA" "VRE" "CRE" "CDIFF" ) ;
+        sh:message "정규화되지 않은 원인균 코드" ] .

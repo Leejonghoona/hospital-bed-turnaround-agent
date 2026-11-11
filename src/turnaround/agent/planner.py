@@ -8,6 +8,7 @@ LLM이 없거나 장애이거나 후보 밖을 고르면 규칙 모드(도구 1�
 from __future__ import annotations
 
 import json
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -18,6 +19,8 @@ from turnaround.saga import fold
 
 from .llm import LLM, LLMError, bind_data_class
 from .tools import Candidate, PlanningTools
+
+RECORDS_MAX = 1000  # 메모리에 두는 최근 배정 기록 수
 
 SYSTEM = (
     "너는 병상 배정 계획 에이전트다. 후보 병상은 결정적 도구가 안전 기준으로 이미 걸렀다. "
@@ -56,7 +59,7 @@ class PlanningAgent:
         self.shadow = shadow  # 예외 판단 그림자 모드: 모델 제안은 기록만, 실행은 규칙표
         self.shadow_log: list[dict] = []
         self.mode, self.top_k = ("select" if mode == "agent" else mode), top_k
-        self.records: list[PlanRecord] = []
+        self.records: deque[PlanRecord] = deque(maxlen=RECORDS_MAX)  # 최근 것만 (2026-11-12 검수 C)
 
     # ---------- 선택 ----------
 

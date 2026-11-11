@@ -52,11 +52,13 @@ def decide_isolation_info(s, now: datetime, out, policy) -> None:
 
 
 def _bed_fits(bed_room: dict, bed: str, payload: dict) -> bool:
-    """격리 오더가 붙은 뒤에도 매칭된 병상이 기준에 맞는가. 병실 정보가 없으면 판단하지 않는다(맞는다고 본다)."""
-    if bed not in bed_room:
-        return True
-    room_type, cohort = bed_room[bed]
+    """격리 오더가 붙은 뒤에도 매칭된 병상이 기준에 맞는가.
+    병실 정보가 없으면 맞는다고 보지 않는다(fail-closed, 2026-11-12 검수 A2): 격리 주의가 있으면 맞지 않는 것으로
+    처리해 기존 늦은 격리 경로(연락 전 해제·재매칭, 연락·확정 뒤 사람 확인)로 보낸다."""
     prec = set(payload.get("precautions") or [])
+    if bed not in bed_room:
+        return not prec
+    room_type, cohort = bed_room[bed]
     if "airborne" in prec:
         return room_type == "negative_pressure"
     if prec:

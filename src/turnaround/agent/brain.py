@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+from collections import deque
 from datetime import datetime
 from typing import Any
 
@@ -18,6 +19,8 @@ from turnaround import tracing
 from turnaround.events import Event, EventType
 
 from .llm import LLM, LLMError
+
+RECORDS_MAX = 1000  # 메모리에 두는 최근 LLM 입력 수
 
 # v1: M5 측정(2026-11-09~10)에 쓴 프롬프트. 재현용으로 남긴다
 SYSTEM_V1 = ("너는 병상 운영 예외 하나에 대해 허용 목록 중 행동 하나를 고른다. 숫자와 병상은 고르지 않는다. "
@@ -63,7 +66,9 @@ class ExceptionBrain:
         self.shadow_log = shadow_log if shadow_log is not None else []
         self.wards = tuple(wards)
         self.policy = policy or gw.policy
-        self.records: list[str] = []  # LLM에 넣은 입력 (감사·시험용)
+        # LLM에 넣은 입력 (감사·시험용). 오래 도는 서비스에서 끝없이 쌓이지 않게 최근 것만 둔다(2026-11-12 검수 C).
+        # 영구 감사는 그림자 기록·추적 span이 맡는다
+        self.records: deque[str] = deque(maxlen=RECORDS_MAX)
         # 게이트웨이가 상황별 금지를 판정할 때 머리가 낸 입력을 믿지 않고 이 함수로 이벤트에서 다시 계산한다 (최고점 루프 1회차)
         gw._input_builder = self
 

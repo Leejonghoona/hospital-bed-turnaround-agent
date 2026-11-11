@@ -252,6 +252,14 @@ _VALUE_LEX: dict[str, dict[str, tuple[str, ...]]] = {
     "room_type": {"negative_pressure": ("np", "음압", "iso-np", "negative"), "single": ("sr", "1인", "priv", "single"),
                   "multi": ("mr", "다인", "ward", "multi")},
     "cleaning_type": {"general": ("g", "일반", "gen", "general"), "terminal": ("t", "종말", "term", "terminal")},
+    # 원인균: 합성 병원 정규 코드(sim/models.py ORGANISM_PRECAUTIONS)와 흔한 표기. 113861009·113858008은
+    # SNOMED CT 결핵균(생물체)·결핵균 복합체 코드다. 그 밖의 값은 추측하지 않고 묻는다(2026-11-12 검수 A1)
+    "organism": {"MTB": ("mtb", "tb", "결핵", "결핵균", "m. tuberculosis", "mycobacterium tuberculosis",
+                         "113861009", "113858008"),
+                 "MEASLES": ("measles", "홍역"), "VARICELLA": ("varicella", "vzv", "수두"),
+                 "INFLUENZA": ("influenza", "flu", "인플루엔자", "독감"), "PERTUSSIS": ("pertussis", "백일해"),
+                 "ADENOVIRUS": ("adenovirus", "adeno", "아데노바이러스"), "MRSA": ("mrsa",), "VRE": ("vre",),
+                 "CRE": ("cre",), "CDIFF": ("cdiff", "c.diff", "c. difficile", "cdi", "clostridioides difficile")},
     "precaution_status": {"confirmed": ("cf", "확진", "confirmed"), "suspected": ("sp", "의심", "suspected"),
                           "preemptive": ("pe", "선제", "preemptive")},
     "isolation_ordered_by": {"physician": ("md", "주치의", "physician"), "ipc": ("icn", "감염관리실", "ipc")},
@@ -270,7 +278,8 @@ _CODE_KEYS = {"patient.gender": "gender", "gender": "gender", "patient.precautio
               "cleaning_done.cleaning_type": "cleaning_type", "patient.precaution_status": "precaution_status",
               "patient.isolation_ordered_by": "isolation_ordered_by", "rx_revised.reason": "reason",
               "discharge_decided.discharge_type": "discharge_type", "unplanned_transfer_out.destination": "destination",
-              "patient.department": "department", "departments": "department"}
+              "patient.department": "department", "departments": "department",
+              "patient.organism": "organism"}
 _EVENT_LEX = {k[2:]: v for k, v in _COL_LEX.items() if k.startswith("t:")}
 _EVENT_LEX.update({"discharge_decided": ("decide", "dc_dec"), "discharge_registered": ("notice", "dc_rsv"),
                    "order_confirmed": ("dc_order", "order"), "medication_ready": ("rx_ward", "med_arr"),
@@ -539,7 +548,8 @@ def propose_mapping(tables: dict[str, list[dict]], llm=None, hospital: str = "dr
             parts.append({"tables": {}, "event_codes": event_codes})
         fails = []
         for part in parts:
-            llm_ctx = {**part, "vocabulary": vocabulary(), "value_vocabulary": {k: sorted(v) for k, v in valid.items()}}
+            llm_ctx = {**part, "vocabulary": vocabulary(), "value_vocabulary": {k: sorted(v) for k, v in valid.items()
+                                                                                     if k != "organism"}}  # 원인균은 모델에 맡기지 않는다(사전+사람 확인)
             try:
                 got = _sanitize(llm.complete_json("propose_mapping", LLM_SYSTEM, json.dumps(llm_ctx, ensure_ascii=False)),
                                 valid)
@@ -846,7 +856,8 @@ _VALID = {"gender": {"M", "F", "other", "unknown"}, "precautions": {"contact", "
           "room_type": {"negative_pressure", "single", "multi"}, "cleaning_type": {"general", "terminal"},
           "precaution_status": {"confirmed", "suspected", "preemptive"}, "isolation_ordered_by": {"physician", "ipc"},
           "reason": {"discharge_hold", "dose_change", "add_medication"}, "discharge_type": {"ama"},
-          "destination": {"icu"}, "department": set(_VALUE_LEX["department"])}
+          "destination": {"icu"}, "department": set(_VALUE_LEX["department"]),
+          "organism": set(_VALUE_LEX["organism"])}
 
 
 _PATIENT_ONLY_GENDER = {"other", "unknown"}  # 환자 성별에만 쓴다(병실 성별 운영은 남·여·혼용(빈 값))

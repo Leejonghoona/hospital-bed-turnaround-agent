@@ -1,0 +1,22 @@
+# 올릴 때마다 GitHub 서버에서 전체 시험을 돌린다 (2026-11-12 검수 C). 키·병원 데이터 없이 도는 결정적 시험만.
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev,api,mcp]"
+      - name: 전체 시험
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          echo "commit ${GITHUB_SHA}"
+          python -m pytest -q -p no:cacheprovider
