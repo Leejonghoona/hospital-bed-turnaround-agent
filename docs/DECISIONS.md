@@ -921,3 +921,13 @@
 - 사전 등록 판정(통과 후보 3개, m = 4)은 바꾸지 않는다.
 - Gemma 4 31B와 Solar Open 100B를 **탐색 측정(판정 밖, 사후 추가)**으로 잰다. Gemma 4 31B는 호스팅 대리 측정으로 먼저 잰다(DeepInfra 제공). Solar Open 100B는 호스팅 제공처를 찾지 못해 T2 장비(141GB 1장 또는 80GB 2장) 임대가 필요하다. 결과는 판정 표와 분리해서 보고한다.
 - 다음 사전 등록부터는 위 선정 방법 1~4를 먼저 적고, 후보와 m을 그에 따라 정한다.
+
+## 2026-11-11 GPU 측정 대상 확정과 한국어 후보 (사용자 결정)
+- 호스팅으로 잴 수 있는 한국어 모델을 찾았다. DeepInfra에는 없고, OpenRouter의 KT Mi:dm K 3.0 Pro와 Upstage Solar Mini 4·Pro 4는 가중치 비공개(API 전용)라 원내 후보가 아니다. Motif 3(MIT)은 314B라 GPU 4장 이상이다.
+- 80GB 1장(T1)에 올라가는 한국어 오픈 가중치를 라이선스 원문으로 확인했다.
+  - 카카오 Kanana-2 30B-A3B: 자기 서비스 개발·운영은 별도 계약 없이 가능, 월 사용자 1천만 초과 시 별도 계약.
+  - 네이버 HyperCLOVA X SEED Think 14B: 상업 이용 가능, "Powered by HyperCLOVA X" 표기, 월 사용자 1천만 초과 또는 경쟁 서비스는 별도 계약.
+  - KT Mi:dm 2.0 Base(MIT), SKT A.X 4.0 Light(Apache 2.0)는 크기가 작아 이번에는 넣지 않는다.
+- 탐색 측정 Gemma 4 31B(호스팅 대리): 관문 통과, 정답·허용 214~216(규칙표 199), 넘김 15~16%(규칙표 21%). 판정 밖.
+- **결정:** 임대 GPU(H100 80GB 1장) 한 서버에서 판정 3개(gpt-oss-120b, gpt-oss-20b, Gemma 4 26B)와 탐색 3개(Gemma 4 31B, Kanana-2 30B, HyperCLOVA X SEED 14B)를 잰다. T2 장비 등급(80GB 2~4장: Solar Open 100B, K-EXAONE, Motif 3)은 이번 범위 밖으로 기록한다.
+- 측정 전 변경: 임대 Gemma 4 26B에 비사고 조건(`enable_thinking: false`)을 명시했다. 호스팅 대리 측정이 비사고 출력(60토큰대)이었기 때문이다. HyperCLOVA X SEED는 `skip_reasoning: true`, `--trust-remote-code --dtype bfloat16`(모델 카드).

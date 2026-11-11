@@ -53,6 +53,7 @@ endpoints:
     allow_http_loopback: true
     model: google/gemma-4-26B-A4B-it
     max_tokens: 2048
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}  # 호스팅 대리 측정과 같은 비사고 조건(출력 60토큰대)
   rental-gpt-oss-120b:
     kind: rental
     base_url: http://127.0.0.1:8000/v1
@@ -67,3 +68,24 @@ endpoints:
     model: google/gemma-4-31B-it
     key_env: DEEPINFRA_API_KEY
     max_tokens: 2048
+  # 탐색 측정(판정 밖, 임대 GPU 같은 서버). DECISIONS 2026-11-11 "GPU 측정 대상 확정과 한국어 후보"
+  rental-gemma-4-31b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: google/gemma-4-31B-it
+    max_tokens: 2048
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}
+  rental-kanana-2-30b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: kakaocorp/kanana-2-30b-a3b-instruct
+    max_tokens: 2048
+  rental-hcx-seed-14b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: naver-hyperclovax/HyperCLOVAX-SEED-Think-14B
+    max_tokens: 2048
+    extra_body: {chat_template_kwargs: {skip_reasoning: true}}  # 비사고 모드(모델 카드)
