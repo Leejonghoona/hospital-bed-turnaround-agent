@@ -24,6 +24,7 @@ _IN_LLM: ContextVar[bool] = ContextVar("turnaround_in_llm_span", default=False)
 
 # 작업 → 역할 (어느 에이전트 부품이 부른 호출인지)
 TASK_ROLE = {"choose_bed": "planner", "explain_choice": "planner", "choose_exception_action": "brain",
+             "choose_exception_step": "brain",
              "extract": "extractor", "parse_question": "qa", "propose_mapping": "mapping"}
 
 
