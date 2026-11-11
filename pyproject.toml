@@ -28,7 +28,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src", "tests"]
+pythonpath = ["src", "tests", "scripts"]
 markers = ["slow: 오래 걸리는 검사 (pytest -m slow 로 따로 돌린다)"]
 addopts = "-m 'not slow'"
 
