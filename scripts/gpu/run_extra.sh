@@ -40,6 +40,7 @@ if serve /root/venv "$QH" "$QR" "vllm_$Q" "$QX"; then
   man "$Q" k3 "$QX" "$QH" "$QR"
   $P scripts/run_kit.py --part K2 --models "kit:$Q" --tag "$TAG" | tail -2
   $P scripts/run_kit.py --part K3 --models "kit:$Q" --tag "$TAG" 2>&1 | grep -v "/300$" | tail -2
+  [ -f "$OUT/K3_${TAG}_rule.jsonl" ] || $P scripts/run_kit.py --part K3 --models rule,escalate --tag "$TAG" >/dev/null
   PASS=$($P scripts/run_kit.py --summarize --models "rule,escalate,kit:$Q" --tag "$TAG" | $P -c "import json,sys; print(json.load(sys.stdin)['kit:$Q'].get('k3_pass'))")
   echo "K3 verdict $Q: $PASS"
   if [ "$PASS" = "True" ]; then
