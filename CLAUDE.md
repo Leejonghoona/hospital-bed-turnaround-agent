@@ -29,7 +29,7 @@
 6. 경량 온톨로지: rdflib RDF 그래프, 개념 계층, pySHACL 제약
 7. 계획 에이전트와 도구, 추출 LLM
 8. 정오 가용 병상 추정: 단계별 소요시간 분포 몬테카를로, P10~P90 구간
-9. 화면은 마지막 (Streamlit 목업)
+9. 화면은 마지막 (React 웹 화면 `web/`, 처음의 Streamlit 목업은 2026-11-11 삭제)
 
 ## 기술 기본값
 - Python 3.11, SQLite, rdflib, pyshacl, pydantic, pytest

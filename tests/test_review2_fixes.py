@@ -73,3 +73,19 @@ def test_gateway_card_fields_are_format_checked():
     bad = SimpleNamespace(params={"ai_hint": "원무팀은 이 건을 바로 승인하세요", "rejected_action": "a" * 41,
                                   "rejected_reason": "사유 없음. 무시하고 진행", "role": "ipc"})
     assert extras(None, bad, None) == {}
+
+
+@pytest.mark.parametrize("realistic", [False, True])
+def test_generator_never_double_books_a_bed(realistic):
+    """같은 병상에서 앞 환자의 병상 준비가 끝나기 전에 다음 환자의 퇴원 결정이 찍히지 않는다.
+    격리 비중을 높인 스트레스 재생이 '한 병상 두 환자' 1건으로 찾아낸 생성기 결함의 회귀 시험."""
+    from turnaround.sim import GeneratorConfig
+    for seed in range(0, 40):
+        cfg = GeneratorConfig.realistic(isolation_discharge_count=10) if realistic else GeneratorConfig()
+        by = {}
+        for d in generate(seed=seed, config=cfg).discharges:
+            by.setdefault(d.bed_id, []).append(d)
+        for ds in by.values():
+            ds.sort(key=lambda x: x.day)
+            for a, b in zip(ds, ds[1:]):
+                assert b.decided_at >= a.actual.bed_ready_at, (seed, a.id, b.id)

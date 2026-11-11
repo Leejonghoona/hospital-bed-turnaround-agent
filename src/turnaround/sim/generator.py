@@ -212,6 +212,7 @@ class _Gen:
         slots = _GUARDIAN_SLOTS_REALISTIC if real else _GUARDIAN_SLOTS
         seq_rng = random.Random(f"seq-{self.seed}-{self.cfg.days}-{n}")  # 현장형 순서·청소 두 갈래 전용 (기존 값 불변)
         result = []
+        last_ready: dict[str, datetime] = {}
         for i, (day, bed, iso) in enumerate(plan):
             room = self.room_by_id[bed.room_id]
             ward = self.ward_by_id[bed.ward_id]
@@ -230,6 +231,11 @@ class _Gen:
                 d["guardian_delay"] = self.minutes("guardian_delay")
 
             decided_at = self.day_at(day - 1, time(17, 0)) + timedelta(minutes=self.rng.randint(0, 60))
+            # 같은 병상의 앞 퇴원이 병상 준비를 마치기 전에 다음 환자의 퇴원 결정이 찍히면 불가능한 상태다(그 환자는 아직
+            # 그 병상에 없다). 준비 완료 1시간 뒤로 민다. 새 난수를 뽑지 않아 겹치지 않는 사례는 그대로다 (2026-11-12, 스트레스 재생이 찾음)
+            _prev_ready = last_ready.get(bed.id)
+            if _prev_ready is not None and decided_at < _prev_ready + timedelta(minutes=60):
+                decided_at = _prev_ready + timedelta(minutes=60)
             registered_at = None if i in unregistered else decided_at + timedelta(minutes=self.rng.randint(5, 90))
             guardian_expected = self.day_at(day, self.rng.choice(slots))
             if i in guardian_delayed:
@@ -293,6 +299,7 @@ class _Gen:
                 if cfg.ops_realism:  # 이미 뽑은 정리 응답 시간을 "회차 없이 바로 올 때"의 값으로 남긴다 (새 난수 없음)
                     d["bed_prep_direct_response"] = round((prep_start - clean_done).total_seconds() / 60)
 
+            last_ready[bed.id] = ready
             result.append(Discharge(
                 id=f"SYN-D{i + 1:03d}", day=day, bed_id=bed.id, patient=patient,
                 decided_at=decided_at, registered_at=registered_at,

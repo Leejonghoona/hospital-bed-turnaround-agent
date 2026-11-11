@@ -28,13 +28,12 @@ def _digest(h) -> str:
 # ---------- 끄면 그대로 ----------
 
 @pytest.mark.parametrize("cfg,seed,want", [
-    # 비말 환기 대기를 켜면 옵션 추가 전 커밋에서 잰 지문(2026-11-10)과 같다: 2026-11-12에 바뀐 것은 비말 대기뿐이다
-    (GeneratorConfig(droplet_wait=True), 0, "85d9263071fab523"), (GeneratorConfig(droplet_wait=True), 7, "85ac63099564b420"),
-    (GeneratorConfig.realistic(droplet_wait=True), 0, "b55fe7b969a68cc7"),
-    (GeneratorConfig.realistic(droplet_wait=True), 7, "93c1d4fec4705b76"),
-    # 기본(공기주의만 대기). 비말 퇴실이 없는 시드 7은 그대로다
-    (GeneratorConfig(), 0, "f67bb358f2366624"), (GeneratorConfig(), 7, "85ac63099564b420"),
-    (GeneratorConfig.realistic(), 0, "ffcb23d1ff891b95"), (GeneratorConfig.realistic(), 7, "93c1d4fec4705b76"),
+    # 생성기 출력 지문. 2026-11-12에 두 번 바뀌었다(DECISIONS): 비말주의 환기 대기를 기본에서 뺐고, 같은 병상의 앞 퇴원이
+    # 준비를 마치기 전에 다음 퇴원 결정이 찍히던 불가능한 상태를 고쳤다. 그 전 지문은 git 이력의 이 파일에 있다
+    (GeneratorConfig(), 0, "3f49c414dd69a023"),
+    (GeneratorConfig(), 7, "e21a2558eb1f5894"),
+    (GeneratorConfig.realistic(), 0, "ffcb23d1ff891b95"),
+    (GeneratorConfig.realistic(), 7, "ebdf62d0e0dacd6e"),
 ])
 def test_option_off_keeps_generator_output_identical(cfg, seed, want):
     assert cfg.ops_realism is False
