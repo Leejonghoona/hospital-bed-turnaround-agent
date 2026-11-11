@@ -55,7 +55,6 @@ def headline() -> dict:
                      # 위반 0건일 때 95% 상한: 1 - 0.05^(1/n) (3의 규칙의 정확한 꼴)
                      "upper95_pct": round((1 - 0.05 ** (1 / (n + ns))) * 100, 2) if v + vs == 0 else None}
     return {"safety": safety, "safety_total": sum(s["n"] for s in safety.values()),
-            "safety_violations": sum(s["violations"] + s["stress_violations"] for s in safety.values()),
             "wait_off": ci["mean_off"], "wait_on": ci["mean_on"], "wait_ci": ci["ci95_min"], "pairs": ci["pairs"],
             "m1": m1}
 
@@ -63,10 +62,15 @@ def headline() -> dict:
 def test_readme_headline_numbers_match_result_files():
     h = headline()
     text = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert h["safety_violations"] == 0
+    assert sum(s["violations"] for s in h["safety"].values()) == 0  # 본 측정은 위반 0
     assert f"0 / {h['safety_total']}" in text
     for k, s in h["safety"].items():
-        assert f"0/{s['n'] + s['stress_n']}" in text, (k, s)
+        # 본 측정과 스트레스 재생을 따로, 본 그대로 적는다(스트레스 재생의 위반도 숨기지 않는다)
+        assert f"| {s['violations']}/{s['n']} | {s['stress_violations']}/{s['stress_n']} |" in text, (k, s)
+        if s["upper95_pct"] is not None:
+            assert f"{s['upper95_pct']:.2f}% (0/{s['n'] + s['stress_n']})" in text, (k, s)
     assert f"{h['wait_off']} → {h['wait_on']}분" in text
     lo, hi = h["wait_ci"]
-    assert f"{lo:+.1f} ~ {hi:+.1f}분".replace("+", "−").replace("-", "−") in text.replace("+", "−")
+    assert f"−{abs(lo)} ~ −{abs(hi)}분" in text
+    m = h["m1"]["field_default"]
+    assert f"{m['no_touch_ratio'] * 100:.1f}%" in text and f"확정 {m['committed']}건 중 {m['no_touch_committed']}건" in text

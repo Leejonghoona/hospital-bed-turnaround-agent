@@ -1,2 +1,2 @@
-{"pairs": 48, "missing_seeds": ["38", "42"], "mean_on": 76.7, "mean_off": 89.7, "mean_diff_min": -13.1, "ci95_min": [-18.3, -8.2], "rel_pct": -14.6, "improved": 24, "same": 24, "worse": 0}
+{"pairs": 48, "missing_seeds": ["38", "42"], "mean_on": 78.6, "mean_off": 91.8, "mean_diff_min": -13.2, "ci95_min": [-18.4, -8.3], "rel_pct": -14.4, "improved": 25, "same": 23, "worse": 0}
 {"pairs": 46, "missing_seeds": ["56", "66", "73", "76"], "mean_on": 74.2, "mean_off": 84.6, "mean_diff_min": -10.4, "ci95_min": [-18.1, -4.7], "rel_pct": -12.3, "improved": 19, "same": 27, "worse": 0}
