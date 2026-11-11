@@ -549,8 +549,53 @@ def build_v3() -> list[dict]:
     return [{"id": f"XV3-{i:03d}", **it} for i, it in enumerate(out, 1)]
 
 
+# ---------- v4: 인수 시험 키트 세트 (docs/검토/LLM도입_인수시험_설계_초안.md 3.1) ----------
+
+SEED_V4 = 202611111
+OUT_V4 = ROOT / "evals" / "model_eval" / "exception_decisions_v4.jsonl"
+
+
+def build_v4() -> list[dict]:
+    """v3와 같은 생성기·트리거 수, 새 시드. v2.1 ∪ v3와 입력이 같은 문항은 뺀다. ID 접두어 XV4-."""
+    seen = set()
+    for path in (OUT, OUT_V3):
+        seen |= {json.dumps(json.loads(x)["input"], sort_keys=True)
+                 for x in path.read_text(encoding="utf-8").splitlines() if x.strip()}
+    rng = random.Random(SEED_V4)
+    out = []
+    for fn, _ in GEN:
+        code = "E" + fn.__name__.split("_e")[1]
+        made = 0
+        while made < V3_COUNTS[code]:
+            it = fn(rng)
+            key = json.dumps(it["input"], sort_keys=True)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(it)
+            made += 1
+    return [{"id": f"XV4-{i:03d}", **it} for i, it in enumerate(out, 1)]
+
+
+def review_sample(items: list[dict], k: int = 15) -> list[dict]:
+    """측정 전 정답 검토 표본: random.Random(SEED_V4 + 1).sample(세트 순서 목록, 15)."""
+    return random.Random(SEED_V4 + 1).sample(items, k)
+
+
+def write_lf(path, items: list[dict]) -> None:
+    """LF로 쓴다(Windows에서도 git blob과 같은 sha256이 나오게, 설계 3.1)."""
+    nl = chr(10)
+    with open(path, "w", encoding="utf-8", newline=nl) as f:
+        f.write(nl.join(json.dumps(x, ensure_ascii=False) for x in items) + nl)
+
+
 def main() -> None:
     import sys
+    if "--v4" in sys.argv:
+        items = build_v4()
+        write_lf(OUT_V4, items)
+        print(f"{len(items)} items -> {OUT_V4.relative_to(ROOT)}")
+        return
     if "--v3" in sys.argv:
         items = build_v3()
         OUT_V3.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in items) + "\n", encoding="utf-8")

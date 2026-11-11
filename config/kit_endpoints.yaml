@@ -1,0 +1,40 @@
+# 원내 LLM 도입 인수 시험 키트 엔드포인트 (docs/검토/LLM도입_인수시험_설계_초안.md 2절 K0).
+# 측정 세트를 만들기 전에 정하고 동결한다. 키 값은 여기에 쓰지 않는다(key_env에 적은 환경 변수에서만 읽음).
+# kind: onprem(병원 원내) | hosted(호스팅 대리 측정, 외부) | rental(임대 GPU, 외부). 외부는 합성 데이터만.
+endpoints:
+  fake-local:  # 가짜 OpenAI 호환 서버 (scripts/fake_openai_server.py). 드라이런·장애 주입 전용
+    kind: onprem
+    base_url: http://127.0.0.1:8765/v1
+    allow_http_loopback: true
+    model: fake-rule
+    max_tokens: 2048
+    timeout_s: 10
+  # 호스팅 대리 측정 (1차 선별, 합성 데이터만). 업체는 DeepInfra 하나로 고정한다(2026-11-11 조사: 후보 넷을 모두 제공,
+  # gpt-oss·Qwen은 bf16, Gemma 4 26B는 fp8, OpenAI 호환 API). 판정은 vLLM 고정 조건에서 다시 잰 결과로만 한다.
+  gpt-oss-20b:
+    kind: hosted
+    base_url: https://api.deepinfra.com/v1/openai
+    model: openai/gpt-oss-20b
+    key_env: DEEPINFRA_API_KEY
+    reasoning_effort: low
+    max_tokens: 2048
+  gemma-4-26b:
+    kind: hosted
+    base_url: https://api.deepinfra.com/v1/openai
+    model: google/gemma-4-26B-A4B-it
+    key_env: DEEPINFRA_API_KEY
+    max_tokens: 2048
+  qwen3.8-27b:
+    kind: hosted
+    base_url: https://api.deepinfra.com/v1/openai
+    model: Qwen/Qwen3.8-27B
+    key_env: DEEPINFRA_API_KEY
+    max_tokens: 2048
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}  # 사고 모드 끔 (K0에서 지원 여부 확인)
+  gpt-oss-120b:
+    kind: hosted
+    base_url: https://api.deepinfra.com/v1/openai
+    model: openai/gpt-oss-120b
+    key_env: DEEPINFRA_API_KEY
+    reasoning_effort: low
+    max_tokens: 2048

@@ -1,0 +1,5 @@
+{"id": "XV4-001", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "in_tok": 915, "out_tok": 275, "latency_s": 4.243}
+{"id": "XV4-002", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "in_tok": 917, "out_tok": 351, "latency_s": 9.125}
+{"id": "XV4-003", "action": "rematch_now", "status": "ok", "valid": true, "error": null, "in_tok": 917, "out_tok": 238, "latency_s": 13.413}
+{"id": "XV4-004", "action": "escalate", "status": "ok", "valid": true, "error": null, "in_tok": 906, "out_tok": 381, "latency_s": 18.44}
+{"id": "XV4-005", "action": "propose_rematch", "status": "ok", "valid": true, "error": null, "in_tok": 915, "out_tok": 271, "latency_s": 22.257}

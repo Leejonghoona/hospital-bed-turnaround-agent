@@ -1,0 +1,14 @@
+# 인수 시험 참고 실행 후보와 Holm m (docs/검토/LLM도입_인수시험_설계_초안.md 7.1).
+# 첫 K3 호출 전에 커밋하고, 그 뒤에는 바꾸지 않는다. K1(라이선스 재확인)에서 빠진 후보는 측정 전에 지우고 m을 줄인다.
+# spec의 별칭은 config/kit_endpoints.yaml에 등록한다(엔드포인트가 정해지면 채움).
+m: 4
+candidates:
+  - spec: kit:gpt-oss-20b
+    license: apache-2.0
+  - spec: kit:gemma-4-26b
+    license: apache-2.0
+  - spec: kit:qwen3.8-27b
+    license: apache-2.0
+  - spec: kit:gpt-oss-120b
+    license: apache-2.0
+order: [kit:gpt-oss-20b, kit:gemma-4-26b, kit:qwen3.8-27b, kit:gpt-oss-120b]
