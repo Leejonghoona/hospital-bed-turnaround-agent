@@ -261,12 +261,16 @@ def admission_view(st) -> dict:
             why = " · ".join(x for x in (TRIGGER_KO.get(t.payload.get("trigger"), ""),
                                          "에이전트가 스스로 정하지 못해 사람에게 넘김",
                                          ("멈춘 동작: " + ACTION_KO.get(card["rejected_action"], card["rejected_action"]))
-                                         if card.get("rejected_action") else "") if x)
+                                         if card.get("rejected_action") else "",
+                                         ("AI 참고 의견: " + ACTION_KO.get(card["ai_hint"], card["ai_hint"]) + " (자동 실행 안 함)")
+                                         if card.get("ai_hint") else "") if x)
         esc = next((x.payload.get("to") for x in ev if x.type is EventType.TASK_ESCALATED
                     and x.payload.get("task_id") == t.event_id and x.observed_at <= st.now), None)
         hand = next((x.payload.get("to") for x in reversed(ev) if x.type is EventType.TASK_HANDED_OVER
                      and x.payload.get("task_id") == t.event_id and x.observed_at <= st.now), None)
-        tasks.append({"escalated_to": HOLDER_KO.get(esc, esc) if esc else "", "handed_to": HOLDER_KO.get(hand, hand) if hand else "",
+        hint = (t.payload.get("card") or {}).get("ai_hint") if kind == "brain_escalate" else None
+        tasks.append({"ai_hint": ACTION_KO.get(hint, hint) if hint else "",
+                      "escalated_to": HOLDER_KO.get(esc, esc) if esc else "", "handed_to": HOLDER_KO.get(hand, hand) if hand else "",
                       "holder": HOLDER_KO.get(ops.holder(_role(t, ops), st.now), ""),
                       "task_id": t.event_id, "kind": _kind(kind), "raw_kind": kind, "why": why, "case": t.case_id,
                       "who": who(people, t.case_id), "bed": t.payload.get("bed_id"), "bed_ko": bed_ko(t.payload.get("bed_id")),

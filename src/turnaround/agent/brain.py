@@ -54,9 +54,13 @@ class ActionChoice(BaseModel):
 
 
 class ExceptionBrain:
-    def __init__(self, gw, llm: LLM, policy=None, wards=(), data_class: str | None = None):
+    def __init__(self, gw, llm: LLM, policy=None, wards=(), data_class: str | None = None,
+                 shadow: bool = False, shadow_log: list | None = None):
         from .llm import bind_data_class
         self.gw, self.llm = gw, bind_data_class(llm, data_class)  # 외부 모델 관문 (기본 병원 데이터)
+        # 그림자 모드 (docs/검토/LLM운영_시험설계.md 3절): 모델 제안은 기록만 하고, 실행은 규칙표가 한다
+        self.shadow = shadow
+        self.shadow_log = shadow_log if shadow_log is not None else []
         self.wards = tuple(wards)
         self.policy = policy or gw.policy
         self.records: list[str] = []  # LLM에 넣은 입력 (감사·시험용)
@@ -156,6 +160,8 @@ class ExceptionBrain:
         self.records.append(user)
         base = dict(exception_id=ex.payload["exception_id"], trigger=ex.payload["trigger"], case=ex.case_id,
                     basis_seq=max((e.seq or 0) for e in events))
+        if self.shadow:
+            return self._shadow_choose(base, ctx, user, now)
         try:
             out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
             return ActionChoice(**base, action=str(out["action"]), params=dict(out.get("params") or {}),
@@ -163,6 +169,47 @@ class ExceptionBrain:
                                 mode="fake" if self.llm.name == "fake" and not _scripted(self.llm) else "llm")
         except (LLMError, KeyError, TypeError, ValueError):
             return self.fallback(base)
+
+    def _shadow_choose(self, base: dict, ctx: dict, user: str, now: datetime) -> ActionChoice:
+        """규칙표(가짜 LLM 결정표)로 실행할 행동을 정하고, 모델 제안은 따로 받아 기록만 한다."""
+        import time
+
+        from turnaround.gateway.guards import situational_block
+
+        from .llm import _fake_exception_action
+        rule = _fake_exception_action(ctx)
+        allowed = {a["id"] for a in ctx.get("allowed_actions", [])}
+        from .rule_learning import features
+        rec = {"exception_id": base["exception_id"], "trigger": base["trigger"], "case": base["case"],
+               "stage": (ctx.get("exception") or {}).get("stage"), "at": now.isoformat(),
+               # 규칙표 반영(rule_learning)용: 유형 키, 규칙표 기본값이라 LLM 답을 제안으로 보여 주는 사례 표시
+               "features": features(ctx), "shown_to_human": bool(rule.get("default")),
+               "rule_action": rule["action"], "model_action": None, "status": "ok", "agree": False,
+               "would_block": None, "latency_s": None, "error": None}
+        t0 = time.monotonic()
+        try:
+            out = self.llm.complete_json("choose_exception_action", SYSTEM, user)
+            act = out.get("action") if isinstance(out, dict) else None
+            if not isinstance(act, str) or not act:
+                rec["status"] = "format_error"
+            else:
+                rec["model_action"] = act
+                if act.split(":", 1)[0] not in allowed:
+                    rec["status"] = "out_of_list"
+                    rec["would_block"] = "not_allowed"
+                else:
+                    rec["would_block"] = situational_block(ctx, act)
+                    rec["agree"] = act.split(":", 1)[0] == rule["action"]
+        except LLMError as e:
+            rec["status"], rec["error"] = "llm_error", str(e)[:200]
+        rec["latency_s"] = round(time.monotonic() - t0, 3)
+        self.shadow_log.append(rec)
+        params = dict(rule.get("params") or {})
+        if rule.get("default") and rule["action"] == "escalate" and rec["status"] == "ok" and not rec["would_block"]:
+            # 규칙표가 정하지 못한 새 상황: LLM 답을 담당자 카드에 참고 의견으로만 붙인다 (실행하지 않음, 규칙표 반영 집계에서 제외)
+            params["ai_hint"] = rec["model_action"].split(":", 1)[0]
+        return ActionChoice(**base, action=rule["action"], params=params,
+                            rationale=str(rule.get("rationale") or "")[:300], basis_input=ctx, mode="fake")
 
     def fallback(self, base: dict, rejected: tuple[str, str] | None = None) -> ActionChoice:
         # 늦은 격리는 감염관리실(근무 외 감염내과 당직, 워크리스트가 시간대로 바꿈)에 올린다 (2회차 안전 검토)
@@ -191,6 +238,10 @@ class ExceptionBrain:
                     "agent.exception_id": ex.payload["exception_id"], "agent.trigger": ex.payload.get("trigger")}) as h:
                 choice = self.choose(ex, events, now)
                 h.set(**{"agent.action": choice.action, "agent.mode": choice.mode})
+                if self.shadow and self.shadow_log and self.shadow_log[-1]["exception_id"] == choice.exception_id:
+                    r = self.shadow_log[-1]
+                    h.set(**{"agent.shadow.model_action": r["model_action"] or "", "agent.shadow.status": r["status"],
+                             "agent.shadow.agree": r["agree"], "agent.shadow.would_block": r["would_block"] or ""})
             d = self.gw.submit_action(choice, now)
             if d.status == "rejected" and d.reasons != ["stale_basis"] and choice.mode != "fallback":
                 events = self.gw.store.read()

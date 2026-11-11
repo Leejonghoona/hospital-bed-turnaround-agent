@@ -1,0 +1,407 @@
+{
+ "note": "합성 데이터 하루 재생에서 LLM으로 나간 user 입력의 필드 목록. 병원 보안성 검토·개인정보 영향평가 제출용 초안",
+ "calls": 88,
+ "by_task": {
+  "explain_choice": 39,
+  "choose_exception_action": 49
+ },
+ "fields": {
+  "explain_choice": {
+   "candidates[].bed_id": {
+    "types": [
+     "str"
+    ],
+    "n": 129,
+    "example": "W61-R11-B1"
+   },
+   "candidates[].parts.department_ward_match": {
+    "types": [
+     "float"
+    ],
+    "n": 37,
+    "example": 30.0
+   },
+   "candidates[].parts.negative_pressure_preserve": {
+    "types": [
+     "float"
+    ],
+    "n": 2,
+    "example": -40.0
+   },
+   "candidates[].parts.ready_delay": {
+    "types": [
+     "float"
+    ],
+    "n": 86,
+    "example": -115.0
+   },
+   "candidates[].parts.single_room_requested": {
+    "types": [
+     "float"
+    ],
+    "n": 2,
+    "example": 20.0
+   },
+   "candidates[].parts.single_room_unrequested": {
+    "types": [
+     "float"
+    ],
+    "n": 8,
+    "example": -15.0
+   },
+   "candidates[].parts.ward_load": {
+    "types": [
+     "float"
+    ],
+    "n": 35,
+    "example": -3.0
+   },
+   "candidates[].ready_in_min": {
+    "types": [
+     "int"
+    ],
+    "n": 129,
+    "example": 0
+   },
+   "candidates[].room_type": {
+    "types": [
+     "str"
+    ],
+    "n": 129,
+    "example": "multi"
+   },
+   "candidates[].score": {
+    "types": [
+     "float",
+     "int"
+    ],
+    "n": 129,
+    "example": 0
+   },
+   "candidates[].ward": {
+    "types": [
+     "str"
+    ],
+    "n": 129,
+    "example": "W61"
+   },
+   "case": {
+    "types": [
+     "str"
+    ],
+    "n": 39,
+    "example": "SYN-A062"
+   },
+   "chosen_bed_id": {
+    "types": [
+     "str"
+    ],
+    "n": 39,
+    "example": "W61-R11-B1"
+   },
+   "patient.age": {
+    "types": [
+     "int"
+    ],
+    "n": 39,
+    "example": 55
+   },
+   "patient.department": {
+    "types": [
+     "str"
+    ],
+    "n": 39,
+    "example": "일반외과"
+   },
+   "patient.from_icu": {
+    "types": [
+     "bool"
+    ],
+    "n": 39,
+    "example": true
+   },
+   "patient.gender": {
+    "types": [
+     "str"
+    ],
+    "n": 39,
+    "example": "F"
+   },
+   "patient.organism": {
+    "types": [
+     "NoneType",
+     "str"
+    ],
+    "n": 39,
+    "example": "MRSA"
+   },
+   "patient.precautions[]": {
+    "types": [
+     "str"
+    ],
+    "n": 7,
+    "example": "contact"
+   },
+   "patient.single_room_reason": {
+    "types": [
+     "NoneType"
+    ],
+    "n": 39,
+    "example": null
+   }
+  },
+  "choose_exception_action": {
+   "allowed_actions[].autonomy": {
+    "types": [
+     "str"
+    ],
+    "n": 154,
+    "example": "auto"
+   },
+   "allowed_actions[].id": {
+    "types": [
+     "str"
+    ],
+    "n": 154,
+    "example": "escalate"
+   },
+   "case_state.bed_ready": {
+    "types": [
+     "bool"
+    ],
+    "n": 7,
+    "example": true
+   },
+   "case_state.cleaning_started": {
+    "types": [
+     "bool"
+    ],
+    "n": 7,
+    "example": false
+   },
+   "case_state.cleaning_type": {
+    "types": [
+     "str"
+    ],
+    "n": 3,
+    "example": "general"
+   },
+   "case_state.committed": {
+    "types": [
+     "bool"
+    ],
+    "n": 21,
+    "example": false
+   },
+   "case_state.contacted": {
+    "types": [
+     "bool"
+    ],
+    "n": 21,
+    "example": false
+   },
+   "case_state.day_type": {
+    "types": [
+     "str"
+    ],
+    "n": 49,
+    "example": "weekday"
+   },
+   "case_state.departed": {
+    "types": [
+     "bool"
+    ],
+    "n": 4,
+    "example": false
+   },
+   "case_state.from_icu": {
+    "types": [
+     "bool"
+    ],
+    "n": 9,
+    "example": false
+   },
+   "case_state.ipc_on_duty": {
+    "types": [
+     "bool"
+    ],
+    "n": 49,
+    "example": true
+   },
+   "case_state.isolation_discharge": {
+    "types": [
+     "bool"
+    ],
+    "n": 7,
+    "example": false
+   },
+   "case_state.now_local": {
+    "types": [
+     "str"
+    ],
+    "n": 49,
+    "example": "16:15"
+   },
+   "case_state.organism": {
+    "types": [
+     "str"
+    ],
+    "n": 3,
+    "example": "MRSA"
+   },
+   "case_state.patient_waiting_at": {
+    "types": [
+     "str"
+    ],
+    "n": 7,
+    "example": "admission_office"
+   },
+   "case_state.precaution": {
+    "types": [
+     "str"
+    ],
+    "n": 1,
+    "example": "contact"
+   },
+   "case_state.promise_at": {
+    "types": [
+     "str"
+    ],
+    "n": 4,
+    "example": "19:00"
+   },
+   "case_state.shift": {
+    "types": [
+     "str"
+    ],
+    "n": 49,
+    "example": "evening"
+   },
+   "case_state.step": {
+    "types": [
+     "str"
+    ],
+    "n": 25,
+    "example": "discharge_order"
+   },
+   "case_state.step_owner": {
+    "types": [
+     "str"
+    ],
+    "n": 25,
+    "example": "physician"
+   },
+   "case_state.waiting_matches": {
+    "types": [
+     "int"
+    ],
+    "n": 28,
+    "example": 1
+   },
+   "exception.attempts": {
+    "types": [
+     "int"
+    ],
+    "n": 49,
+    "example": 0
+   },
+   "exception.deadline_in_min": {
+    "types": [
+     "int"
+    ],
+    "n": 49,
+    "example": 105
+   },
+   "exception.elapsed_min": {
+    "types": [
+     "int"
+    ],
+    "n": 49,
+    "example": 0
+   },
+   "exception.stage": {
+    "types": [
+     "str"
+    ],
+    "n": 49,
+    "example": "before_contact"
+   },
+   "exception.trigger": {
+    "types": [
+     "str"
+    ],
+    "n": 49,
+    "example": "no_bed"
+   },
+   "tool_outputs.best_candidate_room_type": {
+    "types": [
+     "NoneType"
+    ],
+    "n": 1,
+    "example": null
+   },
+   "tool_outputs.best_ready_in_min": {
+    "types": [
+     "NoneType"
+    ],
+    "n": 1,
+    "example": null
+   },
+   "tool_outputs.earliest_ready_bed": {
+    "types": [
+     "NoneType",
+     "str"
+    ],
+    "n": 9,
+    "example": "W61-R03-B1"
+   },
+   "tool_outputs.earliest_ready_p50_min": {
+    "types": [
+     "NoneType",
+     "int"
+    ],
+    "n": 9,
+    "example": 130
+   },
+   "tool_outputs.earliest_ready_p90_min": {
+    "types": [
+     "NoneType",
+     "int"
+    ],
+    "n": 9,
+    "example": 210
+   },
+   "tool_outputs.negative_pressure_free": {
+    "types": [
+     "int"
+    ],
+    "n": 10,
+    "example": 0
+   },
+   "tool_outputs.ready_p50_min": {
+    "types": [
+     "int"
+    ],
+    "n": 28,
+    "example": 235
+   },
+   "tool_outputs.ready_p90_min": {
+    "types": [
+     "int"
+    ],
+    "n": 28,
+    "example": 315
+   },
+   "tool_outputs.rematch_candidates": {
+    "types": [
+     "int"
+    ],
+    "n": 23,
+    "example": 0
+   }
+  }
+ },
+ "issues": [],
+ "pass": true,
+ "rule": "민감 정보 이름의 필드가 없고, 값에 이름·전화·긴 번호·진단 모양이 없어야 통과(자동 검사, 설계 가정)"
+}

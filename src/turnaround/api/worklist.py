@@ -151,6 +151,8 @@ def admission_rows(st) -> dict:
                     "situation": f"{need}이 오늘 나지 않아 에이전트가 배정을 멈추고 원무팀에 넘겼습니다."
                                  + (f" 입원 예약은 {datetime.fromisoformat(req):%-m월 %-d일 %H:%M}입니다." if req else ""),
                     "effect": "환자에게 어떻게 안내했는지 고르세요."}
+            if x.get("ai_hint"):  # 규칙표가 정하지 못한 새 상황: LLM 답은 참고 의견으로만 (자동 실행 안 함)
+                more["situation"] += f" AI 참고 의견: {x['ai_hint']} (자동 실행 안 함, 결정은 담당자)."
         elif x["raw_kind"] == "ward_opinion":
             ev_t = next((e for e in ev if e.event_id == x["task_id"]), None)
             why = (ev_t.payload.get("reason") if ev_t else "") or ""

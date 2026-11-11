@@ -1,0 +1,155 @@
+{
+ "note": "합성 데이터. 그림자 모드(운영 시작 조건)에서 LLM 장애를 주입하고 실행 결과를 LLM 없는 규칙표와 비교",
+ "baseline_events": 1730,
+ "modes": {
+  "normal": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 88,
+   "finish": {
+    "stop": 49
+   },
+   "shadow_status": {
+    "ok": 49
+   }
+  },
+  "down": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 0,
+   "finish": {},
+   "shadow_status": {
+    "llm_error": 49
+   }
+  },
+  "length": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 88,
+   "finish": {
+    "length": 49
+   },
+   "shadow_status": {
+    "llm_error": 49
+   }
+  },
+  "empty": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 88,
+   "finish": {
+    "stop": 49
+   },
+   "shadow_status": {
+    "llm_error": 49
+   }
+  },
+  "broken": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 88,
+   "finish": {
+    "stop": 49
+   },
+   "shadow_status": {
+    "llm_error": 49
+   }
+  },
+  "http429": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 0,
+   "finish": {},
+   "shadow_status": {
+    "llm_error": 49
+   }
+  },
+  "http500": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 0,
+   "finish": {},
+   "shadow_status": {
+    "llm_error": 49
+   }
+  },
+  "slow": {
+   "completed": true,
+   "error": null,
+   "same_as_rule": true,
+   "events": 1730,
+   "safety_violations": {
+    "S1": 0,
+    "S2": 0,
+    "S3": 0,
+    "S4": 0
+   },
+   "llm_calls": 71,
+   "finish": {
+    "stop": 39
+   },
+   "shadow_status": {
+    "llm_error": 10,
+    "ok": 39
+   }
+  }
+ },
+ "pass": true,
+ "rule": "모든 장애 모드에서 하루가 끝나고, 실행 결과(사건 지문)가 LLM 없는 규칙표와 같아야 통과"
+}

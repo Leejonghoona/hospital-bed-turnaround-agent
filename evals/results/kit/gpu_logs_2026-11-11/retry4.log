@@ -1,0 +1,61 @@
+overlay         300G   27G  274G   9% /
+=== retry gpt-oss-120b(2) 04:45:11
+=== judge rental-gpt-oss-120b 04:45:16
+K3 verdict rental-gpt-oss-120b: True
+ "exception_latency_s": {
+  "p50": 2.448,
+  "p95": 4.721
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 2.675,
+  "p95": 4.919
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 3.761,
+  "p95": 10.319
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+ "exception_latency_s": {
+  "p50": 4.094,
+  "p95": 8.399
+ },
+ "tick_completion_rate": 1.0,
+ "timeout_rate": 0.0,
+ "by_status": {
+  "ok": 440
+ },
+ "pass": true,
+ "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+}
+=== done 05:00:29: results_gpu.tgz
+=== retry hcx(2) 05:00:34 local copy, auto_map removed
+Fetching 24 files:   0%|          | 0/24 [00:00<?, ?it/s]Fetching 24 files:  29%|██▉       | 7/24 [00:10<00:24,  1.43s/it]Fetching 24 files:  33%|███▎      | 8/24 [00:11<00:22,  1.42s/it]Fetching 24 files:  38%|███▊      | 9/24 [00:12<00:21,  1.43s/it]Fetching 24 files:  42%|████▏     | 10/24 [00:14<00:19,  1.42s/it]Fetching 24 files:  46%|████▌     | 11/24 [00:15<00:18,  1.44s/it]Fetching 24 files:  50%|█████     | 12/24 [00:16<00:16,  1.37s/it]Fetching 24 files:  54%|█████▍    | 13/24 [00:17<00:14,  1.32s/it]Fetching 24 files:  58%|█████▊    | 14/24 [00:17<00:12,  1.25s/it]Fetching 24 files:  62%|██████▎   | 15/24 [00:17<00:10,  1.19s/it]Fetching 24 files:  67%|██████▋   | 16/24 [00:18<00:09,  1.13s/it]Fetching 24 files:  71%|███████   | 17/24 [00:18<00:07,  1.08s/it]Fetching 24 files:  75%|███████▌  | 18/24 [00:18<00:06,  1.03s/it]Fetching 24 files:  79%|███████▉  | 19/24 [00:18<00:04,  1.02it/s]Fetching 24 files:  83%|████████▎ | 20/24 [00:18<00:03,  1.07it/s]Fetching 24 files:  88%|████████▊ | 21/24 [00:20<00:02,  1.02it/s]Fetching 24 files:  92%|█████████▏| 22/24 [00:21<00:01,  1.01it/s]Fetching 24 files:  96%|█████████▌| 23/24 [00:22<00:00,  1.03it/s]Fetching 24 files: 100%|██████████| 24/24 [00:23<00:00,  1.04it/s]Fetching 24 files: 100%|██████████| 24/24 [00:23<00:00,  1.04it/s]
+=== explore rental-hcx-seed-14b 05:01:03
+vLLM start failed: rental-hcx-seed-14b
+=== done 05:01:19: results_gpu.tgz
+tar: Removing leading `/' from member names
+tar: Removing leading `/' from hard link targets
+=== last done 05:01:19

@@ -613,7 +613,7 @@ class Gateway:
                        rationale=choice.rationale, context=raised.payload.get("context"))
         if choice.action == "escalate":
             card = dict(raised.payload.get("context") or {})
-            card.update({k: choice.params[k] for k in ("rejected_action", "rejected_reason") if choice.params.get(k)})
+            card.update({k: choice.params[k] for k in ("rejected_action", "rejected_reason", "ai_hint") if choice.params.get(k)})
             card["deadline"] = raised.payload.get("deadline")
             also = []
             p, _ = self._admission(raised.payload.get("admission_id") or case, self._events())

@@ -1,0 +1,52 @@
+{
+ "commit": "fe093991ace8180c6a8591cc145c6c1ef11dff3e",
+ "dirty": true,
+ "prompt_sha256": "17d8d97d95fb8b4cf69e4247aa67ce2422b7e7af84e577ef42c21159c353c410",
+ "policy_sha256": "b34d52723f1d940252b8f52a275d219c592e24072391488ca24e6c469626fc0d",
+ "endpoints_sha256": "b2f8994a4f58065562aca5e91d976561caff2f593417eb69187aa722b833f53e",
+ "set": "evals\\model_eval\\exception_decisions_v4.jsonl",
+ "set_sha256": "0b851f420d23c78e7146cc4fa1015b366f905a80c5a098a9beb599a38ec6b823",
+ "concurrency": 8,
+ "python": "3.13.12",
+ "platform": "Windows-10-10.0.19045-SP0",
+ "candidates": {
+  "m": 4,
+  "candidates": [
+   {
+    "spec": "kit:gpt-oss-20b",
+    "license": "apache-2.0"
+   },
+   {
+    "spec": "kit:gemma-4-26b",
+    "license": "apache-2.0"
+   },
+   {
+    "spec": "kit:qwen3.8-27b",
+    "license": "apache-2.0"
+   },
+   {
+    "spec": "kit:gpt-oss-120b",
+    "license": "apache-2.0"
+   }
+  ],
+  "order": [
+   "kit:gpt-oss-20b",
+   "kit:gemma-4-26b",
+   "kit:qwen3.8-27b",
+   "kit:gpt-oss-120b"
+  ]
+ },
+ "models": {
+  "kit:gpt-oss-20b": {
+   "name": "onprem:gpt-oss-20b",
+   "model": "openai/gpt-oss-20b",
+   "kind": "hosted",
+   "max_tokens": 2048,
+   "reasoning_effort": "low",
+   "temperature": 0.0,
+   "extra_body": {},
+   "timeout_s": 60.0,
+   "retries": 3
+  }
+ }
+}

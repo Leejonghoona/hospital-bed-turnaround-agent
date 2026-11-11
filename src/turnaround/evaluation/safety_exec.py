@@ -51,10 +51,6 @@ def _s1(gw, events: list[Event]) -> dict:
     return _row(found, len(commits))
 
 
-def _first(events: list[Event], etype: EventType, case: str) -> Event | None:
-    return next((e for e in events if e.type is etype and e.case_id == case), None)
-
-
 def _s2(gw, events: list[Event]) -> dict:
     s = fold(events)
     found: list[Violation] = []

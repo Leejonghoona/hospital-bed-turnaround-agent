@@ -1,0 +1,228 @@
+{
+ "note": "합성 데이터 요청 기록의 압축 재생. 용량 명세(병원 운영팀 자원 신청서 초안)",
+ "label": "cacheon_dedicated",
+ "model": "kit:rental-gemma-4-26b",
+ "scale": 5,
+ "background_rps": 0.0,
+ "background": {
+  "ok": 0,
+  "err": 0
+ },
+ "wall_s": 44.6,
+ "capacity": {
+  "requests": 440,
+  "input_tokens": 224664,
+  "output_tokens": 26291,
+  "peak_tick_concurrency_after_07": 75,
+  "share_10_14": 0.1591,
+  "exception_latency_s": {
+   "p50": 1.526,
+   "p95": 3.038
+  },
+  "tick_completion_rate": 1.0,
+  "timeout_rate": 0.0,
+  "by_status": {
+   "ok": 440
+  },
+  "pass": true,
+  "rule": "틱 완료율 ≥ 99%, 시간 초과 ≤ 1% (07:00 이전 재생 시작 몰림 포함, 따로 표시)"
+ },
+ "ticks": [
+  {
+   "tick": "2026-03-04T16:00:00",
+   "n": 40,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 4.1
+  },
+  {
+   "tick": "2026-03-04T16:15:00",
+   "n": 50,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 3.71
+  },
+  {
+   "tick": "2026-03-04T16:30:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.84
+  },
+  {
+   "tick": "2026-03-04T16:45:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.8
+  },
+  {
+   "tick": "2026-03-04T17:15:00",
+   "n": 15,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.31
+  },
+  {
+   "tick": "2026-03-04T17:30:00",
+   "n": 10,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.97
+  },
+  {
+   "tick": "2026-03-04T18:00:00",
+   "n": 15,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.48
+  },
+  {
+   "tick": "2026-03-04T18:15:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.89
+  },
+  {
+   "tick": "2026-03-04T18:30:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.81
+  },
+  {
+   "tick": "2026-03-05T08:00:00",
+   "n": 75,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 5.02
+  },
+  {
+   "tick": "2026-03-05T08:15:00",
+   "n": 15,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.53
+  },
+  {
+   "tick": "2026-03-05T09:00:00",
+   "n": 40,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 3.92
+  },
+  {
+   "tick": "2026-03-05T09:15:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.84
+  },
+  {
+   "tick": "2026-03-05T09:30:00",
+   "n": 45,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 4.73
+  },
+  {
+   "tick": "2026-03-05T09:45:00",
+   "n": 10,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.38
+  },
+  {
+   "tick": "2026-03-05T10:00:00",
+   "n": 20,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.98
+  },
+  {
+   "tick": "2026-03-05T10:15:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.01
+  },
+  {
+   "tick": "2026-03-05T10:45:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.73
+  },
+  {
+   "tick": "2026-03-05T11:00:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.94
+  },
+  {
+   "tick": "2026-03-05T11:30:00",
+   "n": 15,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.2
+  },
+  {
+   "tick": "2026-03-05T12:15:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.69
+  },
+  {
+   "tick": "2026-03-05T13:00:00",
+   "n": 10,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 1.15
+  },
+  {
+   "tick": "2026-03-05T13:45:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.7
+  },
+  {
+   "tick": "2026-03-05T14:00:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.88
+  },
+  {
+   "tick": "2026-03-05T14:15:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.79
+  },
+  {
+   "tick": "2026-03-05T14:30:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.62
+  },
+  {
+   "tick": "2026-03-05T15:15:00",
+   "n": 5,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.6
+  },
+  {
+   "tick": "2026-03-05T17:15:00",
+   "n": 10,
+   "done_in_time": true,
+   "late": 0,
+   "took_s": 0.95
+  }
+ ]
+}

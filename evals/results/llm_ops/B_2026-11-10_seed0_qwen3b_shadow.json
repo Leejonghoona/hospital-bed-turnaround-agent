@@ -1,0 +1,1105 @@
+{
+ "note": "합성 데이터 기준 추정. 가짜 LLM(결정적)이라 LLM 지연은 실제 모델 지연이 아니다.",
+ "setup": {
+  "hospital": "시연용 합성 병원(build_hospital 설정, 시드 0, 3일째)",
+  "replay": "전날 16:00 ~ 23:45",
+  "llm": "local:qwen2.5-3b-instruct-q4_k_m.gguf",
+  "spans": 564,
+  "wall_s": 1283.91,
+  "seed": 0,
+  "exception_llm": "local:qwen2.5-3b-instruct-q4_k_m.gguf",
+  "shadow": true
+ },
+ "agent_decisions": 224,
+ "outcome_counts": {
+  "auto": 56,
+  "blocked": 2,
+  "human": 166
+ },
+ "outcome_share": {
+  "auto": 0.25,
+  "blocked": 0.0089,
+  "human": 0.7411
+ },
+ "proposals": {
+  "n": 169,
+  "by_outcome": {
+   "auto": 21,
+   "human": 148
+  }
+ },
+ "actions": {
+  "n": 55,
+  "by_outcome": {
+   "auto": 35,
+   "blocked": 2,
+   "human": 18
+  }
+ },
+ "top_block_reasons": [
+  [
+   "wait_after_attempt",
+   2
+  ]
+ ],
+ "top_human_reasons": [
+  [
+   "no_bed",
+   136
+  ],
+  [
+   "missing_input",
+   103
+  ],
+  [
+   "isolation",
+   13
+  ],
+  [
+   "escalate",
+   11
+  ],
+  [
+   "isolation_discharge_bed",
+   8
+  ],
+  [
+   "request_recontact",
+   5
+  ],
+  [
+   "icu_stepdown",
+   3
+  ],
+  [
+   "propose_rematch",
+   2
+  ]
+ ],
+ "proposal_cases": {
+  "n": 27,
+  "auto": 21,
+  "human": 6,
+  "blocked": 0
+ },
+ "llm_calls_by_task": {
+  "choose_exception_action": {
+   "calls": 53,
+   "errors": 0,
+   "external_blocked": 0,
+   "input_tokens": 30131,
+   "output_tokens": 4805,
+   "role": "brain"
+  },
+  "explain_choice": {
+   "calls": 33,
+   "errors": 0,
+   "external_blocked": 0,
+   "input_tokens": 12081,
+   "output_tokens": 4486,
+   "role": "planner"
+  }
+ },
+ "llm_calls": 86,
+ "latency_ms": {
+  "agent.brain.choose": {
+   "n": 53,
+   "p50": 12566.859,
+   "p95": 16785.949
+  },
+  "agent.plan": {
+   "n": 169,
+   "p50": 0.037,
+   "p95": 21635.36
+  },
+  "gateway.commit": {
+   "n": 32,
+   "p50": 3.349,
+   "p95": 8.188
+  },
+  "gateway.submit": {
+   "n": 169,
+   "p50": 0.984,
+   "p95": 14.529
+  },
+  "gateway.submit_action": {
+   "n": 55,
+   "p50": 8.339,
+   "p95": 39.212
+  },
+  "llm.call": {
+   "n": 86,
+   "p50": 13561.682,
+   "p95": 22801.594
+  }
+ },
+ "commits_by_actor": {
+  "agent": {
+   "auto": 21
+  },
+  "human": {
+   "human": 5,
+   "blocked": 6
+  }
+ },
+ "case_example": {
+  "case": "SYN-A006",
+  "spans": [
+   {
+    "i": 0,
+    "parent": null,
+    "name": "agent.plan",
+    "at_ms": 0.0,
+    "duration_ms": 16373.843,
+    "attrs": {
+     "case_id": "SYN-A006",
+     "agent.mode": "explain",
+     "agent.bed_id": "W61-R12-B1",
+     "agent.candidates": 1
+    }
+   },
+   {
+    "i": 1,
+    "parent": 0,
+    "name": "llm.call",
+    "at_ms": 0.118,
+    "duration_ms": 16373.636,
+    "attrs": {
+     "llm.task": "explain_choice",
+     "llm.role": "planner",
+     "llm.model": "local:qwen2.5-3b-instruct-q4_k_m.gguf",
+     "llm.external_blocked": false,
+     "llm.input_tokens": 248,
+     "llm.output_tokens": 127
+    }
+   },
+   {
+    "i": 2,
+    "parent": null,
+    "name": "gateway.submit",
+    "at_ms": 16374.082,
+    "duration_ms": 4.382,
+    "attrs": {
+     "case_id": "SYN-A006",
+     "gateway.status": "committed",
+     "gateway.tier": "auto",
+     "gateway.outcome": "auto",
+     "gateway.reasons": []
+    }
+   },
+   {
+    "i": 3,
+    "parent": 2,
+    "name": "gateway.commit",
+    "at_ms": 16376.998,
+    "duration_ms": 1.401,
+    "attrs": {
+     "case_id": "SYN-A006",
+     "gateway.status": "committed",
+     "gateway.outcome": "auto",
+     "gateway.reasons": [],
+     "gateway.actor": "agent"
+    }
+   },
+   {
+    "i": 4,
+    "parent": null,
+    "name": "agent.brain.choose",
+    "at_ms": 138679.403,
+    "duration_ms": 11766.216,
+    "attrs": {
+     "case_id": "SYN-A006",
+     "agent.mode": "fake",
+     "agent.trigger": "call_up_stalled",
+     "agent.action": "remind_ward"
+    }
+   },
+   {
+    "i": 5,
+    "parent": 4,
+    "name": "llm.call",
+    "at_ms": 138683.239,
+    "duration_ms": 11762.173,
+    "attrs": {
+     "llm.task": "choose_exception_action",
+     "llm.role": "brain",
+     "llm.model": "local:qwen2.5-3b-instruct-q4_k_m.gguf",
+     "llm.external_blocked": false,
+     "llm.input_tokens": 556,
+     "llm.output_tokens": 96
+    }
+   },
+   {
+    "i": 6,
+    "parent": null,
+    "name": "gateway.submit_action",
+    "at_ms": 150445.713,
+    "duration_ms": 5.535,
+    "attrs": {
+     "case_id": "SYN-A006",
+     "agent.mode": "fake",
+     "gateway.status": "executed",
+     "gateway.tier": "auto",
+     "gateway.outcome": "auto",
+     "gateway.reasons": [],
+     "gateway.action": "remind_ward"
+    }
+   }
+  ]
+ },
+ "safety": {
+  "source": "system_executed",
+  "S1": {
+   "violations": 0,
+   "denominator": 26,
+   "upper_bound_95": 0.11538,
+   "codes": []
+  },
+  "S2": {
+   "violations": 0,
+   "denominator": 1,
+   "upper_bound_95": 3.0,
+   "codes": []
+  },
+  "S3": {
+   "violations": 0,
+   "denominator": 22,
+   "upper_bound_95": 0.13636,
+   "codes": []
+  },
+  "S4": {
+   "violations": 0,
+   "denominator": 15,
+   "upper_bound_95": 0.2,
+   "codes": []
+  }
+ },
+ "llm_usage": {
+  "planner": {
+   "name": "local:qwen2.5-3b-instruct-q4_k_m.gguf",
+   "calls": 86,
+   "input_tokens": 42212,
+   "output_tokens": 9291,
+   "latency_s": 1271.31,
+   "finish": {
+    "stop": 86
+   },
+   "n_threads": 4
+  },
+  "exception": null
+ },
+ "shadow": {
+  "n": 53,
+  "by_status": {
+   "ok": 53
+  },
+  "valid_rate": 1.0,
+  "agree_rate": 0.3019,
+  "gateway_would_block": {},
+  "by_trigger": {
+   "call_up_stalled": {
+    "n": 9,
+    "ok": 9,
+    "format_error": 0,
+    "out_of_list": 0,
+    "llm_error": 0,
+    "agree": 0,
+    "disagree": 9
+   },
+   "cleaning_overdue": {
+    "n": 2,
+    "ok": 2,
+    "format_error": 0,
+    "out_of_list": 0,
+    "llm_error": 0,
+    "agree": 1,
+    "disagree": 1
+   },
+   "late_isolation": {
+    "n": 1,
+    "ok": 1,
+    "format_error": 0,
+    "out_of_list": 0,
+    "llm_error": 0,
+    "agree": 1,
+    "disagree": 0
+   },
+   "no_bed": {
+    "n": 9,
+    "ok": 9,
+    "format_error": 0,
+    "out_of_list": 0,
+    "llm_error": 0,
+    "agree": 0,
+    "disagree": 9
+   },
+   "promise_at_risk": {
+    "n": 5,
+    "ok": 5,
+    "format_error": 0,
+    "out_of_list": 0,
+    "llm_error": 0,
+    "agree": 5,
+    "disagree": 0
+   },
+   "sequence_stalled": {
+    "n": 27,
+    "ok": 27,
+    "format_error": 0,
+    "out_of_list": 0,
+    "llm_error": 0,
+    "agree": 9,
+    "disagree": 18
+   }
+  },
+  "latency_s": {
+   "p50": 12.517,
+   "p95": 16.532,
+   "mean": 12.412
+  }
+ },
+ "shadow_log": [
+  {
+   "exception_id": "E5:SYN-A009",
+   "trigger": "no_bed",
+   "case": "SYN-A009",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.28,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A018",
+   "trigger": "no_bed",
+   "case": "SYN-A018",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 7.637,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A029",
+   "trigger": "no_bed",
+   "case": "SYN-A029",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 8.031,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A051",
+   "trigger": "no_bed",
+   "case": "SYN-A051",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 8.207,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A055",
+   "trigger": "no_bed",
+   "case": "SYN-A055",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 8.481,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A067",
+   "trigger": "no_bed",
+   "case": "SYN-A067",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 8.702,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A068",
+   "trigger": "no_bed",
+   "case": "SYN-A068",
+   "stage": "before_contact",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 7.742,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A006",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A006",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 11.762,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A013",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A013",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.993,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A028",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A028",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.517,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A033",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A033",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.581,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A045",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A045",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T16:15:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.328,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A061",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A061",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T16:45:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 14.399,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A070",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A070",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T17:00:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.48,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A065",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A065",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T17:15:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 17.685,
+   "error": null
+  },
+  {
+   "exception_id": "E10:SYN-A064",
+   "trigger": "call_up_stalled",
+   "case": "SYN-A064",
+   "stage": "ready_no_callup",
+   "at": "2026-03-04T17:30:00",
+   "rule_action": "remind_ward",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 16.532,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A009",
+   "trigger": "no_bed",
+   "case": "SYN-A009",
+   "stage": "before_contact",
+   "at": "2026-03-04T18:00:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 11.896,
+   "error": null
+  },
+  {
+   "exception_id": "E5:SYN-A055",
+   "trigger": "no_bed",
+   "case": "SYN-A055",
+   "stage": "before_contact",
+   "at": "2026-03-04T18:00:00",
+   "rule_action": "wait_for_next_ready",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 15.253,
+   "error": null
+  },
+  {
+   "exception_id": "E9:SYN-A029",
+   "trigger": "promise_at_risk",
+   "case": "SYN-A029",
+   "stage": "occupant_not_departed",
+   "at": "2026-03-04T18:00:00",
+   "rule_action": "request_recontact",
+   "model_action": "request_recontact",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 11.736,
+   "error": null
+  },
+  {
+   "exception_id": "E9:SYN-A067",
+   "trigger": "promise_at_risk",
+   "case": "SYN-A067",
+   "stage": "occupant_not_departed",
+   "at": "2026-03-04T18:00:00",
+   "rule_action": "request_recontact",
+   "model_action": "request_recontact",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 13.026,
+   "error": null
+  },
+  {
+   "exception_id": "E9:SYN-A018",
+   "trigger": "promise_at_risk",
+   "case": "SYN-A018",
+   "stage": "occupant_not_departed",
+   "at": "2026-03-04T18:15:00",
+   "rule_action": "request_recontact",
+   "model_action": "request_recontact",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 13.721,
+   "error": null
+  },
+  {
+   "exception_id": "E9:SYN-A051",
+   "trigger": "promise_at_risk",
+   "case": "SYN-A051",
+   "stage": "occupant_not_departed",
+   "at": "2026-03-04T18:15:00",
+   "rule_action": "request_recontact",
+   "model_action": "request_recontact",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 12.422,
+   "error": null
+  },
+  {
+   "exception_id": "E9:SYN-A068",
+   "trigger": "promise_at_risk",
+   "case": "SYN-A068",
+   "stage": "occupant_not_departed",
+   "at": "2026-03-04T18:15:00",
+   "rule_action": "request_recontact",
+   "model_action": "request_recontact",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 10.616,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D072",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D072",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 14.188,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D074",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D074",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.735,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D075",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D075",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 10.232,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D080",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D080",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 10.179,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D082",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D082",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 9.998,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D088",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D088",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.265,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D073:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D073",
+   "stage": "medication",
+   "at": "2026-03-05T09:15:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.152,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D076:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D076",
+   "stage": "medication",
+   "at": "2026-03-05T09:15:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 11.738,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D072",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D072",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:30:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 11.538,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D080",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D080",
+   "stage": "before_departure",
+   "at": "2026-03-05T09:30:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 11.827,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D068:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D068",
+   "stage": "medication",
+   "at": "2026-03-05T09:30:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.096,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D071:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D071",
+   "stage": "medication",
+   "at": "2026-03-05T09:30:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.846,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D081:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D081",
+   "stage": "medication",
+   "at": "2026-03-05T09:30:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.88,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D084:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D084",
+   "stage": "medication",
+   "at": "2026-03-05T09:30:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 9.069,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D073:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D073",
+   "stage": "medication",
+   "at": "2026-03-05T09:45:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 11.462,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D076:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D076",
+   "stage": "medication",
+   "at": "2026-03-05T09:45:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 11.364,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D077:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D077",
+   "stage": "medication",
+   "at": "2026-03-05T09:45:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 14.558,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D083:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D083",
+   "stage": "medication",
+   "at": "2026-03-05T09:45:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 13.761,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D085:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D085",
+   "stage": "medication",
+   "at": "2026-03-05T09:45:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.171,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D087:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D087",
+   "stage": "medication",
+   "at": "2026-03-05T09:45:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 15.679,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D068:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D068",
+   "stage": "medication",
+   "at": "2026-03-05T10:00:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 12.787,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D071:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D071",
+   "stage": "medication",
+   "at": "2026-03-05T10:00:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 12.212,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D081:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D081",
+   "stage": "medication",
+   "at": "2026-03-05T10:00:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 11.481,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D084:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D084",
+   "stage": "medication",
+   "at": "2026-03-05T10:00:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 10.792,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D086:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D086",
+   "stage": "medication",
+   "at": "2026-03-05T10:00:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 14.043,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D083:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D083",
+   "stage": "medication",
+   "at": "2026-03-05T10:15:00",
+   "rule_action": "escalate",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 12.967,
+   "error": null
+  },
+  {
+   "exception_id": "E2:SYN-D079:medication",
+   "trigger": "sequence_stalled",
+   "case": "SYN-D079",
+   "stage": "medication",
+   "at": "2026-03-05T10:15:00",
+   "rule_action": "remind_owner",
+   "model_action": "escalate",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 12.329,
+   "error": null
+  },
+  {
+   "exception_id": "E1:SYN-A018:W71-R11-B3",
+   "trigger": "late_isolation",
+   "case": "SYN-A018",
+   "stage": "after_commit",
+   "at": "2026-03-05T11:30:00",
+   "rule_action": "propose_rematch",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 17.057,
+   "error": null
+  },
+  {
+   "exception_id": "E4:SYN-D083:1",
+   "trigger": "cleaning_overdue",
+   "case": "SYN-D083",
+   "stage": "first",
+   "at": "2026-03-05T13:15:00",
+   "rule_action": "re_request_cleaning",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": false,
+   "would_block": null,
+   "latency_s": 17.832,
+   "error": null
+  },
+  {
+   "exception_id": "E4:SYN-D083:2",
+   "trigger": "cleaning_overdue",
+   "case": "SYN-D083",
+   "stage": "second",
+   "at": "2026-03-05T14:15:00",
+   "rule_action": "propose_rematch",
+   "model_action": "propose_rematch",
+   "status": "ok",
+   "agree": true,
+   "would_block": null,
+   "latency_s": 13.568,
+   "error": null
+  }
+ ]
+}

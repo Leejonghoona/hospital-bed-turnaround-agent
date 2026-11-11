@@ -1,7 +1,7 @@
 """교체 가능한 LLM 인터페이스 (AGT-1).
 
 기본은 API 키 없이 도는 결정적 가짜 LLM이다. 실제 모델은 환경 변수가 모두 있을 때만 붙는다.
-- TURNAROUND_LLM=openai | anthropic | xai | local | claudesub(구독 계정 Claude Code, 개인 평가용)
+- TURNAROUND_LLM=openai | anthropic | xai | local | onprem(병원 원내 엔드포인트 별칭) | claudesub(구독 계정 Claude Code, 개인 평가용)
 - TURNAROUND_LLM_MODEL=<모델 ID>
 - TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only  (외부 API에는 합성 데이터만 보낸다는 확인. 운영 정책은 deny)
 - OPENAI_API_KEY 또는 ANTHROPIC_API_KEY
@@ -276,8 +276,28 @@ class FakeLLM:
         raise LLMError(f"모르는 작업: {task}")
 
 
-def _fake_exception_action(ctx: dict) -> dict:
-    """가짜 LLM의 예외 행동 결정표 (설계 개정 4.5). 같은 입력에 같은 출력. 실제 모델 평가의 비교선."""
+_OVERRIDE_CACHE: dict = {"mtime": None, "rules": []}
+
+
+def _approved_overrides() -> list[dict]:
+    """config/rule_overrides.yaml의 승인된 우선 규칙 (rule_learning). 파일이 바뀔 때만 다시 읽는다."""
+    from .rule_learning import OVERRIDES, load_overrides
+    m = OVERRIDES.stat().st_mtime if OVERRIDES.exists() else None
+    if m != _OVERRIDE_CACHE["mtime"]:
+        _OVERRIDE_CACHE.update(mtime=m, rules=load_overrides())
+    return _OVERRIDE_CACHE["rules"]
+
+
+def _fake_exception_action(ctx: dict, overrides: list[dict] | None = None) -> dict:
+    """가짜 LLM의 예외 행동 결정표 (설계 개정 4.5). 같은 입력에 같은 출력. 실제 모델 평가의 비교선.
+
+    책임자가 승인한 우선 규칙(LLM 판단의 규칙표 반영, rule_learning)이 있으면 먼저 본다.
+    규칙표가 정하지 못해 사람에게 넘기는 기본값에는 "default": True를 붙인다(새 상황: LLM 답을 참고 의견으로 카드에 붙인다).
+    """
+    from .rule_learning import match_override
+    hit = match_override(ctx, _approved_overrides() if overrides is None else overrides)
+    if hit:
+        return hit
     ex = ctx.get("exception", {})
     allowed = [a["id"] for a in ctx.get("allowed_actions", [])]
     st0 = ctx.get("case_state") or {}
@@ -339,7 +359,7 @@ def _fake_exception_action(ctx: dict) -> dict:
             return {"action": "wait", "params": {}, "rationale": "기다리는 입원 없음: 보호자 도착까지 둠"}
     if "rematch_now" in allowed:
         return {"action": "rematch_now", "params": {}, "rationale": "연락 전: 규칙 모드로 다시 찾음"}
-    return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게"}
+    return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "허용 목록 밖: 사람에게", "default": True}
 
 
 def _fake_extract(text: str, ref: str | None) -> dict:
@@ -383,6 +403,7 @@ class _HttpLLM:
     name: str = ""
     usage: Usage = field(default_factory=Usage)
     timeout_s: float = 60.0
+    finish: dict = field(default_factory=dict)  # finish_reason별 건수 (OpenAILLM이 쓴다. 없으면 첫 호출에서 AttributeError)
 
     def _post(self, url: str, headers: dict, body: dict) -> dict:
         t0 = time.monotonic()
@@ -403,12 +424,15 @@ class _HttpLLM:
 class OpenAILLM(_HttpLLM):
     base_url: str = "https://api.openai.com/v1"
     reasoning_effort: str | None = None  # 추론 모델만 (low 등). 기본은 공급사 기본값
+    max_tokens: int | None = None  # None이면 보내지 않는다(기존 동작). 인수 시험은 OnPremLLM을 쓴다
 
     @traced_llm
     def complete_json(self, task: str, system: str, user: str) -> dict:
         body = {"model": self.model, "messages": [{"role": "system", "content": system},
                                                    {"role": "user", "content": user}],
                 "response_format": {"type": "json_object"}}
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
         if not self.model.startswith(("gpt-5", "o1", "o3", "o4")):
             body["temperature"] = 0  # 반복 일관성. 추론 모델은 온도 설정을 받지 않는다
         elif self.reasoning_effort:
@@ -418,19 +442,25 @@ class OpenAILLM(_HttpLLM):
         u = res.get("usage") or {}
         self.usage.input_tokens += u.get("prompt_tokens", 0)
         self.usage.output_tokens += u.get("completion_tokens", 0)
+        fr = str(res["choices"][0].get("finish_reason"))
+        self.finish[fr] = self.finish.get(fr, 0) + 1
         return _first_json(res["choices"][0]["message"]["content"] or "")
 
 
 @dataclass
 class AnthropicLLM(_HttpLLM):
     base_url: str = "https://api.anthropic.com/v1"
+    max_tokens: int | None = None  # None이면 기존 값(1024, 긴 입력은 8192)
+    effort: str | None = None  # output_config.effort. Opus 5.5는 생각을 끌 수 없어 상한 측정은 low로 둔다
 
     def body(self, system: str, user: str) -> dict:
-        body = {"model": self.model, "max_tokens": 8192 if len(user) > 6000 else 1024,
+        body = {"model": self.model, "max_tokens": self.max_tokens or (8192 if len(user) > 6000 else 1024),
                 "system": system + "\nJSON 객체 하나만 출력한다.",
                 "messages": [{"role": "user", "content": user}]}
         if re.match(r"claude-(3|[a-z]+-4)", self.model):
             body["temperature"] = 0  # 반복 일관성. Claude 5 계열은 temperature를 받지 않는다(HTTP 400)
+        if self.effort:
+            body["output_config"] = {"effort": self.effort}
         return body
 
     @traced_llm
@@ -441,6 +471,10 @@ class AnthropicLLM(_HttpLLM):
         u = res.get("usage") or {}
         self.usage.input_tokens += u.get("input_tokens", 0)
         self.usage.output_tokens += u.get("output_tokens", 0)
+        sr = str(res.get("stop_reason"))
+        self.finish[sr] = self.finish.get(sr, 0) + 1
+        if sr in ("max_tokens", "refusal"):
+            raise LLMError(f"응답 종료 사유 {sr}")
         text = "".join(b.get("text", "") for b in res.get("content", []) if b.get("type") == "text")
         return _first_json(text)
 
@@ -454,6 +488,8 @@ class LocalLLM:
     usage: Usage = field(default_factory=Usage)
     n_ctx: int = 4096
     n_threads: int | None = None
+    max_tokens: int = 256
+    finish: dict = field(default_factory=dict)  # finish_reason별 건수 (dry-run 점검용)
     _llm: object = None
 
     def __post_init__(self):
@@ -468,7 +504,7 @@ class LocalLLM:
         try:
             res = self._llm.create_chat_completion(
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                response_format={"type": "json_object"}, temperature=0.0, max_tokens=256)
+                response_format={"type": "json_object"}, temperature=0.0, max_tokens=self.max_tokens)
         except Exception as e:  # noqa: BLE001  모델 런타임 오류는 모두 장애로 본다
             raise LLMError(f"로컬 모델 오류: {e}") from e
         self.usage.latency_s += time.monotonic() - t0
@@ -476,6 +512,8 @@ class LocalLLM:
         u = res.get("usage") or {}
         self.usage.input_tokens += u.get("prompt_tokens", 0)
         self.usage.output_tokens += u.get("completion_tokens", 0)
+        fr = str(res["choices"][0].get("finish_reason"))
+        self.finish[fr] = self.finish.get(fr, 0) + 1
         return _first_json(res["choices"][0]["message"]["content"] or "")
 
 
@@ -539,6 +577,39 @@ class ClaudeSubLLM:
         return _first_json(res.result or "")
 
 
+def llm_threads(env=None) -> int | None:
+    """원내 모델 스레드 수 (`TURNAROUND_LLM_THREADS`). 없으면 None = llama.cpp가 코어 수로 정한다."""
+    v = (os.environ if env is None else env).get("TURNAROUND_LLM_THREADS")
+    return int(v) if v else None
+
+
+def llm_from_spec(spec: str, env=None) -> LLM:
+    """측정 스크립트용: "fake", "local:<모델 경로>", 인수 시험 키트의 "kit:<별칭>"·"eval-anthropic:<모델>".
+
+    kit·eval 경로는 합성 세트 평가 전용이다(설계 5절·7절). 외부(hosted·rental·Anthropic)는 합성 데이터 확인
+    (TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 만들고, data_class="synthetic"으로 감싼다.
+    병원 데이터 경로(get_llm)는 이 함수를 쓰지 않는다."""
+    env = os.environ if env is None else env
+    if spec in ("", "fake", "rule"):
+        return FakeLLM()
+    if spec.startswith("local:"):
+        return LocalLLM(model_path=spec.split(":", 1)[1], n_threads=llm_threads(env))
+    if spec.startswith(("kit:", "eval-anthropic:")):
+        if spec.startswith("kit:"):
+            from .onprem import from_alias
+            llm = from_alias(spec.split(":", 1)[1])
+        else:
+            if not env.get("ANTHROPIC_API_KEY"):
+                raise LLMError("ANTHROPIC_API_KEY가 없다")
+            llm = AnthropicLLM(model=spec.split(":", 1)[1], name=spec, max_tokens=4096, effort="low")  # 상한 측정 고정값
+        if not getattr(llm, "external", False):
+            return llm
+        if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":
+            raise LLMError("외부 모델 평가는 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 한다")
+        return GuardedLLM(llm, "synthetic")
+    raise LLMError(f"받지 않는 측정 모델: {spec}")
+
+
 def get_llm(env: dict | None = None, data_class: str = "hospital", policy=None) -> LLM:
     """환경 변수가 모두 갖춰졌을 때만 실제 모델. 아니면 가짜 LLM.
     외부 모델은 `GuardedLLM`으로 감싸 돌려준다(data_class 기본 병원 데이터, fail-closed)."""
@@ -551,8 +622,16 @@ def _make_llm(env) -> LLM:
     kind, model = env.get("TURNAROUND_LLM", "fake"), env.get("TURNAROUND_LLM_MODEL")
     if kind == "fake" or not model:
         return FakeLLM()
-    if kind == "local":
-        return LocalLLM(model_path=model)  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
+    if kind == "local":  # 원내 실행: 외부 전송이 없어 확인 값이 필요 없다
+        return LocalLLM(model_path=model, n_threads=llm_threads(env))
+    if kind == "onprem":  # 병원 원내 엔드포인트(별칭). 병원 망 확인 값과 원내 등록이 모두 있어야 한다
+        if env.get("TURNAROUND_ONPREM_ACK") != "hospital-network":
+            raise LLMError("원내 엔드포인트는 TURNAROUND_ONPREM_ACK=hospital-network가 있어야 쓴다")
+        from .onprem import from_alias
+        llm = from_alias(model)
+        if llm.external:
+            raise LLMError(f"{model}은 원내(onprem) 엔드포인트가 아니다. 병원 데이터에는 원내만 쓴다")
+        return llm
     if env.get("TURNAROUND_EXTERNAL_LLM_ACK") != "synthetic-only":
         raise LLMError("외부 LLM은 합성 데이터 확인(TURNAROUND_EXTERNAL_LLM_ACK=synthetic-only)이 있어야 쓴다")
     if kind == "claudesub":  # 구독 경유도 데이터가 국외 서버로 간다: 합성 데이터 확인 필요
