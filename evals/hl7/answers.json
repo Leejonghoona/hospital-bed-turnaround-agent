@@ -1,0 +1,8 @@
+{
+ "_note": "질문에 대한 가상 담당자 답(손으로 적음). 격리·원인균 위치와 주의 코드표만 답하고, 성별 O/U·모르는 병동·순서 위반·시각 정밀도는 답하지 않는다",
+ "positions": {
+  "OBX:ISO": {"key": "patient.precautions", "field": "OBX-5.1"},
+  "ZIS": {"key": "patient.organism", "field": "ZIS-2"}
+ },
+ "codes": {"patient.precautions": {"CONTACT": "contact", "DROPLET": "droplet"}}
+}
