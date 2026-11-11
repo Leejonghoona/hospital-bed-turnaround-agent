@@ -211,6 +211,9 @@
 - 정답 검토 완료: `인수시험_v4_검토표.md` 맨 아래. 고친 정답 0건. 격리 퇴원 환자 라운지는 병원 설정 항목으로 남긴다.
 - v4 세트 sha256(LF): 0b851f420d23c78e7146cc4fa1015b366f905a80c5a098a9beb599a38ec6b823.
 
+- 호스팅 대리 K3(2026-11-11, 결과 `evals/results/kit/K3_2026-11-11.json`): gpt-oss-20b·Gemma 4 26B·gpt-oss-120b가 판정 관문 통과, Qwen3.8 27B는 SA6 탈락(넘김 44% 대 규칙표 21%). 상한 Opus 5.5 1회: 정답·허용 280/300(규칙표 199), 넘김 32%.
+- 판정 측정(GPU) 고정값, 측정 전 기록: H100 80GB급 1장, vLLM 0.19.0(gpt-oss·Gemma 4 지원 확인한 릴리스), `--max-model-len 4096 --max-num-seqs 16 --gpu-memory-utilization 0.90`, Hugging Face 고정 커밋(gpt-oss-120b b5c939de…, gpt-oss-20b 6cee5e81…, gemma-4-26B-A4B-it 4d7ae498…, 셋 다 apache-2.0, 게이트 없음). 정밀도는 공식 가중치 그대로(gpt-oss MXFP4, Gemma bf16). 대상은 대리 측정 통과 후보 3개. K4는 vLLM K3를 통과한 후보만, 접두어 캐시 켬·끔 × 전용·공유(배경 초당 2건). 실행 스크립트 `scripts/gpu/run_on_gpu.sh`.
+
 ## 15. 사후 변경
 
 (없음)

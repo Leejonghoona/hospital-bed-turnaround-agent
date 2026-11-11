@@ -38,3 +38,25 @@ endpoints:
     key_env: DEEPINFRA_API_KEY
     reasoning_effort: low
     max_tokens: 2048
+  # 판정 측정 (임대 GPU 1장, vLLM 0.19.0 고정, 하네스는 같은 서버에서 127.0.0.1로 붙는다. 합성 데이터만)
+  # 가중치는 Hugging Face 고정 커밋: gpt-oss-120b b5c939de…, gpt-oss-20b 6cee5e81…, gemma-4-26B-A4B-it 4d7ae498…
+  rental-gpt-oss-20b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: openai/gpt-oss-20b
+    reasoning_effort: low
+    max_tokens: 2048
+  rental-gemma-4-26b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: google/gemma-4-26B-A4B-it
+    max_tokens: 2048
+  rental-gpt-oss-120b:
+    kind: rental
+    base_url: http://127.0.0.1:8000/v1
+    allow_http_loopback: true
+    model: openai/gpt-oss-120b
+    reasoning_effort: low
+    max_tokens: 2048
