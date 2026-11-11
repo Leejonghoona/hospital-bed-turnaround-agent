@@ -60,3 +60,10 @@ endpoints:
     model: openai/gpt-oss-120b
     reasoning_effort: low
     max_tokens: 2048
+  # 탐색 측정(판정 밖, 사후 추가, DECISIONS 2026-11-11 "원내 모델 후보 선정 방법 재정리")
+  gemma-4-31b:
+    kind: hosted
+    base_url: https://api.deepinfra.com/v1/openai
+    model: google/gemma-4-31B-it
+    key_env: DEEPINFRA_API_KEY
+    max_tokens: 2048
