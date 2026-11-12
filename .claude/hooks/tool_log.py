@@ -43,7 +43,7 @@ def main() -> None:
                   "ok": ok, "duration_ms": data.get("duration_ms")})
 
     target = rel(ti.get("file_path"))
-    if tool in {"Write", "Edit", "MultiEdit"} and target.startswith(".claude/plans/") and target.endswith(".md"):
+    if tool in {"Write", "Edit", "MultiEdit"} and target.startswith("plans/") and target.endswith(".md"):
         st = load_state()
         body = ROOT / target
         try:

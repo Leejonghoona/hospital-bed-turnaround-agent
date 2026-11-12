@@ -44,7 +44,7 @@ def edit(root: Path, path: str, agent: str | None = None) -> dict:
 
 
 def approve(root: Path, text: str = "# 계획\n목표: 테스트\n") -> None:
-    plan = root / ".claude" / "plans" / "20261113-test.md"
+    plan = root / "plans" / "20261113-test.md"
     plan.parent.mkdir(parents=True, exist_ok=True)
     plan.write_text(text, encoding="utf-8")
     run("prompt_gate.py", {"session_id": "test", "prompt": "승인"}, root)
@@ -58,22 +58,22 @@ def test_code_edit_blocked_without_approved_plan(root: Path) -> None:
 def test_code_edit_allowed_after_human_approval(root: Path) -> None:
     approve(root)
     assert decision(run("guard.py", edit(root, "src/a.py"), root)) == "allow"
-    state = json.loads((root / ".claude/plans/STATE.json").read_text(encoding="utf-8"))
+    state = json.loads((root / "plans/STATE.json").read_text(encoding="utf-8"))
     assert state["status"] == "approved" and state["approved_by"] == "human-prompt"
 
 
 def test_plan_changed_after_approval_needs_reapproval(root: Path) -> None:
     approve(root)
-    (root / ".claude/plans/20261113-test.md").write_text("# 계획\n목표: 몰래 넓힌 범위\n", encoding="utf-8")
+    (root / "plans/20261113-test.md").write_text("# 계획\n목표: 몰래 넓힌 범위\n", encoding="utf-8")
     out = run("guard.py", edit(root, "src/a.py"), root)
     assert decision(out) == "deny" and "바뀌었습니다" in out["hookSpecificOutput"]["permissionDecisionReason"]
 
 
 def test_ai_cannot_write_approval_state(root: Path) -> None:
     approve(root)
-    assert decision(run("guard.py", edit(root, ".claude/plans/STATE.json"), root)) == "deny"
+    assert decision(run("guard.py", edit(root, "plans/STATE.json"), root)) == "deny"
     bash = {"session_id": "test", "tool_name": "Bash",
-            "tool_input": {"command": "echo '{\"status\":\"approved\"}' > .claude/plans/STATE.json"}}
+            "tool_input": {"command": "echo '{\"status\":\"approved\"}' > plans/STATE.json"}}
     assert decision(run("guard.py", bash, root)) == "deny"
 
 
@@ -85,7 +85,7 @@ def test_read_only_roles_cannot_edit(root: Path, agent: str) -> None:
 
 
 def test_planner_writes_only_plans(root: Path) -> None:
-    assert decision(run("guard.py", edit(root, ".claude/plans/x.md", "planner"), root)) == "allow"
+    assert decision(run("guard.py", edit(root, "plans/x.md", "planner"), root)) == "allow"
     assert decision(run("guard.py", edit(root, "src/a.py", "planner"), root)) == "deny"
 
 

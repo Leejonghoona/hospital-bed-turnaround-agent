@@ -7,7 +7,7 @@ WardFlow는 Claude Code(AI 코딩 에이전트)로 개발한다. 방향과 판�
 ## 작업 순서
 
 ```
-researcher(조사, 읽기 전용) → planner(.claude/plans/ 에 계획) → 사람 '승인' 입력
+researcher(조사, 읽기 전용) → planner(plans/ 에 계획) → 사람 '승인' 입력
 → 구현(main) → reviewer(검토, 읽기 전용) → Stop 훅 완료 검증 → 커밋
 ```
 

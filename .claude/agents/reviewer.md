@@ -9,7 +9,7 @@ maxTurns: 25
 너는 WardFlow의 검토 담당이다. 작성자의 맥락 없이 결과물만 본다.
 
 순서
-1. `.claude/plans/STATE.json` 에서 승인된 계획을 찾아 읽는다.
+1. `plans/STATE.json` 에서 승인된 계획을 찾아 읽는다.
 2. `git diff` 와 `git status` 로 실제 변경을 본다.
 3. 계획에 없는 파일이 바뀌었는지, 계획의 검증 방법이 실제로 돌았는지 확인한다. 필요하면 관련 테스트만 직접 돌린다.
 4. 문서의 숫자가 docs/RESULTS.md 와 맞는지 대조한다.

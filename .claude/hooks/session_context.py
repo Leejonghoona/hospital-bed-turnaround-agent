@@ -35,7 +35,7 @@ def main() -> None:
         f"바뀐 파일: {len(git('status', '--porcelain').splitlines())}개",
         f"계획 상태: {st.get('status')} {st.get('plan', '')}",
         f"마지막 완료 검증: {last_line('checks')}",
-        "작업 순서: researcher로 조사 → planner로 .claude/plans/ 에 계획 → 사람 '승인' → 구현 → reviewer 검토 → 완료 검증(Stop 훅)",
+        "작업 순서: researcher로 조사 → planner로 plans/ 에 계획 → 사람 '승인' → 구현 → reviewer 검토 → 완료 검증(Stop 훅)",
     ])
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}},
                      ensure_ascii=False))

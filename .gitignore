@@ -25,4 +25,4 @@ traces.jsonl
 
 # AI 개발 기록과 승인 상태 (로컬 전용)
 .claude/logs/
-.claude/plans/STATE.json
+plans/STATE.json

@@ -2,7 +2,7 @@
 
 차단 규칙
 - G1 계획 승인 전 코드·문서 수정 금지 (사람이 승인한 계획이 있어야 구현 단계로 넘어간다)
-- G2 승인 상태 파일(.claude/plans/STATE.json)은 AI가 쓸 수 없다 (승인은 사람 입력 훅만 기록)
+- G2 승인 상태 파일(plans/STATE.json)은 AI가 쓸 수 없다 (승인은 사람 입력 훅만 기록)
 - G3 역할 분리: researcher·reviewer는 파일을 고칠 수 없고, planner는 계획 문서만 쓴다
 - G4 평가 정답 세트와 지난 측정 결과는 고칠 수 없다 (평가셋 오염 방지)
 - G5 비밀 정보(.env, 키 파일) 읽기·쓰기 금지
@@ -77,18 +77,18 @@ def main() -> None:
 
     if match(target, SECRET):
         block("G5", "비밀 정보 파일은 수정할 수 없습니다.", data, target)
-    if target == ".claude/plans/STATE.json":
+    if target == "plans/STATE.json":
         block("G2", "승인 상태는 사람이 '승인'을 입력할 때만 기록됩니다.", data, target)
     if agent in {"researcher", "reviewer"}:
         block("G3", f"{agent} 역할은 읽기 전용입니다. 발견한 내용은 보고로만 남기세요.", data, target)
-    if agent == "planner" and not fnmatch.fnmatch(target, ".claude/plans/*.md"):
-        block("G3", "planner는 .claude/plans/ 아래 계획 문서만 쓸 수 있습니다.", data, target)
+    if agent == "planner" and not fnmatch.fnmatch(target, "plans/*.md"):
+        block("G3", "planner는 plans/ 아래 계획 문서만 쓸 수 있습니다.", data, target)
     if match(target, PROTECTED) and (ROOT / target).exists():
         block("G4", "평가 정답 세트와 지난 측정 결과는 고칠 수 없습니다. 새 버전 파일을 만들거나 사람에게 요청하세요.", data, target)
     if match(target, GATED):
         state = load_state()
         if state.get("status") != "approved":
-            block("G1", "승인된 계획이 없습니다. planner로 .claude/plans/ 에 계획을 쓰고 사람이 '승인'을 입력한 뒤 구현하세요.", data, target)
+            block("G1", "승인된 계획이 없습니다. planner로 plans/ 에 계획을 쓰고 사람이 '승인'을 입력한 뒤 구현하세요.", data, target)
         plan = ROOT / state.get("plan", "")
         try:
             same = short_hash(plan.read_text(encoding="utf-8")) == state.get("plan_hash")

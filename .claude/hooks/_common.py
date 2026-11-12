@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path(__file__).resolve().parents[2])
 CLAUDE_DIR = ROOT / ".claude"
 LOG_DIR = CLAUDE_DIR / "logs"
-PLAN_DIR = CLAUDE_DIR / "plans"
+PLAN_DIR = ROOT / "plans"
 STATE_FILE = PLAN_DIR / "STATE.json"
 
 
