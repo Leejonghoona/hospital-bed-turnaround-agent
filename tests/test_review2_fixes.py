@@ -118,3 +118,27 @@ def test_organism_swap_needs_human_confirmation(old, new, want):
 def test_hl7_without_visit_number_is_asked_not_merged_by_patient_id():
     c = _conv(_msg("A", "A01", visit=""))
     assert not c.events and any(q.id.startswith("pos:PV1-19") for q in c.questions)
+
+
+def test_empty_multi_room_gender_switch_is_human_action_and_guarded():
+    """다인실 성별 전환 (현장 검수 2026-11-12): 빈 방만, 사람이 한다. 전환 뒤에는 새 성별 환자가 배정 기준을 통과하고,
+    독립 평가기도 전환을 읽는다."""
+    from test_gateway import H, adm, census_patient, make
+    from turnaround.evaluation.safety_exec import _rooms_at
+    from turnaround.sim.models import Gender, RoomType
+    room = next(r for r in H.rooms if r.room_type is RoomType.MULTI and r.gender is Gender.FEMALE)
+    beds = [b.id for b in H.beds if b.room_id == room.id]
+    from test_gateway import at
+    store, gw = make([adm("A1", gender="M")])
+    male = gw._admission("A1", store.read())[0]
+    assert "gender_room" in gw._shacl("A1", male, beds[0], store.read())
+    # 사람이 있으면 거부
+    _, gw_full = make([adm("A1", gender="M")], census={beds[0]: census_patient("SYN-C1")})
+    assert gw_full.switch_room_gender(room.id, "M", at(10)).reasons == ["room_not_empty"]
+    # 빈 방은 전환, 그 뒤 남성 배정 통과
+    assert gw.switch_room_gender(room.id, "M", at(10)).status == "executed"
+    assert "gender_room" not in gw._shacl("A1", male, beds[0], store.read())
+    assert next(r for r in _rooms_at(H.rooms, store.read()) if r.id == room.id).gender is Gender.MALE
+    # 1인실은 대상이 아니다
+    single = next(r for r in H.rooms if r.room_type is not RoomType.MULTI)
+    assert gw.switch_room_gender(single.id, "M", at(10)).reasons == ["not_multi_room"]

@@ -181,6 +181,77 @@ class Gateway:
                 status.pop(e.payload["room_id"], None)
         return status
 
+    def _room_genders(self, events: list[Event]) -> dict[str, object]:
+        """다인실의 지금 성별 운영. 마지막 전환 사건이 이긴다. 전환이 없으면 배치도 값."""
+        g = {r.id: r.gender for r in self.rooms}
+        for e in events:
+            if e.type is EventType.ROOM_GENDER_CHANGED and e.payload.get("room_id") in g:
+                from turnaround.sim.models import Gender
+                g[e.payload["room_id"]] = Gender(e.payload["gender"])
+        return g
+
+    def _room_now(self, room_id: str, events: list[Event]) -> Room:
+        r = self.room_by_id[room_id]
+        g = self._room_genders(events).get(room_id)
+        return r if g == r.gender else r.model_copy(update={"gender": g})
+
+    def _room_empty(self, room_id: str, events: list[Event]) -> bool:
+        """병실에 사람이 없고 잡힌 배정도 없는가 (성별 전환의 전제). 퇴원 예정이어도 아직 안 나간 환자가 있으면 빈 방이 아니다."""
+        beds = {b.id for b in self.beds if self.room_of.get(b.id) == room_id}
+        if beds & set(self._occupants(events)) or beds & set(self._assignments(events).values()):
+            return False
+        s = fold(events)
+        if any(m.active and m.bed_id in beds for m in s.matches.values()):
+            return False
+        for d in s.discharges.values():
+            if d.bed_id in beds and EventType.DISCHARGE_CANCELLED not in d.facts and d.seen(EventType.PATIENT_DEPARTED) is None:
+                return False
+        if any(p.get("bed_id") in beds for p in self._live_proposal_beds(events)):
+            return False
+        return self.room_by_id[room_id].room_type is RoomType.MULTI and not self._out_of_service(next(iter(beds)), events)
+
+    def _live_proposal_beds(self, events: list[Event]) -> list[dict]:
+        done = {e.payload.get("proposal_id") for e in events if e.type in (
+            EventType.MATCH_COMMITTED, EventType.REJECTED_AT_PROPOSAL, EventType.REJECTED_AT_COMMIT, EventType.WARD_REJECTED,
+            EventType.NO_BED_REPORTED)}
+        cancelled = {e.case_id for e in events if e.type is EventType.ADMISSION_CANCELLED}
+        return [e.payload for e in events if e.type is EventType.PROPOSAL_RECEIVED and e.payload.get("proposal_id") not in done
+                and e.payload.get("case") not in cancelled]
+
+    def switch_room_gender(self, room_id: str, gender: str, now: datetime, by: str = "bed_manager",
+                           task_id: str | None = None) -> Decision:
+        """빈 다인실의 성별 운영을 바꾼다. 사람이 하는 일이다(에이전트는 제안만). 사람이 있거나 배정이 잡혀 있으면 거부."""
+        events = self._events()
+        if room_id not in self.room_by_id or self.room_by_id[room_id].room_type is not RoomType.MULTI:
+            return Decision("rejected", "room", reasons=["not_multi_room"])
+        if not self._room_empty(room_id, events):
+            return Decision("rejected", "room", reasons=["room_not_empty"])
+        if str(getattr(self._room_genders(events).get(room_id), "value", "")) == gender:
+            return Decision("duplicate", "room")
+        n = sum(1 for e in events if e.type is EventType.ROOM_GENDER_CHANGED and e.case_id == room_id)
+        self._emit(room_id, f"room:{room_id}:gender:{n + 1}", EventType.ROOM_GENDER_CHANGED, now, room_id=room_id,
+                   gender=gender, by=by)
+        if task_id:
+            self._emit(room_id, f"done:{task_id}", EventType.HUMAN_TASK_DONE, now, task_id=task_id, by=by)
+        return Decision("executed", "room")
+
+    def _propose_gender_switch(self, case: str, patient: Patient, now: datetime, events: list[Event]) -> None:
+        """병상이 없는 다인실 입원에, 반대 성별로 운영 중인 빈 다인실이 있으면 성별 전환을 제안한다 (현장 검수 2026-11-12).
+        병상관리의 일상 업무다. 전환은 사람이 승인하고, 승인되면 다음 배정 주기에 그 병실이 후보가 된다."""
+        if patient.gender is None or patient.isolation_order:
+            return
+        genders = self._room_genders(events)
+        rooms = sorted(r.id for r in self.rooms if r.room_type is RoomType.MULTI and genders.get(r.id) not in (None, patient.gender)
+                       and self._room_empty(r.id, events))
+        if not rooms:
+            return
+        room = rooms[0]
+        if self._open_task_where(lambda e: e.payload.get("kind") == "room_gender_switch" and e.payload.get("room_id") == room):
+            return
+        self._emit(case, f"gw:{case}:task:room_gender_switch:{room}", EventType.HUMAN_TASK_CREATED, now,
+                   kind="room_gender_switch", assignee="bed_manager", room_id=room, gender=patient.gender.value,
+                   reason="no_bed")
+
     def room_status(self) -> dict[str, str]:
         return self._room_status(self._events())
 
@@ -778,7 +849,7 @@ class Gateway:
         # 배치 제약(격리, 성별, 코호트, 결핵 공유, 동명이인)은 모두 '그 병실 안' 제약이고, 남기는 위반도 이 환자나 이 병실이 초점인
         # 것뿐이다. 그래서 그 병실만 검사해도 결과가 같다. 병원 전체에 걸리는 '없는 병상' 검사만 따로 한다 (큰 병원 속도)
         out = ["unknown_bed"] if any(b not in self.room_of for b in occ) else []
-        rooms = [r for r in self.rooms if r.id == room_id]
+        rooms = [self._room_now(room_id, events)] if room_id in self.room_by_id else []
         beds = [b for b in self.beds if self.room_of.get(b.id) == room_id]
         local = {b: p for b, p in occ.items() if self.room_of.get(b) == room_id}
         for v in shacl_validate(rooms, beds, local):
@@ -829,10 +900,12 @@ class Gateway:
                    proposal_id=pid, assignee=assignee)
 
     def _open_task(self, case: str, kind: str) -> bool:
+        return self._open_task_where(lambda e: e.case_id == case and e.payload.get("kind") == kind)
+
+    def _open_task_where(self, pred) -> bool:
         evs = self._events()
         done = {e.payload.get("task_id") for e in evs if e.type is EventType.HUMAN_TASK_DONE}
-        return any(e.type is EventType.HUMAN_TASK_CREATED and e.case_id == case and e.payload.get("kind") == kind
-                   and e.event_id not in done for e in evs)
+        return any(e.type is EventType.HUMAN_TASK_CREATED and e.event_id not in done and pred(e) for e in evs)
 
     def _check_proposal(self, prop: Proposal, patient: Patient | None, payload: dict, events, now) -> Decision:
         if patient is None:
@@ -848,6 +921,8 @@ class Gateway:
             self._route_review(prop, reasons or ["no_bed"], now)
             if "missing_input" in reasons:
                 self._task(prop.case, prop.proposal_id, "data_fix", now)
+            if not reasons or reasons == ["no_bed"]:
+                self._propose_gender_switch(prop.case, patient, now, events)
             return Decision("awaiting_review", "proposal", "review", reasons or ["no_bed"])
         if prop.bed_id not in self.room_of:
             return self._reject(prop, "proposal", ["unknown_bed"], now)

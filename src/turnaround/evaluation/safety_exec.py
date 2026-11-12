@@ -33,6 +33,16 @@ def _excepted_cases(events: list[Event]) -> set[str]:
             and e.payload.get("decision") == "applied" and e.payload.get("safety_exception")}
 
 
+def _rooms_at(rooms, events: list[Event]):
+    """그 시점의 병실 성별 운영 (다인실 성별 전환 사건 반영). 평가기가 사건에서 직접 읽는다."""
+    from turnaround.sim.models import Gender
+    g = {}
+    for e in events:
+        if e.type is EventType.ROOM_GENDER_CHANGED:
+            g[e.payload["room_id"]] = Gender(e.payload["gender"])
+    return [r.model_copy(update={"gender": g[r.id]}) if r.id in g else r for r in rooms]
+
+
 def _s1(gw, events: list[Event]) -> dict:
     excepted = _excepted_cases(events)
     commits = [i for i, e in enumerate(events) if e.type is EventType.MATCH_COMMITTED and e.source == "gateway"
@@ -47,7 +57,7 @@ def _s1(gw, events: list[Event]) -> dict:
         occ = {b: p for b, p in gw._occupants(upto).items() if b not in excepted_beds}
         room = gw.room_of.get(events[i].payload.get("bed_id") or "", "")
         # 이번 확정 병상의 병실이 들어간 위반만 센다 (병상 ID에 병실 ID가 들어 있다. 앞선 확정의 위반을 거듭 세지 않는다)
-        found += [v for v in check_assignment(gw.rooms, gw.beds, occ) if room and room in v.detail]
+        found += [v for v in check_assignment(_rooms_at(gw.rooms, upto), gw.beds, occ) if room and room in v.detail]
     return _row(found, len(commits))
 
 

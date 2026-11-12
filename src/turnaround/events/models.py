@@ -90,6 +90,8 @@ class EventType(str, Enum):
     # 병실 사용 중지 (GW-12). case_id = 병실 ID. 사유: closed | equipment_failure | surveillance_hold
     ROOM_OUT_OF_SERVICE = "room_out_of_service"
     ROOM_RETURNED_TO_SERVICE = "room_returned_to_service"
+    # 다인실 성별 전환 (2026-11-12, 현장 검수). case_id = 병실 ID, payload room_id·gender·by. 빈 방에서만, 사람이 승인
+    ROOM_GENDER_CHANGED = "room_gender_changed"
     # ---- 설계 개정 (2026-11-09, docs/설계개정/아키텍처_개정안.md 2절). 추가만 하고 옛 타입·의미는 바꾸지 않는다 ----
     # 퇴원 줄
     BILLING_REVIEW_REQUESTED = "billing_review_requested"

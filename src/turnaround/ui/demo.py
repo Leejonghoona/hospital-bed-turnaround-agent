@@ -220,6 +220,16 @@ def _humans(st: DemoState, now: datetime) -> None:
                         continue
             st.gw.manager_approve(pid, now, actor=st.gw.review_decider(pid, now))  # 격리 검토는 감염관리 담당이 승인
     ev = st.store.read()
+    # 성별 전환 제안: 운영 시간에 30분 뒤 원무가 승인한다(설계 가정). 그사이 방이 차면 게이트웨이가 거부한다
+    done = {e.payload.get("task_id") for e in ev if e.type is EventType.HUMAN_TASK_DONE}
+    for e in ev:
+        if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "room_gender_switch" and \
+                e.event_id not in done and e.observed_at + 30 * _M <= now and _CAL.in_office(now):
+            d = st.gw.switch_room_gender(e.payload["room_id"], e.payload["gender"], now, task_id=e.event_id)
+            if d.status == "rejected":
+                st.store.append(_human_event(e.case_id, f"done:{e.event_id}", EventType.HUMAN_TASK_DONE, now,
+                                             task_id=e.event_id, outcome="room_not_empty"))
+    ev = st.store.read()
     if rv is not None:  # 에이전트 확정 뒤 병동 이의 (통보형)
         objected = by(EventType.WARD_OBJECTION_RAISED)
         for pid, e in by(EventType.WARD_ASSIGNMENT_NOTIFIED).items():
