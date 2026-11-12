@@ -55,7 +55,7 @@ export type Onboarding = { hospital: string; tables: number; mapped: number; by_
 export type AiOps = {
   today: { committed: number; no_touch: number; admissions: number; safety: number; safety_rows: Record<string, any>[] }
   measured: { no_touch: { ratio: number; committed: number; no_touch: number; seed_min: number; seeds: string }
-    entry_wait: { seeds: number; off_min: number; on_min: number; change: number }
+    entry_wait: { seeds: number; off_min: number; on_min: number; change: number; pairs?: number; ci95_min?: number[] }
     entry_breakdown: { seeds: string; n: number; off_min: number; on_min: number; change: number; ready_off: number; ready_on: number }
     entry_breakdown_realistic?: { off_min: number; on_min: number; change: number; ready_off: number; ready_on: number }
     safety: { seeds: string; violations: number; checks: number; holdout_seeds: string; holdout: { violations: number; checks: number } }

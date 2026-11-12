@@ -20,8 +20,8 @@ def test_summary_matches_sources():
 def test_summary_headline_values():
     s = yaml.safe_load((ROOT / "config" / "results_summary.yaml").read_text(encoding="utf-8"))
     assert s["note"] == "합성 데이터 기준 추정"
-    assert s["no_touch"]["ratio"] == 0.724
-    assert s["entry_wait"]["change"] == -0.13
+    assert s["no_touch"]["ratio"] == 0.823  # 2026-11-12 재측정 (README와 같은 파일)
+    assert s["entry_wait"]["change"] == -0.144
     assert s["entry_breakdown"]["change"] == -0.32 and s["entry_breakdown"]["ready_on"] > s["entry_breakdown"]["ready_off"]
     assert s["safety"]["violations"] == 0 and s["safety"]["holdout"]["violations"] == 0
 

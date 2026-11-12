@@ -12,12 +12,13 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-FINAL = ROOT / "evals" / "results" / "final"
+FINAL = ROOT / "evals" / "results" / "final"  # 입실 쪼개 보기·자율 범위 곡선(옛 측정, 조건이 그대로인 것)
+LATEST = ROOT / "evals" / "results" / "final_1112"  # 핵심 결과(README와 같은 파일, 2026-11-12 재측정)
 OUT = ROOT / "config" / "results_summary.yaml"
 
 
-def _load(name: str) -> dict:
-    return json.loads((FINAL / name).read_text(encoding="utf-8"))
+def _load(name: str, d: Path = FINAL) -> dict:
+    return json.loads((d / name).read_text(encoding="utf-8"))
 
 
 def _mean(xs: list[float]) -> float:
@@ -63,11 +64,13 @@ def _entry_breakdown_realistic() -> dict:
 
 
 def summarize() -> dict:
-    m1_all = _load("m1.json")
+    m1_all = _load("m1.json", LATEST)
     m1 = m1_all["field_default"]
     a, b = m1_all["seeds"]
-    off, on, hold = _load("cycle_50_off.json"), _load("cycle_50_on.json"), _load("cycle_holdout_50_99_on.json")
+    off, on, hold = (_load("cycle_50_off.json", LATEST), _load("cycle_50_on.json", LATEST),
+                     _load("cycle_holdout_50_99_on.json", LATEST))
     w_off, w_on = _mean(off["entry_wait_mean_by_seed"]), _mean(on["entry_wait_mean_by_seed"])
+    ci = json.loads((LATEST / "effect_ci.jsonl").read_text(encoding="utf-8").splitlines()[0])
     curves = []
     for seed in (0, 1, 2):
         d = _load(f"m3_seed{seed}.json")
@@ -89,7 +92,7 @@ def summarize() -> dict:
         "no_touch": {"ratio": m1["no_touch_ratio"], "committed": m1["committed"], "no_touch": m1["no_touch_committed"],
                      "seed_min": m1["per_seed_min"], "seeds": f"{a}~{b}"},
         "entry_wait": {"seeds": len(on["entry_wait_mean_by_seed"]), "off_min": round(w_off, 1), "on_min": round(w_on, 1),
-                       "change": round((w_on - w_off) / w_off, 3)},
+                       "change": round((w_on - w_off) / w_off, 3), "pairs": ci["pairs"], "ci95_min": ci["ci95_min"]},
         "safety": {"seeds": "0~49", **_safety(on), "holdout_seeds": "50~99", "holdout": _safety(hold)},
         "autonomy": {"days": 60, "curves": curves},
         "models": {"candidates": len(sel["exception"]["rows"]),

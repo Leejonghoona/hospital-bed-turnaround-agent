@@ -145,7 +145,7 @@ def differentiators(ob: dict) -> dict:
     """시연 끝의 차별점 표. 짧고 쉬운 문장으로(2026-11-10 사용자 지적: 읽고 싶지 않다)."""
     r = results()
     sf = r["safety"]
-    eb = r.get("entry_breakdown_realistic") or r.get("entry_breakdown")
+    eb = None  # 화면 숫자는 README 핵심 결과와 같은 지표(수속 → 입실)로 맞춘다 (2026-11-12)
     curves = r["autonomy"]["curves"]
     last = sum(c["periods"][-1]["ratio"] for c in curves) / len(curves)
     if eb:
@@ -153,7 +153,7 @@ def differentiators(ob: dict) -> dict:
         a_sub = f"안내한 수속 시각부터 입실까지 {eb['off_min']:.0f}분 → {eb['on_min']:.0f}분"
     else:
         a_val = f"{r['entry_wait']['change'] * 100:.0f}%".replace("-", "−")
-        a_sub = "수속부터 입실까지"
+        a_sub = f"수속부터 입실까지 {r['entry_wait']['off_min']}분 → {r['entry_wait']['on_min']}분"
     rows = [
         {"key": "G2", "title": "늦게 온 격리 정보 반영", "what": "병상 확정 뒤 격리 오더가 나면, 입실을 멈추고 감염관리실에 넘깁니다.",
          "value": "자동 보류", "value_sub": "입실 호출 전에 막음", "where": "감염관리실"},

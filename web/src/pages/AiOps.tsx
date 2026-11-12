@@ -25,7 +25,6 @@ export function AiOpsPage({ d, onChange, toast }: { d: AiOps; onChange: (d: AiOp
 
 function Overview({ d }: { d: AiOps }) {
   const m = d.measured
-  const eb = m.entry_breakdown_realistic ?? m.entry_breakdown  // 운영 현실 기준선(침상 정리 회차·청소 인력 시간대)이 있으면 그것을
   return (<>
     <Stats items={[
       { label: '사람 손 없이 확정', value: `${d.today.no_touch}건`, sub: `오늘 확정 ${d.today.committed}건 중` },
@@ -36,7 +35,7 @@ function Overview({ d }: { d: AiOps }) {
     <div className="sec-h"><h3>재생 평가</h3><span className="tag t-gray">{d.note}</span></div>
     <div className="grid3">
       <div className="kpi"><span>사람 손 없이 확정</span><b>{pct(m.no_touch.ratio)}</b><em>확정 {m.no_touch.committed}건 중 {m.no_touch.no_touch}건</em></div>
-      <div className="kpi"><span>입실 대기</span><b>{minus(eb.change)}</b><em>{eb.off_min}분 → {eb.on_min}분, 안내한 수속 시각부터. 도착 때 병상 준비 {Math.round(eb.ready_off * 100)}% → {Math.round(eb.ready_on * 100)}%</em></div>
+      <div className="kpi"><span>입실 대기</span><b>{minus(m.entry_wait.change)}</b><em>수속부터 입실까지 {m.entry_wait.off_min}분 → {m.entry_wait.on_min}분, 같은 시드 {m.entry_wait.pairs ?? m.entry_wait.seeds}쌍</em></div>
       <div className="kpi"><span>실행 안전 위반</span><b>{m.safety.violations + m.safety.holdout.violations}건</b><em>검사 {m.safety.checks + m.safety.holdout.checks}회</em></div>
     </div>
     <section className="card blocked">
