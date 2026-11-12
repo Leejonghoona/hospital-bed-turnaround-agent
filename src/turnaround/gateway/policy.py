@@ -75,7 +75,9 @@ LOCKED_SAFETY_TIERS = {
 
 
 # 안전(격리·동명이인·입력 누락)과 소아 검토는 어떤 병원 설정·승격으로도 자동이 되지 않는다
-SAFETY_REVIEW_LOCKED = frozenset({"isolation", "preemptive_isolation", "isolation_discharge_bed", "same_name_same_ward",
+# isolation_discharge_bed(종말소독 전 병상에 매칭)는 2026-11-12에 뺐다: 확정 직전 병실 단위 종말소독 확인이 확정을 막으므로
+# 사람 검토는 같은 안전을 두 번 지키는 일이었다. 병원 설정으로 검토를 다시 켤 수는 있다
+SAFETY_REVIEW_LOCKED = frozenset({"isolation", "preemptive_isolation", "same_name_same_ward",
                                   "missing_input", "pediatric"})
 
 

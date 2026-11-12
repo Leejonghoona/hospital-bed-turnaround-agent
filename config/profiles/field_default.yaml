@@ -1,8 +1,9 @@
 # 현장 기본값 (DECISIONS 2026-11-09 현장 조사 반영 결정·설계 개정 인터뷰). 스위치는 단계마다 정책 기본값으로 옮긴다.
 version: policy-2026-11-09-field
 # 담당 검토 사유: 점수 근접(close_scores)은 뺀다. 두 후보 모두 안전 기준 통과, 동점은 사람 판단 대상 아님 (DECISIONS 2026-11-09 M1)
+# 격리 퇴실 병상(isolation_discharge_bed)은 뺀다: 종말소독이 끝나기 전에는 확정 직전 검사가 막는다 (2026-11-12 사용자 결정)
 review_reasons: [isolation, preemptive_isolation, pediatric, icu_stepdown, single_room_preference, grade_upgrade, same_name_same_ward,
-                 no_bed, integrated_care_consent_missing, missing_input, isolation_discharge_bed]
+                 no_bed, integrated_care_consent_missing, missing_input]
 hospital_profile:
   id: synthetic-field-2026-11
   assignment:

@@ -142,3 +142,19 @@ def test_empty_multi_room_gender_switch_is_human_action_and_guarded():
     # 1인실은 대상이 아니다
     single = next(r for r in H.rooms if r.room_type is not RoomType.MULTI)
     assert gw.switch_room_gender(single.id, "M", at(10)).reasons == ["not_multi_room"]
+
+
+def test_signed_fee_consent_skips_single_room_review():
+    """차액 동의서가 이미 있으면 1인실 희망을 다시 사람에게 묻지 않는다 (2026-11-12 사용자 결정)."""
+    from test_gateway import adm, at, make, prop
+    from turnaround.gateway import load_policy
+    from turnaround.events import EventType
+    field = load_policy()
+    store, gw = make([adm("A1", single="preference")], policy=field)
+    assert gw.submit(prop(bed="W71-R02-B1", store=store), at(9)).status == "awaiting_review"
+    signed = adm("A2", single="preference")
+    signed = signed.model_copy(update={"payload": {**signed.payload, "fee_consent_signed": True}})
+    store2, gw2 = make([signed], policy=field)
+    d = gw2.submit(prop(case="A2", bed="W71-R02-B1", store=store2), at(9))
+    assert d.status == "committed"
+    assert not [e for e in store2.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "fee_consent"]

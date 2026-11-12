@@ -813,9 +813,13 @@ class Gateway:
             r.append("pediatric")
         if payload.get("from_icu"):
             r.append("icu_stepdown")
-        if payload.get("single_room_reason") == "preference" or (payload.get("wants_single_room") and not patient.isolation_order):
+        # 차액 동의서가 이미 있으면(예약 때 받은 서명이 병원 시스템에 있으면) 사람에게 다시 묻지 않는다 (2026-11-12 사용자 결정).
+        # 합성 데이터에는 동의 기록이 없어 측정 수치에는 반영되지 않는다
+        signed = payload.get("fee_consent_signed") is True
+        if (payload.get("single_room_reason") == "preference" or (payload.get("wants_single_room") and not patient.isolation_order)) \
+                and not signed:
             r.append("single_room_preference")
-        if prop.bed_id is not None and prop.bed_id in self.room_of and not patient.isolation_order \
+        if prop.bed_id is not None and prop.bed_id in self.room_of and not patient.isolation_order and not signed \
                 and not payload.get("wants_single_room") and payload.get("single_room_reason") != "preference" \
                 and self.room_by_id[self.room_of[prop.bed_id]].room_type is not RoomType.MULTI:
             r.append("grade_upgrade")  # 다인실(기본 입원료) 희망인데 상급병실 배정: 차액 동의 필요 (DECISIONS F, 원무 검수 H-5)
