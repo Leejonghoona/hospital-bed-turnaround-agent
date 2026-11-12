@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<title>WardFlow 아키텍처</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 레이아웃: 16:9 한 장. 왼쪽 도식(그룹 경계 + 아이콘 상자 + 번호 원), 오른쪽 번호 범례, 아래 핵심 설계 한 줄.
+   상자에는 이름과 기술만, 설명은 모두 범례로 보낸다 (엔터프라이즈 참조 아키텍처 방식) */
+:root{
+  --bg:#eef1f4; --slide:#ffffff; --ink:#1b2430; --muted:#5f6b78; --line:#cdd5dd; --box:#ffffff;
+  --group:#f4f6f8; --zone:#8d99a6; --icon:#4a5664;
+  --accent:#2f6fde; --accent-tint:#ecf2fd; --accent-ink:#1f4fae;
+  --llm:#b06a10; --llm-tint:#fdf4e6;
+  --badge:#1b2430; --badge-fg:#ffffff;
+  --f-sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0b1016; --slide:#141c25; --ink:#e7ecf1; --muted:#9aa7b4; --line:#2f3b49; --box:#18212b;
+  --group:#111922; --zone:#5f6d7c; --icon:#b3bfcb;
+  --accent:#6b9cf0; --accent-tint:#18263b; --accent-ink:#9dbcf5;
+  --llm:#e0a24a; --llm-tint:#2b2215; --badge:#e7ecf1; --badge-fg:#0f151c; color-scheme:dark; }}
+:root[data-theme="dark"]{
+  --bg:#0b1016; --slide:#141c25; --ink:#e7ecf1; --muted:#9aa7b4; --line:#2f3b49; --box:#18212b;
+  --group:#111922; --zone:#5f6d7c; --icon:#b3bfcb;
+  --accent:#6b9cf0; --accent-tint:#18263b; --accent-ink:#9dbcf5;
+  --llm:#e0a24a; --llm-tint:#2b2215; --badge:#e7ecf1; --badge-fg:#0f151c; color-scheme:dark; }
+body{ background:var(--bg); color:var(--ink); font-family:var(--f-sans); }
+.wrap{ padding-block:24px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+.slide{ max-width:1280px; margin:0 auto; background:var(--slide); border-radius:10px; overflow:hidden; box-shadow:0 2px 14px rgba(20,30,40,.08); }
+svg{ display:block; width:100%; height:auto; font-family:var(--f-sans); }
+
+.t-h{ font-size:30px; font-weight:700; fill:var(--ink); }
+.t-sub{ font-size:15px; fill:var(--muted); }
+
+.zone{ fill:none; stroke:var(--zone); stroke-width:1.4; stroke-dasharray:7 5; }
+.grp{ fill:var(--group); stroke:var(--line); stroke-width:1.2; }
+.tab{ fill:var(--slide); }
+.gl{ font-size:13px; font-weight:700; fill:var(--muted); letter-spacing:.02em; }
+
+.bx{ fill:var(--box); stroke:var(--line); stroke-width:1.3; }
+.bx-llm{ fill:var(--llm-tint); stroke:var(--llm); stroke-width:1.5; stroke-dasharray:6 4; }
+.core{ fill:var(--accent-tint); stroke:var(--accent); stroke-width:2; }
+.row{ fill:var(--box); stroke:var(--line); stroke-width:1; }
+.row-gate{ fill:var(--accent); }
+.nm{ font-size:15.5px; font-weight:700; fill:var(--ink); }
+.tc{ font-size:12px; font-weight:500; fill:var(--muted); }
+.core-h{ font-size:16px; font-weight:700; fill:var(--accent-ink); }
+.row-t{ font-size:14px; font-weight:600; fill:var(--ink); }
+.row-gt{ font-size:14px; font-weight:700; fill:#ffffff; }
+.ic{ color:var(--icon); }
+.ic-llm{ color:var(--llm); }
+.ic-acc{ color:var(--accent); }
+
+.ar{ stroke:var(--muted); stroke-width:1.6; fill:none; }
+.ar-llm{ stroke:var(--llm); stroke-width:1.6; fill:none; stroke-dasharray:5 4; }
+.mh{ fill:var(--muted); } .mh-llm{ fill:var(--llm); }
+
+.bd{ fill:var(--badge); stroke:var(--slide); stroke-width:2.5; }
+.bn{ font-size:12px; font-weight:700; fill:var(--badge-fg); }
+
+.lg-h{ font-size:15px; font-weight:700; fill:var(--ink); }
+.lg{ font-size:13.5px; fill:var(--ink); }
+.lg-m{ font-size:13.5px; fill:var(--muted); }
+.div{ stroke:var(--line); stroke-width:1; }
+
+.key-h{ font-size:14px; font-weight:700; fill:var(--accent); }
+.key{ font-size:14px; fill:var(--ink); }
+</style>
+
+<div class="wrap">
+<div class="slide" role="img" aria-label="WardFlow 시스템 아키텍처">
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mh"/></marker>
+    <marker id="ml" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mh-llm"/></marker>
+    <!-- 아이콘 (24 격자, 선 아이콘) -->
+    <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></g></symbol>
+    <symbol id="i-web" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></g></symbol>
+    <symbol id="i-api" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3.5" width="16" height="7" rx="1.5"/><rect x="4" y="13.5" width="16" height="7" rx="1.5"/><path d="M8 7h.01M8 17h.01"/></g></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/></g></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></g></symbol>
+    <symbol id="i-graph" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="6" r="2.6"/><circle cx="12" cy="18" r="2.6"/><path d="M8.4 7.3l2.4 8.2M15.6 7.3l-2.4 8.2M8.6 6h6.8"/></g></symbol>
+    <symbol id="i-hosp" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M12 8v8M8 12h8"/></g></symbol>
+    <symbol id="i-chip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3.5M14.5 2.5v3.5M9.5 18v3.5M14.5 18v3.5M2.5 9.5h3.5M2.5 14.5h3.5M18 9.5h3.5M18 14.5h3.5"/></g></symbol>
+    <symbol id="i-trace" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l5-6 4 3 6-8 3 3"/></g></symbol>
+    <symbol id="i-cog" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1"/></g></symbol>
+  </defs>
+
+  <!-- 제목 -->
+  <text x="32" y="56" class="t-h">WardFlow 시스템 아키텍처</text>
+  <text x="32" y="84" class="t-sub">퇴원부터 다음 입실까지 병상 준비를 맡는 AI 에이전트 · 병원 내부망 설치 전제</text>
+
+  <!-- 그룹: 병원 내부망 -->
+  <rect x="178" y="118" width="700" height="520" rx="12" class="zone"/>
+  <rect x="192" y="108" width="98" height="20" class="tab"/>
+  <text x="198" y="123" class="gl">병원 내부망</text>
+  <!-- 그룹: Docker -->
+  <rect x="198" y="148" width="432" height="470" rx="10" class="grp"/>
+  <text x="216" y="172" class="gl">WARDFLOW · DOCKER 이미지 1개</text>
+
+  <!-- 연결선 (상자보다 먼저) -->
+  <line x1="160" y1="232" x2="214" y2="232" class="ar" marker-end="url(#m)"/>
+  <line x1="293" y1="274" x2="293" y2="306" class="ar" marker-end="url(#m)"/>
+  <line x1="368" y1="352" x2="404" y2="352" class="ar" marker-end="url(#m)"/>
+  <line x1="670" y1="232" x2="612" y2="232" class="ar" marker-end="url(#m)"/>
+  <line x1="608" y1="352" x2="666" y2="352" class="ar-llm" marker-end="url(#ml)"/>
+  <line x1="455" y1="410" x2="455" y2="466" class="ar" marker-end="url(#m)"/>
+  <line x1="560" y1="410" x2="560" y2="466" class="ar" marker-end="url(#m)"/>
+  <line x1="160" y1="512" x2="214" y2="512" class="ar" marker-end="url(#m)"/>
+  <line x1="368" y1="512" x2="404" y2="512" class="ar" marker-end="url(#m)"/>
+  <path d="M608 396 H645 V512 H666" class="ar" marker-end="url(#m)"/>
+
+  <!-- 바깥: 사용자 -->
+  <rect x="32" y="190" width="128" height="84" rx="8" class="bx"/>
+  <use href="#i-user" x="84" y="202" width="24" height="24" class="ic"/>
+  <text x="96" y="248" text-anchor="middle" class="nm">병원 직원</text>
+  <text x="96" y="265" text-anchor="middle" class="tc">역할 5종</text>
+
+  <rect x="32" y="470" width="128" height="84" rx="8" class="bx"/>
+  <use href="#i-plug" x="84" y="482" width="24" height="24" class="ic"/>
+  <text x="96" y="528" text-anchor="middle" class="nm">MCP 클라이언트</text>
+  <text x="96" y="545" text-anchor="middle" class="tc">Claude Code 등</text>
+
+  <!-- Docker 안: 웹, API, MCP -->
+  <rect x="218" y="190" width="150" height="84" rx="8" class="bx"/>
+  <use href="#i-web" x="281" y="202" width="24" height="24" class="ic"/>
+  <text x="293" y="248" text-anchor="middle" class="nm">웹 화면</text>
+  <text x="293" y="265" text-anchor="middle" class="tc">React · Vite</text>
+
+  <rect x="218" y="310" width="150" height="84" rx="8" class="bx"/>
+  <use href="#i-api" x="281" y="322" width="24" height="24" class="ic"/>
+  <text x="293" y="368" text-anchor="middle" class="nm">API 서버</text>
+  <text x="293" y="385" text-anchor="middle" class="tc">FastAPI</text>
+
+  <rect x="218" y="470" width="150" height="84" rx="8" class="bx"/>
+  <use href="#i-plug" x="281" y="482" width="24" height="24" class="ic"/>
+  <text x="293" y="528" text-anchor="middle" class="nm">MCP 서버</text>
+  <text x="293" y="545" text-anchor="middle" class="tc">조회 전용 도구 6개</text>
+
+  <!-- Docker 안: 에이전트 코어 -->
+  <rect x="408" y="190" width="200" height="220" rx="10" class="core"/>
+  <use href="#i-cog" x="422" y="200" width="22" height="22" class="ic-acc"/>
+  <text x="450" y="217" class="core-h">에이전트 코어</text>
+  <text x="594" y="217" text-anchor="end" class="tc">Python</text>
+  <rect x="420" y="232" width="176" height="46" rx="6" class="row"/>
+  <text x="508" y="260" text-anchor="middle" class="row-t">사례 흐름</text>
+  <rect x="420" y="286" width="176" height="46" rx="6" class="row"/>
+  <text x="508" y="314" text-anchor="middle" class="row-t">판단 · 규칙표</text>
+  <rect x="420" y="340" width="176" height="56" rx="6" class="row-gate"/>
+  <text x="508" y="373" text-anchor="middle" class="row-gt">실행 게이트웨이</text>
+
+  <!-- Docker 안: 데이터 -->
+  <rect x="408" y="470" width="95" height="84" rx="8" class="bx"/>
+  <use href="#i-db" x="443" y="482" width="24" height="24" class="ic"/>
+  <text x="455" y="528" text-anchor="middle" class="nm">사건 저장소</text>
+  <text x="455" y="545" text-anchor="middle" class="tc">SQLite</text>
+
+  <rect x="513" y="470" width="95" height="84" rx="8" class="bx"/>
+  <use href="#i-graph" x="548" y="482" width="24" height="24" class="ic"/>
+  <text x="560" y="528" text-anchor="middle" class="nm">온톨로지</text>
+  <text x="560" y="545" text-anchor="middle" class="tc">rdflib · SHACL</text>
+
+  <!-- 내부망: 병원 시스템, 원내 LLM, 추적 -->
+  <rect x="670" y="190" width="180" height="84" rx="8" class="bx"/>
+  <use href="#i-hosp" x="748" y="202" width="24" height="24" class="ic"/>
+  <text x="760" y="248" text-anchor="middle" class="nm">병원 HIS · EMR</text>
+  <text x="760" y="265" text-anchor="middle" class="tc">HL7 v2 · FHIR</text>
+
+  <rect x="670" y="310" width="180" height="84" rx="8" class="bx-llm"/>
+  <use href="#i-chip" x="748" y="322" width="24" height="24" class="ic-llm"/>
+  <text x="760" y="368" text-anchor="middle" class="nm">원내 LLM 서버</text>
+  <text x="760" y="385" text-anchor="middle" class="tc">vLLM · Gemma 4 26B</text>
+
+  <rect x="670" y="470" width="180" height="84" rx="8" class="bx"/>
+  <use href="#i-trace" x="748" y="482" width="24" height="24" class="ic"/>
+  <text x="760" y="528" text-anchor="middle" class="nm">추적 수집기</text>
+  <text x="760" y="545" text-anchor="middle" class="tc">OpenTelemetry · Langfuse</text>
+
+  <!-- 번호 원 (선 위) -->
+  <g><circle cx="187" cy="232" r="12" class="bd"/><text x="187" y="236.5" text-anchor="middle" class="bn">1</text></g>
+  <g><circle cx="639" cy="232" r="12" class="bd"/><text x="639" y="236.5" text-anchor="middle" class="bn">2</text></g>
+  <g><circle cx="455" cy="438" r="12" class="bd"/><text x="455" y="442.5" text-anchor="middle" class="bn">3</text></g>
+  <g><circle cx="560" cy="438" r="12" class="bd"/><text x="560" y="442.5" text-anchor="middle" class="bn">4</text></g>
+  <g><circle cx="637" cy="352" r="12" class="bd"/><text x="637" y="356.5" text-anchor="middle" class="bn">5</text></g>
+  <g><circle cx="386" cy="352" r="12" class="bd"/><text x="386" y="356.5" text-anchor="middle" class="bn">6</text></g>
+  <g><circle cx="187" cy="512" r="12" class="bd"/><text x="187" y="516.5" text-anchor="middle" class="bn">7</text></g>
+  <g><circle cx="645" cy="455" r="12" class="bd"/><text x="645" y="459.5" text-anchor="middle" class="bn">8</text></g>
+
+  <!-- 범례 -->
+  <line x1="906" y1="118" x2="906" y2="638" class="div"/>
+  <text x="930" y="140" class="lg-h">처리 흐름</text>
+  <g>
+    <circle cx="942" cy="176" r="11" class="bd"/><text x="942" y="180.5" text-anchor="middle" class="bn">1</text>
+    <text class="lg"><tspan x="964" y="181">직원이 역할별 화면에서 할 일 확인</tspan></text>
+    <circle cx="942" cy="236" r="11" class="bd"/><text x="942" y="240.5" text-anchor="middle" class="bn">2</text>
+    <text class="lg"><tspan x="964" y="230">입퇴원·오더 사건이 HL7·FHIR</tspan><tspan x="964" y="250">어댑터로 들어옴</tspan></text>
+    <circle cx="942" cy="296" r="11" class="bd"/><text x="942" y="300.5" text-anchor="middle" class="bn">3</text>
+    <text class="lg"><tspan x="964" y="290">모든 사건을 추가만 하는 기록으로</tspan><tspan x="964" y="310">저장, 사례 흐름이 단계 계산</tspan></text>
+    <circle cx="942" cy="356" r="11" class="bd"/><text x="942" y="360.5" text-anchor="middle" class="bn">4</text>
+    <text class="lg"><tspan x="964" y="350">배정 전 성별·격리 적합성을</tspan><tspan x="964" y="370">SHACL 규칙으로 검사</tspan></text>
+    <circle cx="942" cy="416" r="11" class="bd"/><text x="942" y="420.5" text-anchor="middle" class="bn">5</text>
+    <text class="lg"><tspan x="964" y="410">예외는 원내 LLM도 판단하지만</tspan><tspan x="964" y="430">기록·참고 의견만, 실행은 안 함</tspan></text>
+    <circle cx="942" cy="476" r="11" class="bd"/><text x="942" y="480.5" text-anchor="middle" class="bn">6</text>
+    <text class="lg"><tspan x="964" y="470">확정·되돌리기 요청도 모두</tspan><tspan x="964" y="490">실행 게이트웨이를 거침</tspan></text>
+    <circle cx="942" cy="536" r="11" class="bd"/><text x="942" y="540.5" text-anchor="middle" class="bn">7</text>
+    <text class="lg"><tspan x="964" y="530">MCP 클라이언트는 상태를</tspan><tspan x="964" y="550">읽기만 함</tspan></text>
+    <circle cx="942" cy="596" r="11" class="bd"/><text x="942" y="600.5" text-anchor="middle" class="bn">8</text>
+    <text class="lg"><tspan x="964" y="590">LLM 호출·판단·게이트웨이 판정을</tspan><tspan x="964" y="610">사례별로 추적</tspan></text>
+  </g>
+
+  <!-- 핵심 설계 -->
+  <line x1="32" y1="660" x2="1248" y2="660" class="div"/>
+  <text x="32" y="690" class="key-h">핵심 설계</text>
+  <text x="112" y="690" class="key">LLM은 제안과 기록만 하고, 모든 실행은 게이트웨이가 확정 직전에 다시 검사합니다. 외부 LLM API는 기본 차단, API 키 없이 규칙표로 동작합니다.</text>
+</svg>
+</div>
+</div>
+
+</body>
+</html>

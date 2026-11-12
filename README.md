@@ -53,6 +53,7 @@ pip install -e ".[dev,api]" && python -m pytest -q
 
 | 문서 | 내용 |
 |---|---|
+| [`docs/아키텍처.png`](docs/아키텍처.png) | 시스템 아키텍처 한 장 (컨테이너 수준) |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | 설계 결정과 이유 (날짜순) |
 | [`docs/RESULTS.md`](docs/RESULTS.md) | 측정 기록과 재현 조건 |
 | [`docs/검토/LLM도입_인수시험_설계_초안.md`](docs/검토/LLM도입_인수시험_설계_초안.md) | 원내 LLM 도입 시험 사전 등록과 GPU 판정(16절) |
