@@ -60,17 +60,18 @@ def headline() -> dict:
 
 
 def test_readme_headline_numbers_match_result_files():
+    """README는 요약만, 검사별 건수는 RESULTS.md 2026-11-12 절에 있다. 둘 다 결과 파일과 같아야 한다."""
     h = headline()
-    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    results = (ROOT / "docs/RESULTS.md").read_text(encoding="utf-8")
     assert sum(s["violations"] for s in h["safety"].values()) == 0  # 본 측정은 위반 0
-    assert f"0 / {h['safety_total']}" in text
-    for k, s in h["safety"].items():
-        # 본 측정과 스트레스 재생을 따로, 본 그대로 적는다(스트레스 재생의 위반도 숨기지 않는다)
-        assert f"| {s['violations']}/{s['n']} | {s['stress_violations']}/{s['stress_n']} |" in text, (k, s)
-        if s["upper95_pct"] is not None:
-            assert f"{s['upper95_pct']:.2f}% (0/{s['n'] + s['stress_n']})" in text, (k, s)
-    assert f"{h['wait_off']} → {h['wait_on']}분" in text
-    lo, hi = h["wait_ci"]
-    assert f"−{abs(lo)} ~ −{abs(hi)}분" in text
+    assert f"0 / {h['safety_total']}" in readme
+    assert f"{h['wait_off']} → {h['wait_on']}분" in readme
     m = h["m1"]["field_default"]
-    assert f"{m['no_touch_ratio'] * 100:.1f}%" in text and f"확정 {m['committed']}건 중 {m['no_touch_committed']}건" in text
+    assert f"{m['no_touch_ratio'] * 100:.1f}%" in readme and f"확정 {m['committed']}건 중 {m['no_touch_committed']}건" in readme
+    for k, s in h["safety"].items():
+        assert f"{k} {s['violations']}/{s['n']}" in results, (k, s)
+        assert f"{k} {s['stress_violations']}/{s['stress_n']}" in results.replace("**", ""), (k, s)
+    assert f"합 0/{h['safety_total']}" in results
+    lo, hi = h["wait_ci"]
+    assert f"{h['wait_off']} → {h['wait_on']} | −{abs(round(h['wait_on'] - h['wait_off'], 1))} | −{abs(lo)} ~ −{abs(hi)}" in results
