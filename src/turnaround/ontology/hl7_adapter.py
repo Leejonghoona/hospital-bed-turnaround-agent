@@ -193,7 +193,12 @@ def to_events(messages: list[Message], cfg: HL7Config) -> Converted:
         if msg.message_type != "ADT" or trig not in _TRIGGER_TYPE:
             hold(msg, f"변환하지 않는 메시지 {msg.message_type}^{trig}")
             continue
-        case = msg.field("PV1", 19, 1) or _patient_id(msg)
+        case = msg.field("PV1", 19, 1)
+        if not case:
+            # 방문 번호가 없으면 환자 번호로 대신하지 않는다. 같은 환자의 입원 여러 건이 한 사례로 합쳐진다 (2026-11-12)
+            out.ask(f"pos:PV1-19:{mid}", f"{trig} 방문 번호", "PV1-19(방문 번호)가 비어 있다. 병원이 입원 건을 구분하는 필드를 알려 줘야 한다")
+            hold(msg, "방문 번호 없음")
+            continue
         occ, why = _event_time(msg, trig, cfg)
         if occ is None:
             out.ask(f"fmt:time:{mid}", f"{trig} 시각", f"사건 시각을 읽지 못했다({why})")

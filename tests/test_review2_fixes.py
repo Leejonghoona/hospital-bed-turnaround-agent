@@ -89,3 +89,32 @@ def test_generator_never_double_books_a_bed(realistic):
             ds.sort(key=lambda x: x.day)
             for a, b in zip(ds, ds[1:]):
                 assert b.decided_at >= a.actual.bed_ready_at, (seed, a.id, b.id)
+
+
+def test_missing_input_makes_one_open_data_fix_task_not_one_per_proposal():
+    """입력이 빠진 입원은 제안이 15분마다 다시 와도 '입력 보완' 작업이 하나만 열린다 (사람 작업 측정이 찾은 중복 128건)."""
+    from datetime import time
+    from turnaround.events import EventType
+    from turnaround.gateway import load_policy
+    from turnaround.sim import GeneratorConfig
+    from turnaround.sim.reactive import ReactiveEffects
+    from turnaround.ui.demo import build_demo
+    st = build_demo(seed=19, day=3, until=time(23, 45), via_fhir=False, policy=load_policy(),
+                    config=GeneratorConfig.realistic(), reactive=ReactiveEffects(), past_admissions=False, occupancy="full")
+    fixes = [e for e in st.store.read() if e.type is EventType.HUMAN_TASK_CREATED and e.payload.get("kind") == "data_fix"]
+    per_case = {}
+    for e in fixes:
+        per_case[e.case_id] = per_case.get(e.case_id, 0) + 1
+    assert per_case and all(n == 1 for n in per_case.values()), per_case  # 시드 19: 입력 누락 입원 1건
+
+
+@pytest.mark.parametrize("old,new,want", [("MTB", "MRSA", "loosen"), ("MTB", None, "loosen"), ("CDIFF", "VRE", "loosen"),
+                                          (None, "MTB", "tighten"), ("MRSA", "MRSA", "neutral")])
+def test_organism_swap_needs_human_confirmation(old, new, want):
+    from turnaround.events.corrections import correction_direction
+    assert correction_direction({"organism": old}, "organism", new) == want
+
+
+def test_hl7_without_visit_number_is_asked_not_merged_by_patient_id():
+    c = _conv(_msg("A", "A01", visit=""))
+    assert not c.events and any(q.id.startswith("pos:PV1-19") for q in c.questions)

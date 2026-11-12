@@ -18,8 +18,14 @@ def correction_direction(current: Mapping, field: str, value) -> Direction:
         rank = {"confirmed": 3, "suspected": 2, "preemptive": 1, None: 0}
         o, n = rank.get(current.get("precaution_status"), 0), rank.get(value, 0)
         return "loosen" if n < o else "tighten" if n > o else "neutral"
-    if field == "organism" and current.get("organism") and not value:
-        return "loosen"
+    if field == "organism":
+        old = current.get("organism")
+        if old and value != old:
+            # 지우는 것도, 다른 균으로 바꾸는 것도 완화로 본다. 균마다 걸린 규칙(결핵 방 공유 금지·1시간 비움,
+            # C. difficile 아포 소독)이 달라, MTB → MRSA 같은 교체가 규칙 하나를 조용히 푸는 경로가 된다 (2026-11-12)
+            return "loosen"
+        if not old and value:
+            return "tighten"
     return "neutral"
 
 

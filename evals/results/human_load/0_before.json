@@ -1,0 +1,54 @@
+{
+ "provenance": {
+  "commit": "79c5544",
+  "dirty": true,
+  "source_dirty": true,
+  "source_diff_sha": "58166fe7f1a9",
+  "at": "2026-11-12T01:29:16+00:00",
+  "python": "3.13.12",
+  "packages": {
+   "pydantic": "2.14.3",
+   "rdflib": "7.6.0",
+   "pyshacl": "0.40.2"
+  },
+  "policy_fingerprint": "3a0894b17186"
+ },
+ "seeds": [
+  0,
+  29
+ ],
+ "day": 3,
+ "admissions": 77,
+ "discharges": 90,
+ "routed_admissions": 46,
+ "tasks": 319,
+ "tasks_per_admission": 4.14,
+ "tasks_unique": 193,
+ "tasks_unique_per_admission": 2.51,
+ "by_category": {
+  "조율": 124,
+  "판단": 48,
+  "책임": 19,
+  "보완": 128
+ },
+ "by_category_unique": {
+  "조율": 124,
+  "판단": 48,
+  "책임": 19,
+  "보완": 2
+ },
+ "responsible_share_unique": 0.098,
+ "by_kind": {
+  "data_fix": 128,
+  "brain_escalate": 48,
+  "order_nudge": 37,
+  "step_nudge:medication": 35,
+  "nudge_late_discharges": 23,
+  "fee_consent": 19,
+  "cleaning_rerequest_notice": 11,
+  "promise_watch": 10,
+  "missing_bed_prep": 4,
+  "call_up_reminder": 3,
+  "step_nudge:billing_review": 1
+ }
+}

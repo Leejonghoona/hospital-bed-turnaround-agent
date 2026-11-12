@@ -823,8 +823,16 @@ class Gateway:
 
     def _task(self, case: str, pid: str, kind: str, now: datetime, bed: str | None = None,
               assignee: str = "bed_manager") -> None:
+        if kind == "data_fix" and self._open_task(case, kind):
+            return  # 같은 사례의 입력 보완 작업이 이미 열려 있다. 제안이 15분마다 다시 와도 작업은 하나다 (2026-11-12)
         self._emit(case, f"gw:{pid}:task:{kind}", EventType.HUMAN_TASK_CREATED, now, bed_id=bed, kind=kind,
                    proposal_id=pid, assignee=assignee)
+
+    def _open_task(self, case: str, kind: str) -> bool:
+        evs = self._events()
+        done = {e.payload.get("task_id") for e in evs if e.type is EventType.HUMAN_TASK_DONE}
+        return any(e.type is EventType.HUMAN_TASK_CREATED and e.case_id == case and e.payload.get("kind") == kind
+                   and e.event_id not in done for e in evs)
 
     def _check_proposal(self, prop: Proposal, patient: Patient | None, payload: dict, events, now) -> Decision:
         if patient is None:
