@@ -16,7 +16,7 @@ export function OpsHome({ user, onLogout, onSwitch }: { user: User; onLogout: ()
         {!sum ? <div className="empty">불러오는 중</div> : (<>
           <Stats items={[
             { label: '오늘 입원', value: sum.load['입원 사례'] },
-            { label: '병상 확정', value: sum.load['확정'], sub: `사람 손 없이 ${sum.load['사람 손을 안 거친 확정']}건` },
+            { label: '병상 확정', value: sum.load['확정'], sub: `에이전트 자동 확정 ${sum.load['사람 손을 안 거친 확정']}건` },
             { label: '수속부터 입실까지', value: sum.flow['수속부터 입실까지(평균)'] },
             { label: '아직 병상 없음', value: un.reduce((a, [, n]) => a + n, 0) },
           ]} />

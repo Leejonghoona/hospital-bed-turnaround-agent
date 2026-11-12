@@ -27,23 +27,23 @@ function Overview({ d }: { d: AiOps }) {
   const m = d.measured
   return (<>
     <Stats items={[
-      { label: '사람 손 없이 확정', value: `${d.today.no_touch}건`, sub: `오늘 확정 ${d.today.committed}건 중` },
-      { label: '막은 판단', value: `${d.blocked.length}건`, sub: '오늘, 실행 전 검사' },
+      { label: '에이전트 자동 확정', value: `${d.today.no_touch}건`, sub: `오늘 병상 확정 ${d.today.committed}건 중` },
+      { label: '실행 전 차단', value: `${d.blocked.length}건`, sub: '오늘, 안전 조건 미충족' },
       { label: '안전 위반', value: `${d.today.safety}건`, sub: '오늘, 격리·소독·청소·이중 점유' },
-      { label: '에이전트 확정 유형', value: `${d.autonomy.filter(r => r.mode === 'auto').length}개`, sub: `판단 유형 ${d.autonomy.length}개 중` },
+      { label: '자동 확정 허용 유형', value: `${d.autonomy.filter(r => r.mode === 'auto').length}개`, sub: `판단 유형 ${d.autonomy.length}개 중` },
     ]} />
-    <div className="sec-h"><h3>재생 평가</h3><span className="tag t-gray">{d.note}</span></div>
+    <div className="sec-h"><h3>도입 효과 시뮬레이션</h3><span className="tag t-gray">가상 병원 재생, 에이전트 사용·미사용 비교. 지연 크기는 설계 가정</span></div>
     <div className="grid3">
-      <div className="kpi"><span>사람 손 없이 확정</span><b>{pct(m.no_touch.ratio)}</b><em>확정 {m.no_touch.committed}건 중 {m.no_touch.no_touch}건</em></div>
-      <div className="kpi"><span>입실 대기</span><b>{minus(m.entry_wait.change)}</b><em>수속부터 입실까지 {m.entry_wait.off_min}분 → {m.entry_wait.on_min}분, 같은 시드 {m.entry_wait.pairs ?? m.entry_wait.seeds}쌍</em></div>
-      <div className="kpi"><span>실행 안전 위반</span><b>{m.safety.violations + m.safety.holdout.violations}건</b><em>검사 {m.safety.checks + m.safety.holdout.checks}회</em></div>
+      <div className="kpi"><span>자동 확정률</span><b>{pct(m.no_touch.ratio)}</b><em>병상 확정 {m.no_touch.committed}건 중 {m.no_touch.no_touch}건</em></div>
+      <div className="kpi"><span>입원 대기 단축</span><b>{minus(m.entry_wait.change)}</b><em>수속~입실 평균 {m.entry_wait.off_min}분 → {m.entry_wait.on_min}분</em></div>
+      <div className="kpi"><span>실행 안전 위반</span><b>{m.safety.violations + m.safety.holdout.violations}건</b><em>실행 {m.safety.checks + m.safety.holdout.checks}건 사후 점검</em></div>
     </div>
     <section className="card blocked">
-      <div className="card-h"><h3>막은 판단</h3><span className="n">오늘 {d.blocked.length}건</span>
+      <div className="card-h"><h3>실행 전 차단</h3><span className="n">오늘 {d.blocked.length}건</span>
         <div className="chips">{d.blocked_reasons.map(([k, n]) => <span key={k} className="tag t-amber">{k} {n}</span>)}</div></div>
-      {d.blocked.length === 0 ? <p className="note">오늘 막은 판단이 없습니다</p> : (
+      {d.blocked.length === 0 ? <p className="note">오늘 실행 전에 막은 판단이 없습니다</p> : (
         <table><colgroup><col style={{ width: 90 }} /><col style={{ width: 200 }} /><col /><col /></colgroup>
-          <thead><tr><th>시각</th><th>환자</th><th>에이전트 판단</th><th>막은 이유</th></tr></thead>
+          <thead><tr><th>시각</th><th>환자</th><th>에이전트 판단</th><th>차단 사유</th></tr></thead>
           <tbody>{d.blocked.slice(0, 10).map((b, i) => <tr key={i}><td className="mono">{b.time}</td><td>{b.case}</td><td>{b.action}</td><td>{b.reason}</td></tr>)}</tbody></table>)}
     </section>
   </>)

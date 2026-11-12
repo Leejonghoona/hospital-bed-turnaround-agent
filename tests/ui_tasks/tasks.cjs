@@ -218,7 +218,7 @@ const TASKS = {
     await page.locator('.kpi').first().waitFor({ timeout: 30000 })
     const c = []
     const kpis = await page.locator('.kpi b').allTextContents()
-    c.push({ name: '재생 평가 결과와 막은 판단을 본다', ok: kpis.join(' ').includes('82.3%') && await page.getByRole('heading', { name: '막은 판단' }).isVisible(), detail: kpis.join(' | ') })
+    c.push({ name: '도입 효과 시뮬레이션과 실행 전 차단을 본다', ok: kpis.join(' ').includes('82.3%') && await page.getByRole('heading', { name: '실행 전 차단' }).isVisible(), detail: kpis.join(' | ') })
     await page.getByRole('tab', { name: '자율 범위' }).click()
     const autoRow = page.locator('.opt', { has: page.locator('button[role=radio][aria-checked=true]', { hasText: '에이전트' }) }).first()
     await autoRow.getByRole('radio', { name: '사람 확인' }).click()
