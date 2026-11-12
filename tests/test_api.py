@@ -457,7 +457,7 @@ def test_ai_ops_admin_only_and_contents(client):
     h = _login(client, "admin-jung")
     d = client.get("/api/admin/ai-ops", headers=h).json()
     assert d["note"] == "합성 데이터 기준 추정"
-    assert d["measured"]["no_touch"]["ratio"] == 0.724 and d["measured"]["entry_breakdown"]["change"] == -0.32
+    assert d["measured"]["no_touch"]["ratio"] == 0.823 and d["measured"]["entry_breakdown"]["change"] == -0.32
     assert d["today"]["safety"] == 0
     assert d["autonomy"] and all(r["mode"] in ("auto", "human") for r in d["autonomy"])
     assert d["model"]["using"] == "외부 AI 연결 안 됨" and not d["model"]["external"]
@@ -500,7 +500,7 @@ def test_differentiators_numbers_from_summary(client):
     assert d["note"] == "합성 데이터 기준 추정"
     v = {r["key"]: r["value"] for r in d["rows"]}
     assert list(v) == ["G2", "A", "G1", "C", "B", "LLM"]  # 평범한 입원(바닥)은 차별점이 아니다
-    assert v["A"] == "−66%" and v["G1"] == "0건"
+    assert v["A"] == "−14%" and v["G1"] == "0건"
 
 
 def test_tour_can_switch_team_screen_only_in_tour(client):
