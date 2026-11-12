@@ -22,3 +22,7 @@ docs/검토/현장조사/유튜브_자막/
 traces.jsonl
 *.tgz
 .claude/settings.local.json
+
+# AI 개발 기록과 승인 상태 (로컬 전용)
+.claude/logs/
+.claude/plans/STATE.json
