@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parents[3]
 
 UNIT_KO = {"official_commit": "공식 확정", "close_scores": "1·2순위 점수 근접", "single_room_preference": "1인실 희망",
            "grade_upgrade": "상급병실 차액", "pediatric": "소아", "icu_stepdown": "중환자실 하향",
-           "isolation": "격리", "preemptive_isolation": "선제 격리", "no_bed": "병상 없음"}
+           "isolation": "격리", "preemptive_isolation": "선제 격리", "no_bed": "병상 없음",
+           "isolation_discharge_bed": "격리 퇴실 병실", "same_name_same_ward": "같은 병동 동명이인", "missing_input": "입력 누락",
+           "integrated_care_consent_missing": "통합병동 동의 미확인"}
 UNIT_WHAT = {"official_commit": "평범한 입원의 병상 확정", "close_scores": "1순위와 2순위 병상 점수가 비슷할 때",
              "single_room_preference": "환자가 1인실을 원할 때", "grade_upgrade": "차액이 드는 병실로 배정할 때",
              "pediatric": "소아 환자", "icu_stepdown": "중환자실에서 일반 병동으로 내려올 때",

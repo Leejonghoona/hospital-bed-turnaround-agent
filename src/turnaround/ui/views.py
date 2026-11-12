@@ -41,7 +41,7 @@ SAFETY_KO = {"S1": ("격리·성별 배정 위반", "격리 환자를 맞지 않
              "S2": ("종말소독 누락", "격리 퇴실 병상을 종말소독 없이 다음 환자에게 쓴 경우"),
              "S3": ("청소 전 빈 병상 전환", "청소·침상 정리가 끝나기 전에 빈 병상으로 바꾼 경우"),
              "S4": ("한 병상 두 환자", "앞 환자가 나가기 전에 다음 환자를 입실시킨 경우")}
-KIND_KO = {"ward_opinion": "병동 의견", "isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "사람 확인 요청",
+KIND_KO = {"stalled_step_notice": "퇴원 단계 지연 알림", "isolation_placement_notice": "격리 병실 자동 배정 통보", "room_gender_switch": "병실 성별 전환 제안", "ward_opinion": "병동 의견", "isolation_notice": "늦은 격리 통지", "call_up_held": "호출 보류", "recontact": "환자 재연락", "fee_consent": "상급병실 차액 동의", "brain_escalate": "사람 확인 요청",
            "order_nudge": "퇴원 처방 재촉", "call_up_reminder": "호출 독촉", "approval_rejected": "승인 거부 안내",
            "postpone_contact": "연락 보류", "data_fix": "입력 보완", "recontact_prepare": "재연락 준비",
            "nudge_late_discharges": "늦은 퇴원 재촉", "cleaning_track": "청소 추적", "missing_bed_prep": "침상 정리 누락",
@@ -412,7 +412,9 @@ def manager_view(st) -> dict:
     rec_ko = {"promote": "승격 제안", "demote": "강등 제안", "hold": "유지"}
     unit_ko = {"official_commit": "공식 확정", "close_scores": "1·2순위 점수 근접", "single_room_preference": "1인실 희망",
                "grade_upgrade": "상급병실 배정(차액)", "pediatric": "소아", "icu_stepdown": "중환자실 하향",
-               "isolation": "격리", "preemptive_isolation": "선제 격리", "no_bed": "병상 없음"}
+               "isolation": "격리", "preemptive_isolation": "선제 격리", "no_bed": "병상 없음",
+               "isolation_discharge_bed": "격리 퇴실 병실", "same_name_same_ward": "같은 병동 동명이인",
+               "missing_input": "입력 누락", "integrated_care_consent_missing": "통합병동 동의 미확인"}
     cards = [{"unit": unit_ko.get(r["unit"], r["unit"]), "mode": "에이전트" if r["mode"] == "auto" else "사람 확인",
               "evidence": (f"사람 결정 {r['human_n']}건 중 {r['human_agreed']}건이 에이전트 판단과 같음"
                            f" (통계적으로 보수적으로 잡은 일치율 {r['agreement_lower95']:.0%}, 85% 이상이면 맡길 수 있음)") if r["human_n"] else "근거 부족 · 아직 사람 결정 기록 없음",

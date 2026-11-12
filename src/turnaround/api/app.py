@@ -81,7 +81,12 @@ def demo_policy():
     2026-11-12 기본값 변경 전과 같게 유지한다. 측정에는 시연 병원을 쓰지 않는다 (DECISIONS 2026-11-12)."""
     from turnaround.gateway import load_policy
     p = load_policy()
-    return p.model_copy(update={"ventilation": p.ventilation.model_copy(update={"droplet_wait": True})})
+    # 격리 입원도 감염관리실이 모두 보는 병원으로 둔다(fit_room_auto 끔). 감염관리실 화면 시연(격리 1인실 결정)이 이 흐름이다.
+    # 측정에 쓰는 현장 프로필은 규칙에 맞는 격리 병실을 에이전트가 확정한다 (DECISIONS 2026-11-12)
+    hp = p.hospital_profile
+    return p.model_copy(update={"ventilation": p.ventilation.model_copy(update={"droplet_wait": True}),
+                                "hospital_profile": hp.model_copy(update={"isolation": hp.isolation.model_copy(
+                                    update={"fit_room_auto": False})})})
 
 
 def demo_config():

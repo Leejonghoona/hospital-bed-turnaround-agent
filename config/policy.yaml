@@ -70,6 +70,8 @@ exception_actions:           # 예외(사가 감지) → 머리가 고를 수 �
   sequence_stalled:          # E2 단계 정체(정답 세트 이름). 지금은 퇴원 당일 처방 없음(로드맵 07 M2). 오더는 사람(주치의)이 낸다
     allowed: [remind_owner, escalate]
     fallback: escalate
+    companions:                # 단계 부서에 올릴 때 원무 배정 담당은 알림만 (부서별 병렬 진행, 2026-11-12)
+      escalate: [[stalled_step_notice, bed_manager]]
   guardian_delay_same_day:      # E3 준비 완료 뒤 보호자가 한참 뒤 도착. 라운지 이동은 환자·보호자 동의로 병동이 한다
     allowed: [offer_lounge, wait, escalate]
     fallback: escalate

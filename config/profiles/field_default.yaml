@@ -21,6 +21,7 @@ hospital_profile:
     readiness_scope: {multi: bed_unit, single: room, negative_pressure: room, isolation: room_terminal}
   isolation:
     risk_conditions: [mdro_history, recent_other_hospital_stay, icu_transfer]
+    fit_room_auto: true             # 규칙에 맞는 격리 병실은 에이전트 확정 + 감염관리실 통보, 공기주의는 사람 (2026-11-12)
   room_change:
     display_chain: true
   admission_window: ["14:00", "17:00"]   # 서울성모 14~17, 해운대백 15~17 피크

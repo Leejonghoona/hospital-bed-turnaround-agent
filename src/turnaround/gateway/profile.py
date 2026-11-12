@@ -69,6 +69,9 @@ class Isolation(_Frozen):
     risk_conditions: list[str] = Field(default_factory=list)  # 병원 감염관리 규정이 정함
     alert_to: list[str] = Field(default_factory=lambda: ["bed_manager", "ipc"])
     mismatch_alert_min: int = 60  # 설계 가정
+    # 격리 입원을 규칙에 맞는 병실(1인실 또는 같은 균 코호트, SHACL 통과)에 넣을 때는 검토 대신 에이전트가 확정하고
+    # 감염관리실에 통보한다. 공기주의(음압실, 부족 자원)는 늘 사람. 끄면 격리 입원은 모두 검토 (2026-11-12 사용자 결정)
+    fit_room_auto: bool = False
 
 
 class RoomChange(_Frozen):

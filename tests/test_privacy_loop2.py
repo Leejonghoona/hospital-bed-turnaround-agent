@@ -70,6 +70,10 @@ def test_planner_passes_its_data_class_to_brain():
     store, gw = _setup()
     if not gw.policy.brain.enabled:
         pytest.skip("머리가 꺼진 정책")
+    # 규칙에 맞는 격리 병실 자동 확정을 끈다: 켜 두면 늦은 격리 예외가 머리를 부르기 전에 확정으로 풀린다
+    hp = gw.policy.hospital_profile
+    gw.policy = gw.policy.model_copy(update={"hospital_profile": hp.model_copy(update={
+        "isolation": hp.isolation.model_copy(update={"fit_room_auto": False})})})
     llm = _Ext()
     PlanningAgent(gw, H.wards, llm=llm, data_class="synthetic").step(at(10, 10))
     assert any('"exception"' in s for s in llm.sent)

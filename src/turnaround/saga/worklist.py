@@ -130,7 +130,7 @@ NOTICE_KINDS = ("order_nudge", "step_nudge", "call_up_reminder", "next_ready_sha
                 # 에이전트가 함께 보내는 통지·공유·지켜보기 (2026-11-12, 사람 작업 측정). 사람이 "완료"를 누를 일이 아니라
                 # 정보다. 사람이 직접 해야 하는 동행 작업(격리 물품 확인, 보호자 재확인 전화, 재연락 준비)은 작업으로 남긴다
                 "nudge_late_discharges", "cleaning_rerequest_notice", "no_bed_eta_notice", "cleaning_eta_share",
-                "promise_watch", "cleaning_track", "ipc_reminder")
+                "promise_watch", "cleaning_track", "ipc_reminder", "stalled_step_notice", "isolation_placement_notice")
 
 
 def is_notice(task: Event) -> bool:

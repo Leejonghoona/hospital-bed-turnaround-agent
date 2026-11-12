@@ -806,7 +806,7 @@ class Gateway:
 
     def _all_review_reasons(self, prop: Proposal, patient: Patient, payload: dict, events: list[Event]) -> list[str]:
         r: list[str] = []
-        if patient.isolation_order:
+        if patient.isolation_order and not self._isolation_fit_auto(patient, prop.bed_id, prop.case, events):
             r.append("preemptive_isolation" if patient.precaution_status and patient.precaution_status.value == "preemptive"
                      else "isolation")
         if patient.age < self.policy.pediatric_age:
@@ -840,6 +840,21 @@ class Gateway:
             if self._isolation_discharge_pending(prop.bed_id, events) is not None or self._room_terminal_pending(prop.bed_id, events):
                 r.append("isolation_discharge_bed")
         return r
+
+    def _isolation_fit_auto(self, patient: Patient, bed_id: str | None, case: str, events: list[Event]) -> bool:
+        """격리 입원을 사람 검토 없이 보낼 수 있는가: 병원 설정이 켜져 있고, 공기주의가 아니고, 환자에게 아직 연락 전이고,
+        병상이 1인실(음압실 제외) 또는 같은 균 코호트실. 병실 적합성 자체는 뒤의 SHACL 검사가 다시 막는다.
+        연락 뒤에는 병상을 바꾸면 환자에게 다시 알려야 하므로 사람이 정한다 (재생 시나리오 X02가 찾음, 2026-11-12)."""
+        if not self.policy.hospital_profile.isolation.fit_room_auto or bed_id is None or bed_id not in self.room_of:
+            return False
+        if any(e.type is EventType.PATIENT_CONTACTED and e.case_id == case for e in events):
+            return False
+        if IsolationType.AIRBORNE in (patient.precautions or ()) or patient.isolation_type is IsolationType.AIRBORNE:
+            return False
+        room = self.room_by_id[self.room_of[bed_id]]
+        if room.room_type is RoomType.SINGLE:
+            return True
+        return room.cohort_key is not None and room.cohort_key == patient.organism
 
     def _shacl(self, case: str, patient: Patient, bed_id: str, events: list[Event]) -> list[str]:
         occ = self._occupants(events, exclude_case=case)
@@ -1129,6 +1144,18 @@ class Gateway:
             self._emit(prop.case, f"gw:{prop.proposal_id}:ward_assignment_notified", EventType.WARD_ASSIGNMENT_NOTIFIED,
                        now, bed_id=prop.bed_id, proposal_id=prop.proposal_id, committed_by=by, notify_to=to,
                        basis=basis, objection_until=(now + timedelta(minutes=wc.objection_window_min)).isoformat())
+        # 늦은 격리로 풀린 옛 병상의 예외는, 격리 기준에 맞는 새 병상이 확정되면 조건이 풀린 것이다 (2026-11-12).
+        # 그대로 두면 머리가 확정 뒤 단계에서 재매칭을 골라 단계 잠금에 막히고 사람에게 넘어간다
+        resolved_ids = {e.payload.get("exception_id") for e in events if e.type is EventType.EXCEPTION_RESOLVED}
+        for e in events:
+            if e.type is EventType.EXCEPTION_RAISED and e.case_id == prop.case and e.payload.get("trigger") == "late_isolation"                     and e.payload.get("bed_id") != prop.bed_id and e.payload.get("exception_id") not in resolved_ids:
+                self._emit(prop.case, f"gw:{prop.proposal_id}:resolved:{e.payload['exception_id']}", EventType.EXCEPTION_RESOLVED,
+                           now, exception_id=e.payload["exception_id"], how="rematched_fit_bed", bed_id=prop.bed_id)
+        if by == "agent" and patient is not None and patient.isolation_order:
+            # 규칙에 맞는 격리 병실을 에이전트가 확정: 감염관리실에 통보 (사후 확인, 되돌릴 수 있음)
+            self._emit(prop.case, f"gw:{prop.proposal_id}:isolation_placement_notice", EventType.HUMAN_TASK_CREATED, now,
+                       kind="isolation_placement_notice", assignee="ipc", bed_id=prop.bed_id, proposal_id=prop.proposal_id,
+                       organism=patient.organism, notice=True)
         # 재매칭으로 다른 병상을 확정했으면 이전 사전 매칭을 푼다
         for m in fold(events).matches.values():
             if m.admission_id == prop.case and m.active and m.bed_id != prop.bed_id:

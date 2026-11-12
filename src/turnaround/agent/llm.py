@@ -321,7 +321,10 @@ def _fake_exception_action(ctx: dict, overrides: list[dict] | None = None) -> di
     if trig == "sequence_stalled":
         if ex.get("attempts", 0) == 0 and "remind_owner" in allowed:
             return {"action": "remind_owner", "params": {}, "rationale": "단계 지연: 담당에게 알림 1회"}
-        return {"action": "escalate", "params": {"role": "bed_manager"}, "rationale": "알림 뒤에도 지연: 올림"}
+        # 퇴원 단계는 부서마다 나란히 진행된다. 막힌 단계는 그 부서(처방은 병동 책임간호사, 약은 약제부, 심사·수납은
+        # 원무 해당 창구)가 풀고, 원무 배정 담당은 다음 입원에 영향이 있을 때 알림만 받는다 (사용자 지적 2026-11-12)
+        role = {"physician": "ward"}.get(st.get("step_owner") or "physician", st.get("step_owner") or "ward")
+        return {"action": "escalate", "params": {"role": role}, "rationale": "알림 뒤에도 지연: 그 단계 부서 책임자에게"}
     if trig == "discharge_date_changed":
         if (ctx.get("tool_outputs") or {}).get("rematch_candidates") and "rematch_now" in allowed:
             return {"action": "rematch_now", "params": {}, "rationale": "연락 전 퇴원 연기: 규칙으로 다시 찾음"}

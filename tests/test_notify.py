@@ -30,8 +30,13 @@ def test_notify_mode_one_action_commits_and_notifies_ward_without_asking():
     assert len(note) == 1 and note[0].payload["bed_id"] == "W72-R04-B2"
 
 
+# 격리 입원을 늘 검토로 보내는 병원 (fit_room_auto 끔). 켠 병원의 동작은 아래 test_fit_isolation_room_* 참고
+_ISO_REVIEW = FIELD.model_copy(update={"hospital_profile": FIELD.hospital_profile.model_copy(update={
+    "isolation": FIELD.hospital_profile.isolation.model_copy(update={"fit_room_auto": False})})})
+
+
 def test_review_cases_still_need_a_judgement_then_commit_in_notify_mode():
-    store, gw = make([adm(organism="MRSA", gender="M")], policy=FIELD)
+    store, gw = make([adm(organism="MRSA", gender="M")], policy=_ISO_REVIEW)
     d = gw.submit(prop(bed="W71-R02-B1", store=store), at(9))
     assert d.status == "awaiting_review"
     d2 = gw.manager_approve("p1", at(9, 5))
@@ -100,7 +105,7 @@ def test_agent_commit_can_be_undone_by_ward_objection():
 
 
 def test_review_case_is_not_committed_by_agent():
-    store, gw = make([adm(organism="MRSA", gender="M")], policy=FIELD)
+    store, gw = make([adm(organism="MRSA", gender="M")], policy=_ISO_REVIEW)
     d = gw.submit(prop(bed="W71-R02-B1", store=store), at(9))
     assert d.status == "awaiting_review" and not _types(store, EventType.MATCH_COMMITTED)
     gw.manager_approve("p1", at(9, 5))
@@ -122,3 +127,18 @@ def test_agent_commit_notification_carries_runner_up_for_close_calls():
     gw.submit(prop(store=store, scores={"W72-R04-B2": 80.0, "W72-R04-B3": 78.0}, alternatives=["W72-R04-B3"]), at(9))
     basis = _types(store, EventType.WARD_ASSIGNMENT_NOTIFIED)[0].payload["basis"]
     assert basis["runner_up"] == {"bed_id": "W72-R04-B3", "score": 78.0} and basis["close_call"] is True
+
+
+def test_fit_isolation_room_is_committed_by_agent_and_ipc_is_notified():
+    """현장 프로필: 연락 전 격리 입원을 규칙에 맞는 1인실에 넣을 때는 에이전트가 확정하고 감염관리실에 통보 (2026-11-12)."""
+    store, gw = make([adm(organism="MRSA", gender="M")], policy=FIELD)
+    d = gw.submit(prop(bed="W71-R02-B1", store=store), at(9))
+    assert d.status == "committed"
+    note = [e for e in _types(store, EventType.HUMAN_TASK_CREATED) if e.payload.get("kind") == "isolation_placement_notice"]
+    assert note and note[0].payload["assignee"] == "ipc" and note[0].payload["notice"] is True
+
+
+def test_fit_isolation_room_after_contact_or_airborne_stays_with_humans():
+    from turnaround.sim.models import IsolationType
+    store, gw = make([adm(organism="MTB", gender="M")], policy=FIELD)  # 공기주의(결핵)
+    assert gw.submit(prop(bed="W71-R01-B1", store=store), at(9)).status != "committed"

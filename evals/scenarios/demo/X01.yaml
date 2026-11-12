@@ -10,8 +10,8 @@ gold:
   must_actions:
   - {type: release_prematch, case: P1, bed: W72-R04-B2, params: {reason: isolation_order_added}, note: 필수 행동(결정적)}
   - {type: raise_exception, case: P1}
-  - {type: execute_action, case: P1, after: raise_exception, note: 머리가 재매칭을 고르고 게이트웨이가 실행}
   - {type: propose_match, case: P1, bed: W72-R01-B1, level: proposal, note: 병상은 규칙 모드가 고른다}
+  - {type: commit_match, case: P1, bed: W72-R01-B1, note: '연락 전 격리 입원이고 규칙에 맞는 1인실이라 에이전트가 확정, 감염관리실 통보. 예외는 확정으로 풀린다 (2026-11-12, 전에는 머리가 재매칭을 골랐다)'}
   must_not:
   - {type: create_human_task, case: P1, params: {reason: brain_escalate}, note: 연락 전에는 사람에게 올리지 않고 스스로 처리}
   acceptable_beds: {P1: [W72-R01-B1]}
