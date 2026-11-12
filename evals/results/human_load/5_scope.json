@@ -1,0 +1,59 @@
+{
+ "provenance": {
+  "commit": "95e7b08",
+  "dirty": true,
+  "source_dirty": false,
+  "source_diff_sha": null,
+  "at": "2026-11-12T02:53:00+00:00",
+  "python": "3.13.12",
+  "packages": {
+   "pydantic": "2.14.3",
+   "rdflib": "7.6.0",
+   "pyshacl": "0.40.2"
+  },
+  "policy_fingerprint": "748d5e6c2151"
+ },
+ "seeds": [
+  0,
+  29
+ ],
+ "day": 3,
+ "admissions": 77,
+ "discharges": 90,
+ "routed_admissions": 45,
+ "notices": 146,
+ "tasks": 73,
+ "tasks_per_admission": 0.95,
+ "tasks_unique": 73,
+ "tasks_unique_per_admission": 0.95,
+ "by_category": {
+  "알림": 146,
+  "판단": 48,
+  "책임": 19,
+  "조율": 4,
+  "보완": 2
+ },
+ "by_category_unique": {
+  "알림": 146,
+  "판단": 48,
+  "책임": 19,
+  "조율": 4,
+  "보완": 2
+ },
+ "responsible_share_unique": 0.26,
+ "by_kind": {
+  "brain_escalate": 48,
+  "order_nudge": 37,
+  "step_nudge:medication": 35,
+  "stalled_step_notice": 25,
+  "nudge_late_discharges": 23,
+  "fee_consent": 19,
+  "cleaning_rerequest_notice": 11,
+  "promise_watch": 10,
+  "missing_bed_prep": 4,
+  "call_up_reminder": 3,
+  "data_fix": 2,
+  "step_nudge:billing_review": 1,
+  "isolation_placement_notice": 1
+ }
+}
